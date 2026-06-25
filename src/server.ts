@@ -621,7 +621,7 @@ app.get('/api/v3/lifecycle-table', async (req, res) => {
 });
 
 // SPA fallback — trả về web/dist/index.html cho mọi route không phải /api/*
-app.get('*', (_req, res) => {
+app.get('/{*splat}', (_req, res) => {
   res.sendFile(path.join(process.cwd(), 'web', 'dist', 'index.html'));
 });
 
