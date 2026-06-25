@@ -11,7 +11,7 @@ const anonKey = process.env.SUPABASE_ANON_KEY?.trim();
 if (!url || !serviceKey) throw new Error('Thiếu SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY trong .env');
 
 const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
-
+h
 /* ============================================================
  * Types
  * ========================================================== */
@@ -306,7 +306,8 @@ const app = express();
 // Log request đầu tiên (chỉ ghi log, không đổi logic)
 app.use((req, _res, next) => { console.log(req.method, req.url); next(); });
 app.use(cors());
-app.use(express.static(path.join(process.cwd(), 'public')));
+// Serve React dashboard (web/dist) built by Vite
+app.use(express.static(path.join(process.cwd(), 'web', 'dist')));
 
 // Healthcheck cho Railway / uptime probe
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -617,6 +618,11 @@ app.get('/api/v3/lifecycle-table', async (req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e?.message ?? String(e) });
   }
+});
+
+// SPA fallback — trả về web/dist/index.html cho mọi route không phải /api/*
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(process.cwd(), 'web', 'dist', 'index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Dashboard V3 (Operations) chạy tại http://localhost:${PORT}`));
