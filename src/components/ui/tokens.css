@@ -1,0 +1,32 @@
+/* Design tokens — nguồn: DESIGN_SYSTEM.md §0. Dark là theme mặc định. */
+:root,
+:root[data-theme="dark"] {
+  --bg: #0b1220;
+  --surface: #131c2e;   /* panel  */
+  --surface2: #1b2740;  /* panel2 */
+  --fg: #e6edf6;        /* text   */
+  --muted: #8b9bb4;
+  --line: #243049;
+  --accent: #4f9dff;
+  --success: #34d399;   /* green  */
+  --warn: #fbbf24;      /* amber  */
+  --danger: #f87171;    /* red    */
+  --violet: #a78bfa;
+  --slate: #64748b;
+}
+
+/* Light mode — kế hoạch (DESIGN_SYSTEM §12). Bật bằng <html data-theme="light"> */
+:root[data-theme="light"] {
+  --bg: #f6f8fc;
+  --surface: #ffffff;
+  --surface2: #eef2f8;
+  --fg: #0b1220;
+  --muted: #5b6b86;
+  --line: #dbe3ef;
+  --accent: #2f6fe0;
+  --success: #0f9d6b;
+  --warn: #b7791f;
+  --danger: #d64545;
+  --violet: #7c5cdb;
+  --slate: #64748b;
+}

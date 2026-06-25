@@ -1,0 +1,14 @@
+# ===== Dependencies & build output (KHÔNG commit) =====
+node_modules/
+web/dist/
+
+# ===== Secrets / credentials =====
+credentials/
+credentials/*.json
+
+# ===== Environment files (KHÔNG commit file chứa secret) =====
+.env
+.env.local
+.env.production
+# Cho phép commit file mẫu:
+!.env.example

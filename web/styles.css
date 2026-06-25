@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Quét class trong component library (ngoài root web/) để Tailwind sinh đủ utility. */
+@source "../src/components/ui";
+@source "../src/components/layout";
+
+/* Map design tokens (tokens.css) -> Tailwind theme utilities (v4 @theme). */
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-violet: var(--violet);
+  --color-slate: var(--slate);
+
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-tag: 6px;
+  --radius-pill: 999px;
+}
+
+html, body { background: var(--bg); }
