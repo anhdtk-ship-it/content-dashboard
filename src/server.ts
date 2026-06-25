@@ -303,8 +303,13 @@ function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
  * Routes
  * ========================================================== */
 const app = express();
+// Log request đầu tiên (chỉ ghi log, không đổi logic)
+app.use((req, _res, next) => { console.log(req.method, req.url); next(); });
 app.use(cors());
 app.use(express.static(path.join(process.cwd(), 'public')));
+
+// Healthcheck cho Railway / uptime probe
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.get('/api/config', (_req, res) => res.json({ url, anonKey: anonKey ?? null }));
 
@@ -614,4 +619,4 @@ app.get('/api/v3/lifecycle-table', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`✅ Dashboard V3 (Operations) chạy tại http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ Dashboard V3 (Operations) chạy tại http://localhost:${PORT}`));
