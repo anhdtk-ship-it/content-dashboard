@@ -11,7 +11,7 @@ const anonKey = process.env.SUPABASE_ANON_KEY?.trim();
 if (!url || !serviceKey) throw new Error('Thiếu SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY trong .env');
 
 const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
-h
+
 /* ============================================================
  * Types
  * ========================================================== */
