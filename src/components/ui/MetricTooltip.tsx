@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface MetricTooltipProps {
   tip: ReactNode;
@@ -6,17 +7,58 @@ export interface MetricTooltipProps {
   className?: string;
 }
 
-/** Tooltip công thức KPI — hover hiện (DESIGN_SYSTEM §3/§10). */
+const TIP_W = 250;
+
+/**
+ * Tooltip công thức KPI — hover/focus hiện (DESIGN_SYSTEM §3/§10).
+ * Render popup qua PORTAL ra document.body + position:fixed nên KHÔNG bị
+ * cắt bởi vùng cuộn `overflow-auto` của AppShell hay mép viewport
+ * (kẹp ngang trong màn hình; lật xuống dưới nếu sát mép trên).
+ */
 export function MetricTooltip({ tip, children, className = '' }: MetricTooltipProps) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number; above: boolean }>({ left: 0, top: 0, above: true });
+
+  const show = () => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    let left = Math.min(r.left, window.innerWidth - TIP_W - 8);
+    left = Math.max(8, left);
+    const above = r.top > 110; // đủ chỗ phía trên thì hiện trên, không thì lật xuống
+    setPos({ left, top: above ? r.top - 8 : r.bottom + 8, above });
+    setOpen(true);
+  };
+  const hide = () => setOpen(false);
+
   return (
-    <span className={`group relative inline-flex items-center gap-1 ${className}`}>
+    <span
+      ref={ref}
+      className={`inline-flex items-center gap-1 ${className}`}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+    >
       {children}
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-[130%] left-0 z-50 w-[250px] rounded-control border border-line bg-[#0a101d] px-[11px] py-[9px] text-xs font-normal leading-snug text-fg opacity-0 shadow-[0_8px_24px_rgba(0,0,0,.55)] transition-opacity duration-150 group-hover:opacity-100"
-      >
-        {tip}
-      </span>
+      {open &&
+        createPortal(
+          <span
+            role="tooltip"
+            style={{
+              position: 'fixed',
+              left: pos.left,
+              top: pos.top,
+              width: TIP_W,
+              transform: pos.above ? 'translateY(-100%)' : 'none',
+            }}
+            className="pointer-events-none z-[1000] rounded-control border border-line bg-[#0a101d] px-[11px] py-[9px] text-xs font-normal leading-snug text-fg shadow-[0_8px_24px_rgba(0,0,0,.55)]"
+          >
+            {tip}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }
