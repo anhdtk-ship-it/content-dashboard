@@ -408,6 +408,7 @@ app.get('/api/v3/contents', async (req, res) => {
       title: r.title ?? '',
       market: r.market,
       assignee_name: r.assignee_name,
+      editor_name: r.editor_name ?? '', // additive — phục vụ drill "Cần xử lý" (cột Biên tập + thống kê)
       current_status: r.current_status ?? '',
       status_group: r.status_group,
       upload_date: r.upload_date ?? '',

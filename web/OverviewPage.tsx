@@ -5,6 +5,7 @@ import {
   type DateRangeValue,
 } from '../src/components/ui';
 import { GlobalFilter } from './GlobalFilter';
+import { AlertDrawer, type AlertDef } from './AlertDrawer';
 
 /* ---------- helpers ---------- */
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -44,12 +45,15 @@ const ALERTS: { key: string; label: string; icon: string; color: string; sub?: s
   { key: 'chuaTest', label: 'Chưa test', icon: '🧪', color: '#fbbf24' },
 ];
 
-/* Card cảnh báo: border màu + nền nhạt + icon + badge mức độ (giữ phong cách dashboard hiện tại) */
-function AlertCard({ icon, label, value, color, sub, badge }: {
-  icon: string; label: string; value: number; color: string; sub?: string; badge?: string;
+/* Card cảnh báo: border màu + nền nhạt + icon + badge mức độ. Click → mở Drawer drill-down. */
+function AlertCard({ icon, label, value, color, sub, badge, onClick }: {
+  icon: string; label: string; value: number; color: string; sub?: string; badge?: string; onClick?: () => void;
 }) {
   return (
-    <div className="rounded-card border p-3 transition hover:brightness-110" style={{ borderColor: color, background: `${color}14` }}>
+    <div role="button" tabIndex={0} onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
+      className="cursor-pointer rounded-card border p-3 outline-none transition hover:-translate-y-0.5 hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent"
+      style={{ borderColor: color, background: `${color}14` }}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[13px] text-muted">
           <span className="text-[16px] leading-none">{icon}</span>{label}
@@ -59,7 +63,10 @@ function AlertCard({ icon, label, value, color, sub, badge }: {
         )}
       </div>
       <div className="mt-1 text-[26px] font-bold tabular-nums" style={{ color }}>{value}</div>
-      {sub && <div className="text-[11px] text-muted">{sub}</div>}
+      <div className="flex items-center justify-between">
+        {sub ? <span className="text-[11px] text-muted">{sub}</span> : <span />}
+        <span className="text-[11px] text-muted opacity-70">Xem →</span>
+      </div>
     </div>
   );
 }
@@ -101,6 +108,9 @@ export function OverviewPage() {
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [drill, setDrill] = useState<AlertDef | null>(null); // card "Cần xử lý" đang mở Drawer
+
+  const period = range.preset === 'custom' ? { from: range.from, to: range.to } : presetRange(range.preset);
 
   const query = useMemo(() => {
     const r = range.preset === 'custom' ? { from: range.from, to: range.to } : presetRange(range.preset);
@@ -191,7 +201,8 @@ export function OverviewPage() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {ALERTS.map((a) => (
                   <AlertCard key={a.key} icon={a.icon} label={a.label} color={a.color}
-                    badge={a.badge} sub={a.sub} value={data!.alerts?.[a.key] ?? 0} />
+                    badge={a.badge} sub={a.sub} value={data!.alerts?.[a.key] ?? 0}
+                    onClick={() => setDrill({ key: a.key, label: a.label, color: a.color })} />
                 ))}
               </div>
             </div>
@@ -200,6 +211,14 @@ export function OverviewPage() {
           <EmptyState message="Không có dữ liệu trong kỳ lọc" />
         )}
       </PageContainer>
+
+      {drill && (
+        <AlertDrawer
+          alert={drill}
+          filters={{ from: period.from, to: period.to, market, assignee, status, editor }}
+          onClose={() => setDrill(null)}
+        />
+      )}
     </div>
   );
 }
