@@ -26,3 +26,7 @@
 }
 
 html, body { background: var(--bg); }
+
+/* Phóng to giao diện một chút cho dễ nhìn (chữ + UI). Đặt trên #root (không
+ * phải body) để tooltip portal ra document.body vẫn định vị đúng. */
+#root { zoom: 1.1; }
