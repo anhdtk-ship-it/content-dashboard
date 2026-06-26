@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  PageContainer, SectionHeader, KPICard, ChartCard, StatCard,
+  PageContainer, SectionHeader, KPICard, ChartCard,
   LoadingSkeleton, EmptyState, ActionButton,
   type DateRangeValue,
 } from '../src/components/ui';
@@ -34,13 +34,35 @@ const STATUS_COLOR: Record<string, string> = {
   CHO_CHAY: '#fb923c', DANG_TEST: 'var(--warn)', DUY_TRI: 'var(--success)',
   DA_DUNG: 'var(--slate)', KHONG_DUYET: 'var(--danger)', CHUA_PHAN_LOAI: 'var(--violet)',
 };
-const ALERTS: { key: string; label: string }[] = [
-  { key: 'chuaPhanLoai', label: 'Chưa phân loại' },
-  { key: 'testQuaLau', label: 'Test quá lâu (>14d)' },
-  { key: 'chuaTest', label: 'Chưa test' },
-  { key: 'thieuNgayTest', label: 'Thiếu ngày test' },
-  { key: 'thieuTrello', label: 'Thiếu link Trello' },
+// Ngưỡng "Test quá lâu" — chỉ để HIỂN THỊ (khớp ngưỡng >14d của /summary). Không đổi logic server.
+const TEST_OVERDUE_DAYS = 14;
+// Card "Cần xử lý" — cảnh báo trực quan theo mức độ (đã bỏ "Thiếu link Trello").
+const ALERTS: { key: string; label: string; icon: string; color: string; sub?: string; badge?: string }[] = [
+  { key: 'chuaPhanLoai', label: 'Chưa phân loại', icon: '⚠️', color: '#ef4444', badge: 'Khẩn cấp', sub: 'Mức ưu tiên cao nhất' },
+  { key: 'testQuaLau', label: 'Test quá lâu', icon: '⏰', color: '#f87171', sub: `Quá ${TEST_OVERDUE_DAYS} ngày` },
+  { key: 'thieuNgayTest', label: 'Thiếu ngày test', icon: '📅', color: '#fb923c' },
+  { key: 'chuaTest', label: 'Chưa test', icon: '🧪', color: '#fbbf24' },
 ];
+
+/* Card cảnh báo: border màu + nền nhạt + icon + badge mức độ (giữ phong cách dashboard hiện tại) */
+function AlertCard({ icon, label, value, color, sub, badge }: {
+  icon: string; label: string; value: number; color: string; sub?: string; badge?: string;
+}) {
+  return (
+    <div className="rounded-card border p-3 transition hover:brightness-110" style={{ borderColor: color, background: `${color}14` }}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-[13px] text-muted">
+          <span className="text-[16px] leading-none">{icon}</span>{label}
+        </span>
+        {badge && (
+          <span className="rounded-pill px-2 py-0.5 text-[10px] font-bold" style={{ background: color, color: '#0b0f17' }}>{badge}</span>
+        )}
+      </div>
+      <div className="mt-1 text-[26px] font-bold tabular-nums" style={{ color }}>{value}</div>
+      {sub && <div className="text-[11px] text-muted">{sub}</div>}
+    </div>
+  );
+}
 
 interface Summary {
   metrics: { capped: number; tested: number; success: number; dangTest: number; tonKho: number; khongDuyet: number;
@@ -166,9 +188,10 @@ export function OverviewPage() {
 
             <div className="mt-2">
               <SectionHeader title="Cần xử lý" />
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {ALERTS.map((a) => (
-                  <StatCard key={a.key} label={a.label} value={data!.alerts?.[a.key] ?? 0} />
+                  <AlertCard key={a.key} icon={a.icon} label={a.label} color={a.color}
+                    badge={a.badge} sub={a.sub} value={data!.alerts?.[a.key] ?? 0} />
                 ))}
               </div>
             </div>

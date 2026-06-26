@@ -5,6 +5,7 @@ import {
   type DateRangeValue, type Column,
 } from '../src/components/ui';
 import { GlobalFilter } from './GlobalFilter';
+import { editorLabel } from './editor-name';
 import { DetailDrawer, type Item } from './ExplorerPage';
 
 /* ---------- helpers ---------- */
@@ -115,7 +116,7 @@ export function LifecyclePage() {
   const columns: Column<Top20Row>[] = [
     { key: 'stt', header: 'STT', align: 'right', render: (r) => r.stt },
     { key: 'content_code', header: 'Content', render: (r) => <span className="font-mono text-xs">{r.content_code}</span> },
-    { key: 'editor_name', header: 'Biên tập', render: (r) => r.editor_name || <span className="text-muted">—</span> },
+    { key: 'editor_name', header: 'Biên tập', render: (r) => r.editor_name ? editorLabel(r.editor_name) : <span className="text-muted">—</span> },
     { key: 'assignee_name', header: 'Nhân viên Ads' },
     { key: 'market', header: 'Thị trường', render: (r) => <StatusBadge kind="market" value={r.market} /> },
     { key: 'test_date_real', header: 'Ngày Test', render: (r) => r.test_date_real ?? <span className="text-muted">—</span> },
@@ -173,7 +174,7 @@ export function LifecyclePage() {
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <ChartCard title="Top Biên tập theo tuổi thọ TB">
-                <AvgBars items={data!.byEditorAvg.slice(0, 10).map((x) => ({ label: x.key, avgAge: x.avgAge, count: x.count }))} />
+                <AvgBars items={data!.byEditorAvg.slice(0, 10).map((x) => ({ label: editorLabel(x.key), avgAge: x.avgAge, count: x.count }))} />
               </ChartCard>
               <ChartCard title="Top Nhân viên Ads theo tuổi thọ TB">
                 <AvgBars items={data!.byAssigneeAvg.map((x) => ({ label: x.assignee, avgAge: x.avgAge, count: x.count }))} />

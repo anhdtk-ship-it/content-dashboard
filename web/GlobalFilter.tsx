@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { editorLabel } from './editor-name';
 
 export interface GlobalFilterState {
   preset: string; from?: string; to?: string;
@@ -84,7 +85,7 @@ export function GlobalFilter({ value, onChange, onReset, right }: GlobalFilterPr
         <Field label="Biên tập">
           <select className={ctrl} value={value.editor} onChange={(e) => onChange({ editor: e.target.value })}>
             <option value="ALL">Tất cả</option>
-            {editors.map((e) => <option key={e} value={e}>{e}</option>)}
+            {editors.map((e) => <option key={e} value={e}>{editorLabel(e)}</option>)}
           </select>
         </Field>
 

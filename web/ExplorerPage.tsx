@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  FilterBar, PageContainer, SearchBox, ActionButton, DateRangePicker, StatusBadge,
+  PageContainer, SearchBox, ActionButton, StatusBadge,
   EmptyState, LoadingSkeleton,
   type DateRangeValue,
 } from '../src/components/ui';
+import { GlobalFilter } from './GlobalFilter';
+import { editorLabel } from './editor-name';
 
 /* ---------- helpers ---------- */
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -29,12 +31,6 @@ const liveDays = (iso?: string | null): number | null => {
   if (!iso) return null; const t = Date.parse(iso + 'T00:00:00Z'); if (isNaN(t)) return null;
   return Math.max(0, Math.floor((todayMs - t) / 86400000));
 };
-const selectCls = 'rounded-control border border-line bg-surface px-2 py-[6px] text-[13px] text-fg';
-const STATUS_OPTS: [string, string][] = [
-  ['ALL', 'Tất cả TT'], ['CHO_CHAY', 'Chờ chạy'], ['DANG_TEST', 'Đang test'], ['DUY_TRI', 'Duy trì'],
-  ['DA_DUNG', 'Đã dừng'], ['KHONG_DUYET', 'Không duyệt'], ['CHUA_PHAN_LOAI', 'Chưa phân loại'],
-];
-
 export interface Item {
   content_code: string; title: string; editor_name: string; assignee_name: string; market: string;
   test_date_real: string | null; upload_date_real?: string | null; maintainDays: number | null;
@@ -49,7 +45,7 @@ function parseHashFilters() {
     market: q.get('market') || 'ALL',
     assignee: q.get('assignee') || 'ALL',
     status: q.get('status') || 'ALL',
-    editor: q.get('editor') || '',
+    editor: q.get('editor') || 'ALL',
     search: q.get('q') || '',
     preset: q.get('preset') || 'thismonth',
   };
@@ -77,7 +73,7 @@ export function DetailDrawer({ item, onClose }: { item: Item; onClose: () => voi
           <div><div className="text-[11px] text-muted">Trạng thái</div><StatusBadge value={item.status_group} label={item.current_status} /></div>
           <div><div className="text-[11px] text-muted">Thị trường</div><StatusBadge kind="market" value={item.market} /></div>
           <div><div className="text-[11px] text-muted">Nhân viên Ads</div><b className="text-fg">{item.assignee_name}</b></div>
-          <div><div className="text-[11px] text-muted">Biên tập</div><b className="text-fg">{item.editor_name || '—'}</b></div>
+          <div><div className="text-[11px] text-muted">Biên tập</div><b className="text-fg">{item.editor_name ? editorLabel(item.editor_name) : '—'}</b></div>
           <div><div className="text-[11px] text-muted">Tuổi thọ content</div><b className="text-fg">{tuoiTho != null ? `${tuoiTho} ngày` : '—'}</b></div>
           <div><div className="text-[11px] text-muted">Số ngày duy trì</div><b className="text-fg">{item.maintainDays != null ? `${item.maintainDays} ngày` : '—'}</b></div>
         </div>
@@ -121,7 +117,7 @@ const COLS: { key: SortKey; label: string; sticky?: boolean; align?: 'right' }[]
   { key: 'content_code', label: 'Mã Content', sticky: true },
   { key: 'title', label: 'Tiêu đề' },
   { key: 'editor_name', label: 'Biên tập' },
-  { key: 'assignee_name', label: 'Người nhận' },
+  { key: 'assignee_name', label: 'Nhân viên Ads' },
   { key: 'market', label: 'Thị trường' },
   { key: 'test_date_real', label: 'Ngày Test' },
   { key: 'maintainDays', label: 'Số ngày duy trì', align: 'right' },
@@ -163,13 +159,13 @@ export function ExplorerPage() {
     return () => { alive = false; };
   }, [serverQuery, refreshKey]);
 
-  // lọc client: search + editor
+  // lọc client: search + editor (editor='ALL' nghĩa là không lọc — so khớp giá trị editor_name gốc)
   const filtered = useMemo(() => {
     if (!rows) return [];
-    const q = search.trim().toLowerCase(); const e = editor.trim().toLowerCase();
+    const q = search.trim().toLowerCase();
     return rows.filter((r) =>
       (!q || r.content_code.toLowerCase().includes(q) || (r.title || '').toLowerCase().includes(q)) &&
-      (!e || (r.editor_name || '').toLowerCase().includes(e)));
+      (editor === 'ALL' || (r.editor_name || '') === editor));
   }, [rows, search, editor]);
 
   const sorted = useMemo(() => {
@@ -187,13 +183,13 @@ export function ExplorerPage() {
   useEffect(() => { setPage(1); }, [serverQuery, search, editor, sort]);
 
   const onSort = (key: SortKey) => setSort((s) => s.key === key ? { key, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' });
-  const reset = () => { setRange({ preset: 'thismonth' }); setMarket('ALL'); setAssignee('ALL'); setStatus('ALL'); setEditor(''); setSearch(''); };
+  const reset = () => { setRange({ preset: 'thismonth' }); setMarket('ALL'); setAssignee('ALL'); setStatus('ALL'); setEditor('ALL'); setSearch(''); };
 
   const exportCsv = () => {
     const head = ['content_code', 'title', 'editor', 'assignee', 'market', 'test_date', 'maintain_days', 'status', 'trello'];
     const cell = (v: any) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
     const lines = [head.join(',')];
-    for (const r of sorted) lines.push([r.content_code, r.title, r.editor_name, r.assignee_name, r.market, r.test_date_real || '', r.maintainDays ?? '', r.current_status, r.trello_link].map(cell).join(','));
+    for (const r of sorted) lines.push([r.content_code, r.title, editorLabel(r.editor_name), r.assignee_name, r.market, r.test_date_real || '', r.maintainDays ?? '', r.current_status, r.trello_link].map(cell).join(','));
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'content_explorer.csv';
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
@@ -206,23 +202,25 @@ export function ExplorerPage() {
 
   return (
     <div className="text-fg">
-      <FilterBar title="Content Explorer">
-        <SearchBox value={search} onChange={setSearch} placeholder="Tìm mã / tiêu đề…" className="w-[200px]" />
-        <DateRangePicker value={range} onChange={setRange} />
-        <select className={selectCls} value={market} onChange={(e) => setMarket(e.target.value)}>
-          <option value="ALL">Tất cả TT</option><option value="noi_dia">Nội Địa</option><option value="quoc_te">Quốc Tế</option>
-        </select>
-        <select className={selectCls} value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-          <option value="ALL">Tất cả người</option><option>Hiếu</option><option>Ánh</option><option>KA</option><option>Liên</option>
-        </select>
-        <select className={selectCls} value={status} onChange={(e) => setStatus(e.target.value)}>
-          {STATUS_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-        <input className={selectCls + ' w-[120px]'} value={editor} onChange={(e) => setEditor(e.target.value)} placeholder="Biên tập…" />
-        <ActionButton variant="ghost" onClick={reset}>✕ Reset</ActionButton>
-        <ActionButton variant="ghost" onClick={exportCsv} icon={<span>⬇</span>}>Excel</ActionButton>
-        <ActionButton variant="ghost" onClick={() => setRefreshKey((k) => k + 1)} icon={<span>⟳</span>}>Refresh</ActionButton>
-      </FilterBar>
+      <GlobalFilter
+        value={{ preset: range.preset, from: range.from, to: range.to, market, assignee, editor, status }}
+        onChange={(p) => {
+          if ('preset' in p || 'from' in p || 'to' in p)
+            setRange({ preset: (p.preset ?? range.preset) as DateRangeValue['preset'], from: p.from ?? range.from, to: p.to ?? range.to });
+          if (p.market !== undefined) setMarket(p.market);
+          if (p.assignee !== undefined) setAssignee(p.assignee);
+          if (p.editor !== undefined) setEditor(p.editor);
+          if (p.status !== undefined) setStatus(p.status);
+        }}
+        onReset={reset}
+        right={
+          <div className="flex items-end gap-2">
+            <SearchBox value={search} onChange={setSearch} placeholder="Tìm mã / tiêu đề…" className="w-[200px]" />
+            <ActionButton variant="ghost" onClick={exportCsv} icon={<span>⬇</span>}>Excel</ActionButton>
+            <ActionButton variant="ghost" onClick={() => setRefreshKey((k) => k + 1)} icon={<span>⟳</span>}>Refresh</ActionButton>
+          </div>
+        }
+      />
 
       <PageContainer>
         {error ? <EmptyState icon="⚠️" message={`Lỗi: ${error}`} />
@@ -250,7 +248,7 @@ export function ExplorerPage() {
                     <tr key={r.content_code + i} onClick={() => setSelected(r)} className="group cursor-pointer border-b border-line hover:bg-surface2">
                       <td className={`whitespace-nowrap px-[9px] py-2 font-mono text-xs ${stickyCell}`}>{r.content_code}</td>
                       <td className="max-w-[240px] truncate px-[9px] py-2">{r.title || <span className="text-muted">—</span>}</td>
-                      <td className="px-[9px] py-2">{r.editor_name || <span className="text-muted">—</span>}</td>
+                      <td className="px-[9px] py-2">{r.editor_name ? editorLabel(r.editor_name) : <span className="text-muted">—</span>}</td>
                       <td className="px-[9px] py-2">{r.assignee_name}</td>
                       <td className="px-[9px] py-2"><StatusBadge kind="market" value={r.market} /></td>
                       <td className="whitespace-nowrap px-[9px] py-2">{r.test_date_real || <span className="text-muted">—</span>}</td>
