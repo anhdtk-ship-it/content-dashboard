@@ -6,6 +6,7 @@ import {
 } from '../src/components/ui';
 import { GlobalFilter } from './GlobalFilter';
 import { AlertDrawer, type AlertDef } from './AlertDrawer';
+import { UsageCompare } from './UsageCompare';
 
 /* ---------- helpers ---------- */
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -174,7 +175,8 @@ export function OverviewPage() {
           <>
             <SectionHeader title="KPI nghiệp vụ" action={<span className="text-xs text-muted">di chuột vào ⓘ để xem công thức</span>} />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <KPICard label="Content được cấp" value={m.capped} tone="accent" />
+              <KPICard label="Content được cấp" value={m.capped} tone="accent"
+                tooltip="Đếm theo Ngày Up Trello (upload_date_real) trong kỳ lọc." />
               <KPICard label="Tỷ lệ đã được test" value={pct(m.rateTested)} sub={`${m.tested}/${m.capped}`}
                 tooltip="Đã được test ÷ Content được cấp" />
               <KPICard label="Tỷ lệ test thành công" value={pct(m.rateSuccess)} sub={`${m.success}/${m.tested}`} tone="good"
@@ -206,6 +208,8 @@ export function OverviewPage() {
                 ))}
               </div>
             </div>
+
+            <UsageCompare market={market} assignee={assignee} editor={editor} />
           </>
         ) : (
           <EmptyState message="Không có dữ liệu trong kỳ lọc" />

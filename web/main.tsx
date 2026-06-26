@@ -12,20 +12,18 @@ import { AssigneesPage } from './AssigneesPage';
 import { MarketsPage } from './MarketsPage';
 import { ExplorerPage } from './ExplorerPage';
 import { LifecyclePage } from './LifecyclePage';
+import { UsagePage } from './UsagePage';
+import { AnalyticsPage } from './AnalyticsPage';
 
-/* ---------- menu & routes (1 nguồn duy nhất) ---------- */
+/* ---------- menu & routes (1 nguồn duy nhất) ----------
+ * Menu (V5) đã gộp: chỉ hiện Tổng Quan + 2 trang gộp. Các route cũ
+ * (assignees/markets/explorer/lifecycle/sync/users/settings) GIỮ NGUYÊN
+ * trong PAGES (không xóa route/code), chỉ ẩn khỏi menu điều hướng. */
 const NAV: { label: string; items: { icon: string; label: string; href: string; key: string }[] }[] = [
   { label: '📊 Dashboard', items: [
     { icon: '📋', label: 'Tổng Quan', href: '#/overview', key: 'overview' },
-    { icon: '👤', label: 'Tiến độ Test Content', href: '#/assignees', key: 'assignees' },
-    { icon: '🌐', label: 'Thị Trường', href: '#/markets', key: 'markets' },
-    { icon: '⏳', label: 'Vòng đời Content', href: '#/lifecycle', key: 'lifecycle' },
-  ] },
-  { label: '📁 Content', items: [{ icon: '🔎', label: 'Explorer', href: '#/explorer', key: 'explorer' }] },
-  { label: '🔄 Đồng bộ', items: [{ icon: '🔄', label: 'Quản lý Sync', href: '#/sync', key: 'sync' }] },
-  { label: '👤 Quản trị', items: [
-    { icon: '🧑', label: 'User', href: '#/users', key: 'users' },
-    { icon: '⚙️', label: 'Cài đặt', href: '#/settings', key: 'settings' },
+    { icon: '📈', label: 'Tiến độ sử dụng Content', href: '#/usage', key: 'usage' },
+    { icon: '🔎', label: 'Content & Vòng đời', href: '#/analytics', key: 'analytics' },
   ] },
 ];
 
@@ -35,6 +33,10 @@ function Stub({ title }: { title: string }) {
 
 const PAGES: Record<string, { title: string; el: ReactNode }> = {
   overview: { title: 'Tổng Quan', el: <OverviewPage /> },
+  // Trang gộp (V5)
+  usage: { title: 'Tiến độ sử dụng Content', el: <UsagePage /> },
+  analytics: { title: 'Content & Vòng đời', el: <AnalyticsPage /> },
+  // Route cũ giữ nguyên (ẩn khỏi menu — vẫn truy cập được qua URL)
   assignees: { title: 'Tiến độ Test Content', el: <AssigneesPage /> },
   markets: { title: 'Thị Trường', el: <MarketsPage /> },
   lifecycle: { title: 'Vòng đời Content', el: <LifecyclePage /> },
