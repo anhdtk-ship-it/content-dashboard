@@ -101,10 +101,11 @@
   3. Transform → record; **dedupe** theo `(content_code, market, assignee_name)` (last-wins).
   4. Pre-fetch khóa hiện có → phân loại Insert/Update.
   5. **Upsert theo lô 500** (`onConflict: content_code,market,assignee_name`).
-  6. Ghi `sync_logs` + in `Rows Read / Inserted / Updated / Errors / Duration`.
+  6. **Khử trùng (4b)**: xóa content "mồ côi" — khóa có trong `contents` nhưng KHÔNG còn trong Sheet. Bật/tắt qua `SYNC_PRUNE_STALE` (mặc định `true`). **Guard an toàn**: bỏ qua nếu upsert có lỗi, hoặc đọc Sheet < 1000 content, hoặc số mồ côi > `max(200, 30% DB)`.
+  7. Ghi `sync_logs` + in `Rows Read / Inserted / Updated / Pruned / Errors / Duration`.
 - **Backfill ngày** (`src/backfill-dates.ts`): tính lại `*_real` cho toàn bộ (update theo `id`, 25 luồng song song).
-- **Đặc tính**: chỉ upsert (KHÔNG xóa dòng đã biến mất khỏi sheet). 🟡 đồng bộ 2 chiều (xóa stale) = kế hoạch.
-- **Tự động hoá**: 🔲 cron auto-sync (đã cài `node-cron` nhưng chưa wire). Hiện chạy tay: `npm run sync`.
+- **Đặc tính**: upsert + **khử trùng 1 chiều** (Sheet → DB; xóa dòng đã biến mất khỏi sheet, có guard). ✅ đồng bộ xóa stale (thay cho trạng thái kế hoạch trước đây).
+- **Tự động hoá**: scheduler `node-cron` (`src/sync-scheduler.ts`, `npm run scheduler`) — `SYNC_ENABLED`/`SYNC_CRON`. Hoặc chạy tay: `npm run sync`.
 
 Lệnh: `npm run sync` · `npm run backfill`.
 

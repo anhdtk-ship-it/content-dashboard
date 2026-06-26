@@ -12,3 +12,6 @@ credentials/*.json
 .env.production
 # Cho phép commit file mẫu:
 !.env.example
+
+# Data dumps (backup/dry-run) — không commit
+backup/

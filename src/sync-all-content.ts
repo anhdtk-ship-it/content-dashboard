@@ -187,6 +187,50 @@ async function main(): Promise<void> {
     updated = ok - inserted;
   }
 
+  // ---- 4b) Khử trùng: xóa content "mồ côi" — có trong DB nhưng KHÔNG còn trong Sheet ----
+  // Nhiều lớp guard để TUYỆT ĐỐI không xóa nhầm khi đọc Sheet lỗi/bất thường.
+  let pruned = 0;
+  const pruneEnabled = (process.env.SYNC_PRUNE_STALE ?? 'true').trim().toLowerCase() !== 'false';
+  if (!pruneEnabled) {
+    console.log('ℹ️  SYNC_PRUNE_STALE=false → bỏ qua khử trùng.');
+  } else if (errors > 0) {
+    console.warn('⚠️  Upsert có lỗi → BỎ QUA khử trùng (tránh xóa khi sync chưa trọn vẹn).');
+  } else if (records.length < 1000) {
+    console.warn(`⚠️  Chỉ đọc được ${records.length} content (< 1000) → BỎ QUA khử trùng (nghi ngờ đọc Sheet lỗi).`);
+  } else {
+    const validKeys = new Set(dedupMap.keys());
+    // Lấy id + khóa toàn bộ DB (sau upsert) để xác định mồ côi
+    const dbRows: { id: number; key: string }[] = [];
+    {
+      const pageSize = 1000;
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from('contents')
+          .select('id, content_code, market, assignee_name')
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        for (const d of data as any[]) dbRows.push({ id: d.id, key: `${d.content_code}||${d.market}||${d.assignee_name}` });
+        if (data.length < pageSize) break;
+      }
+    }
+    const staleIds = dbRows.filter((r) => !validKeys.has(r.key)).map((r) => r.id);
+    const cap = Math.max(200, Math.floor(dbRows.length * 0.3));
+    if (staleIds.length > cap) {
+      console.warn(`⚠️  Số mồ côi ${staleIds.length} > ngưỡng an toàn ${cap} → BỎ QUA khử trùng (cần rà tay).`);
+    } else if (staleIds.length > 0) {
+      for (let i = 0; i < staleIds.length; i += 25) {
+        const batch = staleIds.slice(i, i + 25);
+        const { error, count } = await supabase.from('contents').delete({ count: 'exact' }).in('id', batch);
+        if (error) { console.error(`  ✗ Prune lô ${i / 25}: ${error.message}`); break; }
+        pruned += count ?? 0;
+      }
+      console.log(`🧹 Khử trùng: đã xóa ${pruned} content mồ côi (không còn trong Sheet).`);
+    } else {
+      console.log('🧹 Khử trùng: không có content mồ côi.');
+    }
+  }
+
   const finishedAt = new Date();
   const durationMs = Date.now() - t0;
   const status = errors === 0 ? 'success' : (errors < records.length ? 'partial' : 'failed');
@@ -215,6 +259,7 @@ async function main(): Promise<void> {
   console.log(`Rows Read : ${rowsRead}  (sau dedupe: ${records.length})`);
   console.log(`Inserted  : ${inserted}`);
   console.log(`Updated   : ${updated}`);
+  console.log(`Pruned    : ${pruned}`);
   console.log(`Errors    : ${errors}`);
   console.log(`Duration  : ${(durationMs / 1000).toFixed(2)}s`);
   console.log(`Status    : ${status}`);
