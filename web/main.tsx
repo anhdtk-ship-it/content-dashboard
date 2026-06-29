@@ -22,7 +22,7 @@ import { AnalyticsPage } from './AnalyticsPage';
 const NAV: { label: string; items: { icon: string; label: string; href: string; key: string }[] }[] = [
   { label: '📊 Dashboard', items: [
     { icon: '📋', label: 'Tổng Quan', href: '#/overview', key: 'overview' },
-    { icon: '📈', label: 'Tiến độ sử dụng Content', href: '#/usage', key: 'usage' },
+    { icon: '🌐', label: 'Thị Trường', href: '#/markets', key: 'markets' },
     { icon: '🔎', label: 'Content & Vòng đời', href: '#/analytics', key: 'analytics' },
   ] },
 ];

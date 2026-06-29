@@ -7,6 +7,7 @@ import {
 import { GlobalFilter } from './GlobalFilter';
 import { AlertDrawer, type AlertDef } from './AlertDrawer';
 import { UsageCompare } from './UsageCompare';
+import { AssigneesPage } from './AssigneesPage';
 
 /* ---------- helpers ---------- */
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -215,6 +216,10 @@ export function OverviewPage() {
           <EmptyState message="Không có dữ liệu trong kỳ lọc" />
         )}
       </PageContainer>
+
+      {/* Di chuyển từ "Tiến độ sử dụng Content": Content theo trạng thái + Bảng xếp hạng
+          (nhúng — ẩn khối KPI riêng; giữ nguyên filter/biểu đồ/bảng/cách tính). */}
+      <AssigneesPage embedded />
 
       {drill && (
         <AlertDrawer

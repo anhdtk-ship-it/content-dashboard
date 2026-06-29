@@ -166,7 +166,9 @@ function StatusChart({ rows }: { rows: AggRow[] }) {
 }
 
 /* ============ Page ============ */
-export function AssigneesPage() {
+// `embedded`: khi nhúng vào Tổng Quan thì ẩn riêng khối KPI "Hiệu suất tổng"
+// (Tổng Quan đã có KPI nghiệp vụ). Giữ nguyên filter + chart + bảng + cách tính.
+export function AssigneesPage({ embedded = false }: { embedded?: boolean }) {
   const [range, setRange] = useState<DateRangeValue>({ preset: 'thismonth' });
   const [market, setMarket] = useState('ALL');
   const [assignee, setAssignee] = useState('ALL');
@@ -275,24 +277,28 @@ export function AssigneesPage() {
           : agg.length === 0 ? <EmptyState message="Không có dữ liệu trong kỳ lọc" />
           : (
           <>
-            <SectionHeader title="Hiệu suất tổng (di chuột ⓘ xem công thức)" />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              <StatCard label="Tổng content được cấp" value={overall.total} />
-              <KPICard label="Tỷ lệ đã test" value={pct(overall.rateTested)} tone="default"
-                tooltip="Đã được test ÷ Tổng. Đã test = Đang test + Duy trì + Đã test-ko chạy + Đã chạy-Tắt." />
-              <KPICard label="Tỷ lệ test thành công" value={pct(overall.rateSuccess)} tone="good"
-                tooltip="Thành công ÷ Đã được test. Thành công = Duy trì + Đã chạy-Tắt." />
-              <KPICard label="Tuổi thọ content TB" value={`${overall.avgLife}d`}
-                tooltip="Trung bình số ngày từ Ngày Set Ads (test) của content Duy trì + Đã chạy-Tắt." />
-              <KPICard label="Duy trì > 30 ngày" value={overall.duyTri30} tone="accent"
-                tooltip="Số content đang Duy trì có số ngày duy trì > 30." />
-              <KPICard label="Duy trì > 60 ngày" value={overall.duyTri60} tone="accent"
-                tooltip="Số content đang Duy trì có số ngày duy trì > 60." />
-              <KPICard label="Duy trì > 90 ngày" value={overall.duyTri90} tone="accent"
-                tooltip="Số content đang Duy trì có số ngày duy trì > 90." />
-              <KPICard label="Duy trì > 180 ngày" value={overall.duyTri180} tone="accent"
-                tooltip="Số content đang Duy trì có số ngày duy trì > 180." />
-            </div>
+            {!embedded && (
+              <>
+                <SectionHeader title="Hiệu suất tổng (di chuột ⓘ xem công thức)" />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  <StatCard label="Tổng content được cấp" value={overall.total} />
+                  <KPICard label="Tỷ lệ đã test" value={pct(overall.rateTested)} tone="default"
+                    tooltip="Đã được test ÷ Tổng. Đã test = Đang test + Duy trì + Đã test-ko chạy + Đã chạy-Tắt." />
+                  <KPICard label="Tỷ lệ test thành công" value={pct(overall.rateSuccess)} tone="good"
+                    tooltip="Thành công ÷ Đã được test. Thành công = Duy trì + Đã chạy-Tắt." />
+                  <KPICard label="Tuổi thọ content TB" value={`${overall.avgLife}d`}
+                    tooltip="Trung bình số ngày từ Ngày Set Ads (test) của content Duy trì + Đã chạy-Tắt." />
+                  <KPICard label="Duy trì > 30 ngày" value={overall.duyTri30} tone="accent"
+                    tooltip="Số content đang Duy trì có số ngày duy trì > 30." />
+                  <KPICard label="Duy trì > 60 ngày" value={overall.duyTri60} tone="accent"
+                    tooltip="Số content đang Duy trì có số ngày duy trì > 60." />
+                  <KPICard label="Duy trì > 90 ngày" value={overall.duyTri90} tone="accent"
+                    tooltip="Số content đang Duy trì có số ngày duy trì > 90." />
+                  <KPICard label="Duy trì > 180 ngày" value={overall.duyTri180} tone="accent"
+                    tooltip="Số content đang Duy trì có số ngày duy trì > 180." />
+                </div>
+              </>
+            )}
 
             <div className="mt-4">
               <ChartCard title="Content theo trạng thái (theo Nhân viên Ads)">
