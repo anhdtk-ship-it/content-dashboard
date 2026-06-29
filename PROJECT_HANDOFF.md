@@ -1,309 +1,199 @@
-# PROJECT HANDOFF — Content Operations Dashboard (Seryn)
+# PROJECT HANDOFF — Content Operations Dashboard (Seryn) + Ads Monitor
 
-> Tài liệu bàn giao để một phiên Claude mới **tiếp tục công việc mà không cần đọc lại lịch sử chat**.
-> Cập nhật: 2026-06-25 · Thư mục gốc: `C:\Users\Admin\Downloads\wesd\content-dashboard`
-
----
-
-## 0. START HERE (đọc 20 dòng này là hiểu ngay)
-
-1. Dự án: **dashboard vận hành nội dung** cho team Seryn. Luồng: **Google Sheets → Supabase → API Express → 2 frontend**.
-2. **Hai frontend song song** (đừng nhầm): (a) **dashboard vanilla** `public/index.html` (1 file HTML + JS thuần + Chart.js, KHÔNG build) — bản gốc đầy đủ 7 module; (b) **app React refactor** trong `web/` (Vite + React 19 + Tailwind v4) — bản đang phát triển, đẹp hơn, dùng component library.
-3. Backend: **`src/server.ts`** (Express 5, ts-node, ~640 dòng) phục vụ API `/api/v3/*` + serve `public/`. Đọc Supabase bằng **service_role**, cache `getContents()` TTL 10s.
-4. Dữ liệu: bảng **`contents`** (1510 dòng), `sync_logs`, `content_status_history` (rỗng). Nguồn: 8 sheet Google (`NĐ/QT × Hiếu/Ánh/KA/Liên`), loại trừ `*Khiêm`.
-5. **Nghiệp vụ cốt lõi:** content → set ads (test) → duy trì/tắt. `status_group` & "vòng đời tính từ `test_date_real` (Ngày Set Ads), KHÔNG dùng upload_date".
-6. **Tài liệu gốc bắt buộc đọc & cập nhật:** `PROJECT_SPEC.md`, `DESIGN_SYSTEM.md`, `PROJECT_BACKLOG.md`. Mọi thay đổi phải cập nhật `PROJECT_SPEC.md`.
-7. **App React route (hash):** `#/` Tổng Quan · `#/assignees` Người Nhận · `#/markets` Thị Trường · `#/explorer` Content Explorer · `#/lifecycle` Vòng đời · `#/sync|users|settings` (stub).
-8. **AppShell đã wire** (Sidebar 4 nhóm + Header breadcrumb/search/dark-toggle/notif/user). Mọi page React dùng chung 1 shell.
-9. **Chạy:** Terminal 1 `npm run dashboard` (Express :4000). Terminal 2 `npm run web:dev` (Vite :5173, proxy `/api`→:4000). Build kiểm tra: `npx vite build`.
-10. **Tuyệt đối KHÔNG:** đổi DB schema, đổi API (trừ additive khi thật cần), đổi công thức KPI, đổi logic sync, sửa dashboard vanilla.
-11. **Định nghĩa KPI (bất biến):** Đã test = {Đang test, Duy trì-*, Đã test-ko chạy, Đã chạy-Tắt}; Thành công = {Duy trì-*, Đã chạy-Tắt}; Tỷ lệ thành công = Thành công ÷ Đã test.
-12. **Màu trạng thái chuẩn:** Duy trì=xanh lá · Đang test=vàng · Chờ chạy=cam · Không duyệt=đỏ · Đã test-ko chạy=xám · Đã chạy-Tắt=xanh dương nhạt (xem `tokens.ts` `statusStyle()`).
-13. **Component library:** `src/components/ui/` (15) + `src/components/layout/` (9). Dùng lại, đừng tạo Card mới.
-14. **Cách xác minh:** screenshot tool hay timeout → dùng `preview_eval` (DOM inspection) + đối chiếu Supabase bằng script `ts-node` tạm.
-15. **Dữ liệu đã được kiểm 100% khớp Supabase** (Sprint Review R1). Đừng nghi ngờ số liệu; nghi ngờ thì chạy lại script đối chiếu.
-16. Ngày máy hiện tại ≈ **2026-06-25**. `today` trong code = `Date.UTC(now)`. Filter mặc định "Tháng này" = June 2026.
-17. Quan trọng: **cwd của Bash tool hay nhảy về thư mục cha** (`wesd`, project Next.js khác) → LUÔN `cd /c/Users/Admin/Downloads/wesd/content-dashboard &&` trong mọi lệnh.
-18. Sau khi sửa server.ts (ts-node, không auto-reload) → **restart Express**. Sau khi sửa class Tailwind mới trong `src/components` → **restart Vite dev** (regen CSS).
-19. Việc tiếp theo gợi ý: global filter giữ state giữa các màn (R3), hợp nhất Explorer (R3), gzip + client cache (R4), tách `web/lib`+`useApi` (R5), dashboard Reports/Alerts/Sync/User/Settings (Sprint 4).
-20. Đọc tiếp các mục bên dưới để biết chi tiết.
+> **Handoff v2.1 · Cập nhật: 2026-06-29** (Phase 5 — Performance & Architecture cho Ads Monitor)
+> Tài liệu để một phiên Claude mới tiếp tục công việc mà KHÔNG cần đọc lịch sử chat.
+> Thư mục gốc: `C:\Users\Admin\Downloads\wesd\content-dashboard`
+> (Lưu ý: thư mục cha `wesd` là một project Next.js KHÁC — `haiau-seo-hub` — không liên quan tài liệu này.)
+> Ngày trong code (`today`) chạy theo giờ máy ≈ 2026-06-26; "Cập nhật" ở trên theo lịch hệ thống.
 
 ---
 
-## 1. Mục tiêu cuối cùng
+## 1. Project Overview
 
-Xây **Operations Dashboard** giúp **Team Leader & nhân viên** theo dõi tiến độ **test content quảng cáo** hằng ngày: content được cấp → set ads (test) → duy trì hay tắt; đánh giá **chất lượng test** (tỷ lệ đã test, tỷ lệ thành công), **vòng đời content**, **hiệu suất theo người/biên tập/thị trường**, và **cảnh báo** cần xử lý. Ưu tiên: đọc KPI nhanh (3 giây), ít click, quản trị nội bộ.
+* **Mục tiêu:** Dashboard vận hành nội dung cho team Seryn — theo dõi test content quảng cáo (content → set ads → duy trì/tắt), KPI chất lượng test, vòng đời content, hiệu suất theo người/biên tập/thị trường, cảnh báo cần xử lý. Bổ sung module **Ads Monitor** (theo dõi chi tiêu quảng cáo theo Page).
+* **Phạm vi:** App nội bộ, truy cập bằng **Share Link** (KHÔNG có Authentication — đã hủy, xem §9). Ưu tiên đọc KPI nhanh, ít click.
+* **Kiến trúc tổng thể:** Google Sheets → (script sync, ts-node) → Supabase (Postgres) → Express API (`src/server.ts`) → Frontend React (Vite, `web/`). Hai "miền" độc lập trong cùng repo/server: **Dashboard Content** và **Ads Monitor**.
 
 ---
 
-## 2. Kiến trúc hiện tại
+## 2. Current Status
 
-### Công nghệ
-- **Backend:** Node.js + **TypeScript** (CommonJS), **Express 5**, chạy bằng **ts-node** (không build).
-- **DB:** **Supabase** (Postgres + PostgREST + Realtime). Server dùng `@supabase/supabase-js` với **service_role**; client realtime dùng **anon key**.
-- **Nguồn dữ liệu:** **Google Sheets** qua `googleapis` (Service Account, read-only).
-- **Frontend A (vanilla):** `public/index.html` — HTML + JS thuần + **Chart.js CDN** + supabase-js CDN. Không build.
-- **Frontend B (refactor):** **Vite 8 + React 19 + Tailwind v4** (`@tailwindcss/vite`). Thư mục `web/`.
-- **Khác:** `dotenv`, `cors`, `zod` (chưa dùng nhiều), `node-cron` (cài nhưng chưa wire), `axios`.
+* **Phase hiện tại:** Dashboard Content đã ổn định (V5). **Ads Monitor đã GO-LIVE (Phase 6)** — server-side pagination/filter/KPI bằng SQL + lịch sử theo ngày, chạy **dữ liệu THẬT từ Supabase** (886 ad, 9423 snapshot). **Chưa commit/deploy** lên `main`/Railway. ⚠️ Mapping Raw_Data là **giả định** (chi tiêu/ngày) — cần nghiệp vụ xác nhận (xem §8).
+* **% hoàn thành (ước lượng):** Dashboard Content ~85% · Ads Monitor ~60% · Tổng thể ~75%. *(ước lượng, "Cần xác minh" theo kỳ vọng sản phẩm)*
+* **Module đã hoàn thành:** Sync Engine + prune, Backfill, API V3, UI library, Dashboard Tổng Quan (+drill-down "Cần xử lý"), Thị Trường, Content & Vòng đời (tabs Explorer+Lifecycle), Global Filter chung, Ads Monitor UI + Data Layer (mock).
+* **Đang làm:** Ads Monitor Phase 5 (nối Supabase thật) — **code trong working tree, CHƯA commit**.
+* **Chưa bắt đầu:** Ads Monitor real-data end-to-end (tạo bảng + import thật + scale 100k), Reports/Alerts nâng cao, module Sync/User/Settings (React stub, ẩn menu).
 
-### Folder structure
+---
+
+## 3. Current Architecture
+
+* **Frontend:** Vite 8 + **React 19** + Tailwind v4, thư mục `web/`. Hash router trong `web/main.tsx` (1 nguồn menu/route). UI primitives dùng chung ở `src/components/ui` (15) + `src/components/layout` (9). **Zoom UI 1.1** (`web/styles.css #root`).
+* **Backend:** Node + **TypeScript (CommonJS, ts-node, không build)**, **Express 5** — `src/server.ts` (~630 dòng). Bind **`0.0.0.0`** + `process.env.PORT ?? 4000`. Có `/health`. Serve **`web/dist`** (React build). SPA fallback `/{*splat}` → `web/dist/index.html`. Đọc Supabase bằng **service_role**, cache `getContents()` TTL 10s.
+* **Database:** **Supabase** (Postgres). Bảng: `contents`, `sync_logs`, `content_status_history`. Module Ads (sql/005, **CHƯA áp dụng**): bảng `ads_monitor` (khóa snapshot `(page_code,content,sheet_date)`) + VIEW `ads_monitor_latest` (DISTINCT ON) + FUNCTION `ads_monitor_query()` (KPI/list bằng SQL).
+* **API:** `GET /api/config`, `/api/v3/{summary,contents,sync-status,lifecycle,content-detail,lifecycle-table}`, `GET /health`, **`GET /ads-monitor`** (Ads Monitor — **SERVER-SIDE**: `page,pageSize,content,adsOwner,location,pageCode,status,sheetDate|dateFrom|dateTo,sortField,sortDirection` → `{items,summary,total,page,pageSize,totalPages,source}`). Filter chung Content: `from,to,market,assignee,status,dateField`. `/api/v3/contents` có drill `alert,ageMin,ageMax,codes,endedExact,q,sort` + trả `editor_name`.
+* **Google Sheets:** `googleapis` (Service Account, read-only). Content: `GOOGLE_SHEET_ID` (spreadsheet `1G2ZY…`, 16 tab, dùng 8 tab NĐ/QT×Hiếu/Ánh/KA/Liên). Ads: `ADS_SHEET_ID` (spreadsheet RIÊNG — **chưa cấu hình**).
+* **Deployment:** GitHub `anhdtk-ship-it/content-dashboard` → **Railway** deploy nhánh `main`. Domain: `content-dashboard-production-4e96.up.railway.app`.
+* **Authentication:** **KHÔNG có** — đã hủy, dùng Share Link (xem §9).
+
+---
+
+## 4. Repository Structure
 ```
 content-dashboard/
-├── PROJECT_SPEC.md            ← tài liệu gốc (kiến trúc/schema/API)
-├── PROJECT_BACKLOG.md         ← sprint/task
-├── DESIGN_SYSTEM.md           ← UI tokens/màu/typography
-├── WIREFRAMES.md              ← wireframe 10 màn hình
-├── mapping-spec.md            ← mapping Sheet→Supabase
-├── PROJECT_HANDOFF.md         ← (file này)
-├── SPRINT_REVIEW_2.md         ← R1 review dữ liệu
-├── UI_REVIEW_R2.md            ← R2 review UI
-├── UX_REVIEW_R3.md            ← R3 review UX
-├── PERF_REVIEW_R4.md          ← R4 review performance
-├── CODE_REVIEW_R5.md          ← R5 review code
-├── BUSINESS_REVIEW_R6.md      ← R6 review nghiệp vụ
-├── package.json · tsconfig.json · tailwind.config.js · vite.config.ts
-├── .env                       ← SUPABASE_*, GOOGLE_* (gitignored)
-├── credentials/credentials.json  ← Google Service Account (gitignored)
-├── sql/ 001..004_*.sql        ← migrations (chạy tay trong Supabase SQL Editor)
 ├── src/
-│   ├── server.ts              ← Express API V3 (routes + transform + lifecycle helpers)
-│   ├── sync-all-content.ts    ← Sync Engine (upsert idempotent)
-│   ├── backfill-dates.ts      ← backfill *_real
-│   ├── date-util.ts           ← parseDdmmToReal()
-│   ├── sheets-reader.ts / analyze-headers.ts / check-duplicates.ts
-│   ├── transform-content.ts / import-sample.ts / test-google-connection.ts (POC/dev)
-│   └── components/
-│       ├── ui/    (15 component + tokens.ts/.css + Showcase + index.ts + tsconfig.json)
-│       └── layout/(9 component + LayoutShowcase + index.ts + tsconfig.json)
-├── public/index.html          ← dashboard VANILLA (đừng sửa)
-└── web/                        ← app REACT refactor
-    ├── index.html · main.tsx · styles.css
-    ├── OverviewPage.tsx · AssigneesPage.tsx · MarketsPage.tsx
-    ├── ExplorerPage.tsx · LifecyclePage.tsx · GlobalFilter.tsx
-    └── dist/ (build output)
+│   ├── server.ts                ← Express API (Content + /ads-monitor + /health + SPA fallback)
+│   ├── sync-all-content.ts      ← Sync Content (upsert + KHỬ TRÙNG stale, có guard)
+│   ├── sync-scheduler.ts        ← Scheduler node-cron (SYNC_ENABLED/SYNC_CRON)
+│   ├── backfill-dates.ts · date-util.ts · sheets-reader.ts · ...
+│   ├── components/ui/ (15) · components/layout/ (9)   ← UI library dùng chung
+│   └── ads-monitor/             ← MODULE ADS MONITOR (backend, độc lập)
+│       ├── types.ts · calculateAdsStatus.ts · mock.ts
+│       ├── AdsMonitorRepository.ts · AdsMonitorService.ts · routes.ts
+│       ├── AdsMonitorSyncProvider.ts (interface) · GoogleSheetAdsSyncProvider.ts (impl)
+│       ├── import.ts (npm ads:import) · verify.ts (npm ads:verify)
+├── web/                         ← App React
+│   ├── main.tsx (router/menu) · styles.css (zoom 1.1) · GlobalFilter.tsx · editor-name.ts
+│   ├── OverviewPage · MarketsPage · AssigneesPage · ExplorerPage · LifecyclePage
+│   ├── UsagePage · AnalyticsPage · Tabs.tsx · UsageCompare.tsx · AlertDrawer.tsx
+│   └── ads-monitor/ (pages/AdsMonitorPage · components/{AdsSummaryCards,AdsFilters,AdsTable} · types · utils)
+├── public/index.html            ← Dashboard VANILLA (LEGACY — KHÔNG còn được serve; đừng sửa)
+├── sql/ 001..005_*.sql          ← migrations (chạy tay; 005 CHƯA áp dụng)
+├── .env (.env.example/.local/.production) · credentials/ (gitignored)
+└── PROJECT_SPEC.md · PROJECT_BACKLOG.md · DESIGN_SYSTEM.md · (file này) · ...
 ```
 
-### Database schema (Supabase)
-- **`contents`** (1510 dòng): `id` bigint PK · `content_code` · `title` · `market` (`noi_dia|quoc_te`) · `assignee_name` (Hiếu/Ánh/KA/Liên) · `cgsd` · `editor_name` · `trello_link` · `upload_date` text · `upload_date_real` date · `test_date` text · `test_date_real` date (**= Ngày Set Ads, mốc vòng đời**) · `current_status` · `created_at` · `updated_at`. UNIQUE `(content_code, market, assignee_name)`.
-- **`sync_logs`**: `id` bigint · `started_at` · `finished_at` · `rows_read` · `rows_inserted` · `rows_updated` · `status` · `error_message`.
-- **`content_status_history`** (0 rows): `id` · `content_id` FK · `status` · `changed_at` · `note`. (Retention/timeline chính xác sẽ bật khi có dữ liệu.)
+---
 
-### API (`/api/v3/*`, base `http://localhost:4000`)
-Filter chung: `from,to` (YYYY-MM-DD) · `market` · `assignee` · `status` (status_group) · `dateField` (`upload_date_real|test_date_real`).
-| Endpoint | Vai trò |
-|---|---|
-| `GET /api/config` | trả `url`+`anonKey` realtime |
-| `GET /api/v3/summary` | KPI nghiệp vụ (metrics), funnel, byAssignee, byMarket, byStatus, alerts, trend |
-| `GET /api/v3/contents` | list + phân trang + `q` + drill (`alert,ageMin,ageMax,codes,endedExact,sort`) |
-| `GET /api/v3/lifecycle` | KPI vòng đời, byEditorAvg/byAssigneeAvg/byMarketAvg, distribution, top20 (lọc theo `test_date_real`) |
-| `GET /api/v3/lifecycle-table` | full list đã tính `ageDays/maintainDays` + `editor_name` (client tự lọc/sort/export) |
-| `GET /api/v3/content-detail` | chi tiết 1 content + timeline + history (`code,market,assignee`) |
-| `GET /api/v3/sync-status` | độ phủ ngày + `sync_logs` |
+## 5. Completed Work
+* **Sync Engine** idempotent 8 sheet → `contents` + **khử trùng content mồ côi** (xóa stale, env `SYNC_PRUNE_STALE`, guard: bỏ qua nếu lỗi/đọc<1000/stale>ngưỡng). Đã dọn 53 content mồ côi (Supabase 1522→1469).
+* **Scheduler** node-cron (`npm run scheduler`) — chống chạy chồng, không crash khi lỗi.
+* **API V3** đầy đủ; thêm `editor_name` vào `/contents` (drill "Cần xử lý").
+* **Dashboard Tổng Quan:** 6 KPI nghiệp vụ (tooltip công thức render qua **portal**, không bị cắt) + **"Cần xử lý" dạng cảnh báo màu, click mở Drawer drill-down** (2 filter, kế thừa filter) + **So sánh tháng này/trước** + **nhúng "Content theo trạng thái" + "Bảng xếp hạng"** (theo bộ lọc trên cùng).
+* **Dashboard Thị Trường** (standalone) · **Content & Vòng đời** (tabs: Explorer + Lifecycle).
+* **GlobalFilter** dùng chung 4 dashboard; chuẩn hóa "Nhân viên Ads", **tên Biên tập đầy đủ** (mapping `web/editor-name.ts`).
+* **Menu V5:** Tổng Quan · Thị Trường · Content & Vòng đời · Ads Monitor (Sync/User/Settings ẩn, route giữ).
+* **Env chuẩn hóa** (.env.example/.local/.production) · `0.0.0.0` + `/health` (fix Railway 502).
+* **Ads Monitor Phase 1-3 (đã commit/deploy):** scaffold menu/route, UI đầy đủ (mock), Data Layer (Repository/Service/API mock + `calculateAdsStatus` + sql/005 thiết kế).
 
 ---
 
-## 3. Module đã hoàn thành
-
-| Module | Chức năng | File | Trạng thái |
-|---|---|---|---|
-| Sync Engine | upsert idempotent 8 sheet → contents + log | `src/sync-all-content.ts` | ✅ Complete |
-| Backfill ngày | sinh `*_real` từ text dd/mm | `src/backfill-dates.ts`, `src/date-util.ts` | ✅ Complete |
-| API V3 | mọi endpoint trên | `src/server.ts` | ✅ Complete |
-| UI Component Library | 15 component (KPICard, DataTable, StatusBadge, ChartCard, FilterBar, …) | `src/components/ui/*` | ✅ Complete |
-| Layout Library | AppShell, Sidebar, Header, Breadcrumb, NotificationArea, UserMenu, DarkModeToggle, PageContainer/PageHeader, TopNavigation | `src/components/layout/*` | ✅ Complete (đã wire) |
-| AppShell tích hợp | 1 shell dùng chung + 8 menu + collapse + mobile drawer | `web/main.tsx` | ✅ Complete |
-| Dashboard Tổng Quan | 6 KPI nghiệp vụ (màu theo trạng thái) + funnel + status + alerts | `web/OverviewPage.tsx` | ✅ Complete |
-| Dashboard Người Nhận | bảng xếp hạng 13 cột + chart trạng thái + drill | `web/AssigneesPage.tsx` | ✅ Complete |
-| Dashboard Thị Trường | 2 thẻ market + so sánh + 3 chart + drill | `web/MarketsPage.tsx` | ✅ Complete |
-| Content Explorer | bảng sticky header+cột, sort, paginate, Drawer chi tiết, export CSV, drill giữ filter qua hash | `web/ExplorerPage.tsx` | ✅ Complete |
-| Vòng đời Content | 5 KPI + Top20 + TB theo biên tập/người/thị trường + phân bố + Drawer (tái dùng) | `web/LifecyclePage.tsx` | ✅ Complete |
-| Global Filter chuẩn hóa | filter lớn dễ đọc, tên/thứ tự mới, Biên tập từ data | `web/GlobalFilter.tsx` | ✅ Complete (Tổng Quan/Người Nhận/Thị Trường) |
-| Quản lý Sync (React) | — | `web/main.tsx` (Stub) | 🔲 TODO (vanilla có) |
-| User / Cài đặt | — | `web/main.tsx` (Stub) | 🔲 TODO |
-| Reports / Alerts (nâng cao) | — | — | 🔲 TODO |
-| Auth / Phân quyền | Admin/Viewer @seryn.vn | — | 🔲 TODO (Sprint 4) |
-| Dashboard vanilla | 7 module đầy đủ (bản gốc) | `public/index.html` | ✅ Complete (legacy, đừng sửa) |
+## 6. Work In Progress
+* **Ads Monitor Phase 4 + 5 — CODE XONG nhưng CHƯA COMMIT** (working tree, chưa push, Railway chưa có):
+  * Phase 4: `GoogleSheetAdsSyncProvider.ts` + `import.ts` (đọc Sheet Ads → upsert `ads_monitor`, logging, error-handling, dry-run).
+  * Phase 5 (data layer): `AdsMonitorRepository` + `Service` + API + frontend fetch thật, `verify.ts`, proxy Vite, xóa frontend mock.
+  * **Phase 5 (Performance & Architecture — MỚI):**
+    * `sql/005`: đổi khóa → snapshot `(page_code,content,sheet_date)`, thêm VIEW `ads_monitor_latest` + FUNCTION `ads_monitor_query()` (KPI/list/filter/sort/paginate bằng SQL) + index.
+    * `AdsMonitorRepository.query()` gọi RPC (bỏ `findAll()` tải toàn bộ) + fallback mock tính trong RAM.
+    * `Service.getData(params)` trả 1 trang + KPI từ SQL + `total/totalPages`.
+    * `routes.ts` parse query params (validate sort/pageSize), `import.ts` upsert theo khóa snapshot (giữ lịch sử), `verify.ts` phân trang qua tập latest.
+    * Frontend: `AdsFilters` controlled, `AdsTable` phân trang server + sort header, `AdsMonitorPage` quản state + querystring + debounce. **Giao diện giữ nguyên.**
+* **Hiện tại Ads Monitor chạy bằng MOCK** (`src/ads-monitor/mock.ts`) vì `ads_monitor` chưa tạo + `ADS_SHEET_ID` chưa cấu hình. Đã verify đường mock (pagination/filter/sort/KPI) qua Express :4099.
 
 ---
 
-## 4. Thay đổi trong PHIÊN CHAT NÀY
+## 7. Next Priorities
+**P1**
+* Commit + push Phase 4/5 Ads Monitor lên `main` (Railway deploy).
+* Chạy `sql/005_ads_monitor.sql` trên Supabase (tạo **bảng + VIEW `ads_monitor_latest` + FUNCTION `ads_monitor_query`** + index).
+* Cấu hình `ADS_SHEET_ID` + `ADS_SHEET_TAB` + share quyền đọc cho Service Account → chạy `npm run ads:import` → `npm run ads:verify`.
+* Sau khi có bảng thật: chạy `EXPLAIN ANALYZE ads_monitor_query(...)` ở mốc dữ liệu lớn để xác nhận index dùng đúng (đặc biệt `DISTINCT ON`).
 
-Phiên này chủ yếu **Sprint 2 (refactor sang React) + Sprint Review 2 + S3-001/001.1**:
-- **S2-001**: tạo Component Library `src/components/ui/` (15 component) + tokens + Tailwind v4 setup.
-- **S2-002**: tạo Layout Library `src/components/layout/` (9 component).
-- **S2-003**: dựng Vite/React, refactor **Tổng Quan** sang ui component (`web/`).
-- **S2-004**: refactor **Người Nhận**.
-- **S2-005**: refactor **Thị Trường**.
-- **S2-006**: build **Content Explorer** (drawer, sticky) + thêm `editor_name` vào `/api/v3/lifecycle-table` (additive).
-- **S2-007**: build **Vòng đời** + thêm `status_group,trello_link` vào top20 của `/api/v3/lifecycle` (additive) + export `DetailDrawer`.
-- **Sprint Review 2 (R1–R6)**: tạo 6 báo cáo review (data/UI/UX/perf/code/business) — không sửa code.
-- **S3-001**: tích hợp **AppShell** toàn app (Sidebar/Header), nâng AppShell (collapse, cuộn độc lập) + Sidebar (collapsed), gỡ shell độc lập ở 5 page.
-- **S3-001.1**: chuẩn hóa **GlobalFilter** (kích thước/tên/thứ tự + filter Biên tập) chỉ ở 3 dashboard; **chuẩn hóa màu trạng thái** (`statusStyle/groupStyle` + StatusBadge + KPI màu) + severity; cập nhật DESIGN_SYSTEM §11.
+**P2**
+* ✅ **(ĐÃ XONG Phase 5)** Server-side pagination/filter/KPI bằng SQL; bỏ load-all-in-memory.
+* Xác minh khóa định danh Ads `(page_code, content, sheet_date)` đúng thực tế nghiệp vụ (1 ad/ngày).
+* Nếu cần search `content` nhanh trên bảng rất lớn: thêm extension `pg_trgm` + GIN index (chưa làm — tránh index dư thừa).
+* Cân nhắc `ads_sync_logs` + scheduler import hằng ngày (worker riêng, không chạy trên web service).
 
----
-
-## 5. Quyết định thiết kế đã thống nhất
-
-- **Tài liệu gốc:** `PROJECT_SPEC.md` là single source of truth — mọi thay đổi schema/API/sync/dashboard/phân quyền PHẢI cập nhật vào đó.
-- **Code:** TypeScript strict; CommonJS cho server (ts-node), ESM/react-jsx cho `src/components` & `web` (tsconfig riêng). File kebab-case (script), PascalCase `.tsx` (component), camelCase biến, UPPER_SNAKE hằng. Comment tiếng Việt.
-- **Dữ liệu:** không mock — luôn Supabase/Sheets thật. Biến đổi nghiệp vụ (status_group, metrics, vòng đời) ở **tầng dashboard/API**, KHÔNG ghi DB. Sync **idempotent** theo `(content_code, market, assignee_name)`.
-- **Nghiệp vụ (BẤT BIẾN):** Đã test = 5 trạng thái; Thành công = Duy trì-* + Đã chạy-Tắt; Tỷ lệ thành công = Thành công ÷ Đã test. **Vòng đời = `today − test_date_real`** (Ngày Set Ads), KHÔNG dùng upload_date.
-- **status_group:** Chờ chạy→CHO_CHAY · Đang test→DANG_TEST · Duy trì-*→DUY_TRI · (Đã test-ko chạy | Đã chạy-Tắt)→DA_DUNG · Không được duyệt→KHONG_DUYET · rỗng→CHUA_PHAN_LOAI.
-- **Màu trạng thái chuẩn (S3-001.1):** Duy trì=xanh lá `#34d399` · Đang test=vàng `#fbbf24` · Chờ chạy=cam `#fb923c` · Không duyệt=đỏ `#f87171` · Đã test-ko chạy=xám `#94a3b8` · Đã chạy-Tắt=xanh dương nhạt `#7dd3fc`. Dùng `statusStyle()` (theo current_status gốc) / `groupStyle()` (theo nhóm).
-- **Severity (chỉ hiển thị):** Chờ chạy="Cần xử lý" · Không duyệt="Khẩn cấp" · Đang test="Theo dõi" · Duy trì="Ổn định".
-- **Design tokens:** dark-first; CSS variables trong `web/styles.css` (@theme) + `src/components/ui/tokens.css`. KHÔNG tự tạo màu mới ngoài bảng tokens.
-- **Filter:** Global Filter (date/market/assignee/editor/status) chỉ ở Tổng Quan/Người Nhận/Thị Trường; Explorer & Lifecycle có filter riêng. Control 44px, label 16px, font 15px; 1 hàng desktop, wrap mobile.
-- **Responsive:** breakpoint `lg` (1024px). Grid co theo `sm/lg`; bảng cuộn-x; sidebar drawer ở <lg.
-- **Performance:** server cache `getContents` 10s; chart bằng thanh HTML (ops-first, hạn chế Chart.js trong app React); skeleton + empty state.
+**P3**
+* Sửa lỗi năm parse 2025→2026 (date-util) cho ~76 content.
+* Reports/Alerts nâng cao, ghi `content_status_history`, module Sync/User/Settings (React).
+* Scheduler chạy như worker riêng trên hạ tầng (Railway web service KHÔNG tự chạy scheduler).
 
 ---
 
-## 6. Bug còn tồn tại
-
-1. **Filter không giữ state giữa các màn** (mỗi React page có state riêng, reset về "Tháng này" khi chuyển màn). Vanilla dashboard có global filter; React thì chưa.
-2. **2 "Content Explorer" khác nhau:** Người Nhận/Thị Trường drill mở **explorer nhúng** (bảng đơn giản, KHÔNG drawer), không phải trang `#/explorer` đầy đủ. Explorer nhúng bấm content = không phản hồi (cụt).
-3. **KPI Tổng Quan không click-drill** (trông như bấm được nhưng không).
-4. **`body` color mặc định đen** (Tailwind preflight) — rủi ro chữ chưa style; hiện các page bọc `text-fg` nên chưa lộ.
-5. **Filter Biên tập trên Tổng Quan là UI-only** (endpoint `/summary` gom server không nhận param editor) — chỉ hoạt động ở Người Nhận/Thị Trường (lọc client-side).
-6. **Dropdown Trạng thái:** "Đã chạy-Tắt" & "Đã test-Không chạy" cùng map `status_group=DA_DUNG` (không tách được qua cơ chế lọc theo nhóm).
-7. **`base font 16px` + font-stack mặc định Tailwind** lệch DESIGN_SYSTEM (14px + stack riêng) — component override nên ít lộ.
-8. **Screenshot tool (preview)** hay timeout ở các trang nặng — dùng `preview_eval` thay thế để verify.
-
----
-
-## 7. TODO theo ưu tiên
-
-**Cao**
-1. **Global filter dùng chung** giữ state khi chuyển màn (sửa bug #1).
-2. **Hợp nhất Content Explorer**: drill từ dashboard → `#/explorer?<filter>` (đã hỗ trợ đọc hash), bỏ explorer nhúng (sửa bug #2).
-3. **KPI clickable** drill (sửa bug #3).
-4. **gzip/brotli** API (compression middleware) — payload `lifecycle-table` 724KB→~100KB.
-
-**Trung bình**
-5. **`web/lib/` + hook `useApi()`** — xoá trùng lặp helper (`presetRange/liveDays/pct/ymd` lặp ở 5 page) (R5).
-6. Client cache theo filter-key (hết refetch khi quay lại màn).
-7. Tách `server.ts` (640 dòng) → `lib/transform`, `services/contents`, `routes/*`; thêm `web/types.ts`.
-8. Sticky cột đầu cho bảng Người Nhận/Top20; chuẩn font 14px + `body{color:var(--fg)}`.
-9. Dashboard **Quản lý Sync** (React, hiện stub) + nút trigger sync.
-
-**Thấp / Sprint 4**
-10. **Auth + phân quyền** Admin/Viewer (@seryn.vn), RLS, module User/Settings.
-11. **Reports** (so kỳ, export PDF), **Alerts center** (hành động được), **trend theo thời gian / năng suất** (R6).
-12. **Ghi `content_status_history`** khi sync đổi status → mở khóa Retention & cycle-time.
-13. Auto-sync (node-cron), xóa content stale, code-split route, virtual table (chỉ khi render >200 dòng).
+## 8. Known Issues / Inconsistencies
+* **Ads Monitor Phase 4/5 CHƯA commit** → `main`/Railway vẫn là Phase 3 (mock). Code trong working tree.
+* **Bảng `ads_monitor` CHƯA tồn tại** trong Supabase ("Could not find the table") → Repository fallback **mock**; dashboard Ads hiển thị `source: mock`.
+* **Ads Sheet đã cấu hình + GO-LIVE:** `ADS_SHEET_ID=1kqVs8dyOgnk5l3CsgcGlhex-eI7OHhAkS6GLKnXh4j0`, `ADS_SHEET_TAB=Raw_Data` (đã share SA `content-dashboard@content-dashboard-500413.iam.gserviceaccount.com`). Import lần đầu 9423 dòng OK.
+* **⚠️ MAPPING Raw_Data là GIẢ ĐỊNH (cần nghiệp vụ xác nhận):** Raw_Data là export FB Ads cấp ad/ngày, KHÔNG có cột content/location/ads_owner/page_code → suy ra: `content←ad_name`, `page_code←adset_name`, `ads_owner←token đầu adset_name`, `location←TQ/NN trong campaign_name`, `amount_spent←SUM bản sao theo (page_code,content,ngày)` = **chi tiêu/NGÀY**. Hệ quả: ad không chi tiêu ngày mới nhất bị tính **"Đã tắt"** (daTat=510/886). Nếu nghiệp vụ muốn status theo **chi tiêu tích lũy/đời** → đổi cách gộp ở `GoogleSheetAdsSyncProvider`. `ads_owner` chưa chuẩn hóa hoa/thường (cân nhắc join Config account_id→Ads_name).
+* **Phase 6 (#4) đã đổi hành vi fallback:** Ads Monitor mock CHỈ khi chưa cấu hình Supabase hoặc `ADS_USE_MOCK=true`; đã cấu hình mà RPC lỗi → API trả 500 (không che bằng mock).
+* ~~**Ads Monitor không chịu tải 100k** (load-all-in-memory + phân trang client)~~ → **ĐÃ SỬA Phase 5**: server-side pagination/filter/KPI bằng SQL (function `ads_monitor_query`). Còn lại: cần tạo bảng/function thật + `EXPLAIN ANALYZE` ở mốc lớn để chốt.
+* **"Test quá lâu"** tính theo **`upload_date_real`** (Ngày Up Trello) chứ KHÔNG phải `test_date_real` — `DANG_TEST` và upload cũ hơn 14 ngày. *Cần xác minh* đây có đúng ý nghiệp vụ không.
+* **Parse năm cố định 2026** trong `date-util.ts` → ~76 content năm 2025 lệch tháng/năm (đã biết, đừng "sửa" tùy ý).
+* **Scheduler không tự chạy trên Railway** (web service chỉ chạy `npm start`); sync/import chỉ mới khi chạy tay/worker.
+* **`content_status_history` rỗng** → lifecycle/retention dùng derived từ `test_date_real`.
+* **Dashboard vanilla `public/index.html`** không còn được serve (server serve `web/dist`); là legacy, đừng sửa.
+* **Filter ở phần nhúng Tổng Quan / Ads** một số chưa lọc server-side (editor lọc client; Ads filter UI-only).
+* Nhánh **`demo-v2`** = baseline `b64fc50` (trước Ads Monitor) — giữ nguyên có chủ đích.
+* **Tài liệu cũ** `PROJECT_CONTEXT.md / CURRENT_STATE.md / TODO.md / ROADMAP.md` **KHÔNG tồn tại** trong repo (chỉ có PROJECT_SPEC/BACKLOG/DESIGN_SYSTEM + các review R2–R6).
 
 ---
 
-## 8. File cần đọc đầu tiên
-1. `PROJECT_HANDOFF.md` (file này) · 2. `PROJECT_SPEC.md` · 3. `DESIGN_SYSTEM.md` · 4. `PROJECT_BACKLOG.md`
-5. `src/server.ts` (API + nghiệp vụ) · 6. `web/main.tsx` (router + AppShell) · 7. `web/GlobalFilter.tsx`
-8. `src/components/ui/tokens.ts` (màu + statusStyle) · 9. một page mẫu `web/OverviewPage.tsx` · 10. `mapping-spec.md`.
+## 9. Important Decisions (không tự ý đổi)
+* **KHÔNG Authentication** — dùng **Share Link**. Sprint Auth đã **Cancelled** (`PROJECT_BACKLOG.md`). Đừng tái tạo tài liệu/đề xuất Auth.
+* **PROJECT_SPEC.md là source of truth** — mọi thay đổi schema/API/sync/dashboard phải cập nhật vào đó.
+* **KPI bất biến:** Đã test = {Đang test, Duy trì-*, Đã test-ko chạy, Đã chạy-Tắt}; Thành công = {Duy trì-*, Đã chạy-Tắt}; Tỷ lệ thành công = Thành công ÷ Đã test. **Vòng đời = today − `test_date_real`** (Ngày Set Ads), KHÔNG dùng upload.
+* **"Content được cấp" tính theo Ngày Up Trello** (`upload_date_real`).
+* **status_group / màu trạng thái chuẩn** (xem `tokens.ts` + DESIGN_SYSTEM §11): Duy trì=xanh lá · Đang test=vàng · Chờ chạy=cam · Không duyệt=đỏ · Đã test-ko chạy=xám · Đã chạy-Tắt=xanh dương nhạt.
+* **Ads status KHÔNG lưu cứng** — luôn tính `calculateAdsStatus(amount_spent)`: =0 Đã tắt · ≤100k Mới chạy · ≤4.999.999 Đang test · ≥5tr Đang duy trì. Badge: 🔴🟡🟠🟢.
+* **Ads Monitor là module độc lập** — KHÔNG dùng service/repo/bảng của Dashboard Content.
+* **Ràng buộc chung:** không đổi DB schema (thêm migration mới), không đổi công thức KPI/lifecycle/sync, API chỉ thêm additive, không mock khi đã có dữ liệu thật, không tạo màu/typography ngoài DESIGN_SYSTEM, backward-compatible.
 
 ---
 
-## 9. File KHÔNG sửa nếu không thật cần
-- `public/index.html` (**dashboard vanilla** — bản gốc, dễ vỡ; đừng đụng).
-- `src/sync-all-content.ts`, `src/backfill-dates.ts`, `src/date-util.ts` (sync/dữ liệu đã chạy ổn).
-- `sql/*.sql` (migrations đã áp; muốn đổi schema → tạo file mới `005_*.sql`).
-- `.env`, `credentials/credentials.json` (bí mật, không commit).
-- `src/components/ui/*` & `layout/*` — chỉ **thêm prop/biến thể**, đừng đổi API component đang dùng.
+## 10. Environment (biến môi trường)
+| Biến | Bắt buộc | Dùng cho |
+|---|---|---|
+| `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` | ✅ (server throw nếu thiếu) | Server + Sync + Ads |
+| `SUPABASE_ANON_KEY` | ⏺ | `/api/config` (realtime) |
+| `GOOGLE_SHEET_ID` · `GOOGLE_CREDENTIALS_PATH` | ✅ (cho sync Content) | Sync Content |
+| `PORT` | (Railway cấp; default 4000) | Express |
+| `SYNC_ENABLED` · `SYNC_CRON` (default `*/15 * * * *`) · `SYNC_PRUNE_STALE` (default true) | ⏺ | Scheduler + khử trùng |
+| `ADS_SHEET_ID` · `ADS_SHEET_TAB` | ⏺ (cho import Ads) | Ads Import — **CHƯA cấu hình** |
+> `.env` gitignored. `.env.example` là template (commit). `credentials/*.json` gitignored.
 
 ---
 
-## 10. Ràng buộc bắt buộc
-- ❌ KHÔNG đổi **database schema** (Supabase) — cần đổi thì thêm migration `sql/00x_*.sql` + cập nhật PROJECT_SPEC.
-- ❌ KHÔNG đổi **công thức KPI / logic vòng đời / logic sync / query gốc**.
-- ❌ KHÔNG đổi **API** trừ **additive** (thêm field/param tùy chọn) và phải không phá vanilla dashboard.
-- ❌ KHÔNG **mock dữ liệu** — luôn Supabase/Sheets thật.
-- ❌ KHÔNG tự tạo **màu mới / typography mới** ngoài DESIGN_SYSTEM.
-- ❌ KHÔNG sửa **dashboard khác** khi đang làm 1 dashboard.
-- ✅ LUÔN **backward compatible** (vanilla dashboard vẫn chạy; param mới là optional).
-- ✅ LUÔN cập nhật `PROJECT_SPEC.md` (và `DESIGN_SYSTEM.md`/`BACKLOG` khi liên quan) cùng thay đổi.
+## 11. Deployment Status
+* **GitHub:** `github.com/anhdtk-ship-it/content-dashboard`. Nhánh: **`main`** (`793934a`, Phase 3) · **`demo-v2`** (`b64fc50`, baseline trước Ads). *Phase 4/5 chưa push.*
+* **Railway:** deploy từ `main`. Bind `0.0.0.0`, serve `web/dist` + API. Domain `content-dashboard-production-4e96.up.railway.app`. ⚠️ Scheduler/import KHÔNG tự chạy trên web service.
+* **Supabase:** project đang dùng (URL trong `.env`). Bảng Content có dữ liệu (~1469 content); `ads_monitor` **chưa tạo**.
+* **Vercel:** không dùng.
+* **Domain khác:** không. (Service Account Google + Trello link trong dữ liệu.)
 
 ---
 
-## 11. Feature đang dang dở
-- **GlobalFilter (S3-001.1):** đã xong UI + wire ở 3 dashboard. **Còn lại:** (a) filter Biên tập trên Tổng Quan chỉ UI (cần `/summary` hỗ trợ param `editor` — nhưng đang cấm đổi API; cân nhắc client-side hoặc thêm param additive); (b) tách "Đã chạy-Tắt" vs "Đã test-ko chạy" trong dropdown cần filter theo raw status (hiện chỉ status_group).
-- **Stub Sync/User/Settings:** mới là `EmptyState` "đang phát triển". Bước tiếp: dựng React Sync page từ `/api/v3/sync-status` (vanilla đã có mẫu trong `public/index.html`).
+## 12. Database Status
+* **Schema:** `contents` (PK id, content_code, title, market, assignee_name, cgsd, editor_name, trello_link, upload_date(_real), current_status, test_date(_real), created_at; UNIQUE (content_code,market,assignee_name)) · `sync_logs` · `content_status_history` (rỗng).
+* **Migration:** `sql/001..004` đã áp dụng. **`sql/005_ads_monitor.sql` CHƯA áp dụng** (Phase 5: bảng `ads_monitor` — content/location/ads_owner/page_code/amount_spent/updated_at/created_at/**sheet_date NOT NULL**, **không có cột status**, **unique `(page_code,content,sheet_date)`** = snapshot ngày · **VIEW `ads_monitor_latest`** DISTINCT ON · **FUNCTION `ads_monitor_query()`** trả `{kpi,total,items}` bằng SQL).
+* **Thay đổi gần đây:** xóa 53 content mồ côi (Supabase 1522→1469); sync giờ tự khử trùng stale.
 
 ---
 
-## 12. Giả định KHÔNG được tự ý đưa ra
-- Đừng giả định **năm** của ngày `dd/mm` ngoài **2026** (đã cố định trong `date-util.ts`; có ~76 content 2025 sẽ lệch năm — đã biết, đừng "sửa" tùy ý).
-- Đừng giả định `content_code` **unique** — KHÔNG unique; khóa là `(content_code, market, assignee_name)`.
-- Đừng giả định `content_status_history` **có dữ liệu** — hiện rỗng; lifecycle dùng **derived** từ `test_date_real`.
-- Đừng giả định **Chart.js có trong app React** — app React dùng thanh HTML; Chart.js chỉ ở vanilla.
-- Đừng giả định **filter giữ state giữa màn** — hiện KHÔNG.
-- Đừng giả định **`today`** = ngày thật của bạn — code dùng giờ máy (≈2026-06-25).
-- Đừng giả định Bash **cwd** đã đúng — luôn `cd` vào content-dashboard.
+## 13. Google Sheets Status
+* **Content (đang kết nối):** spreadsheet `1G2ZY21nszf-F1Q6bIMunymOaHysecj-S2iAelqnQNdc`, 16 tab — dùng 8 tab `NĐ/QT × Hiếu/Ánh/KA/Liên` (loại trừ Khiêm + tab phụ). Sync: chạy tay `npm run sync` (hoặc scheduler nếu bật). Mapping ở `mapping-spec.md` + `transformSheet`.
+* **Ads (CHƯA kết nối):** spreadsheet RIÊNG, `ADS_SHEET_ID` chưa đặt. Mapping (theo tên header): Content→content · Địa lý→location · Nhân viên Ads→ads_owner · Mã Page→page_code · Amount Spent→amount_spent · Ngày→sheet_date. status KHÔNG đọc từ Sheet.
+* **Còn thiếu:** ID + tab spreadsheet Ads, share quyền đọc cho Service Account, chạy import lần đầu, xác minh khóa định danh.
+* **Phase 5 — lịch sử theo ngày:** khóa import giờ là `(page_code, content, sheet_date)`; cột `Ngày` trên Sheet → `sheet_date` (rỗng → ngày chạy import). Mỗi ngày = 1 snapshot, dashboard hiển thị mới nhất qua VIEW `ads_monitor_latest`.
 
 ---
 
-## 13. Lệnh chạy project
-```bash
-cd /c/Users/Admin/Downloads/wesd/content-dashboard
-
-# Cài đặt (nếu cần)
-npm install
-
-# Backend API (Express, :4000) — phục vụ vanilla dashboard + API
-npm run dashboard          # = ts-node src/server.ts
-
-# Frontend React refactor (Vite, :5173, proxy /api -> :4000)
-npm run web:dev
-
-# Build kiểm tra React (bắt lỗi compile/Tailwind)
-npx vite build             # hoặc: npm run web:build
-
-# Type-check component libraries
-npm run typecheck:ui
-npm run typecheck:layout
-
-# Đồng bộ dữ liệu Sheet -> Supabase (chạy tay khi sheet đổi)
-npm run sync
-npm run backfill           # sinh lại *_real
-
-# Server.ts type-check
-npx tsc --noEmit
-```
-> Migrations `sql/*.sql` chạy **thủ công** trong Supabase SQL Editor (không qua CLI).
+## 14. Session Summary (phiên gần nhất)
+* Dashboard Content: đổi tên "Người Nhận"→"Tiến độ Test Content"/"Nhân viên Ads"; đồng bộ GlobalFilter; tên Biên tập đầy đủ; **drill-down "Cần xử lý"** (Drawer 2 filter); **So sánh tháng**; **V5**: gộp Markets standalone + Explorer/Lifecycle tabs + nhúng chart/bảng vào Tổng Quan + bỏ filter thứ 2; **fix tooltip portal**; **zoom 1.1**.
+* Sync: **khử trùng stale** (xóa 53 mồ côi, fix lệch dữ liệu vs Sheet); fix Railway 502 (`0.0.0.0` + `/health` + serve `web/dist`); fix `package.json` engines.
+* **Ads Monitor**: Phase 1 (scaffold) → 5 (nối Supabase + frontend→API + verify). Phase 1-3 đã commit/push; **Phase 4-5 chưa commit**.
+* **Phase 5 (Performance & Architecture) — phiên này:** server-side pagination + filter + sort + KPI bằng SQL (VIEW `ads_monitor_latest` + FUNCTION `ads_monitor_query`); bỏ `findAll()` load-all; đổi khóa sang snapshot ngày `(page_code,content,sheet_date)` để **giữ lịch sử**; import idempotent theo ngày; frontend chuyển sang fetch server-side (giao diện giữ nguyên). Typecheck + vite build sạch; verify đường mock OK. **Chưa commit, chưa tạo bảng/function trên Supabase.**
 
 ---
 
-## 14. Lỗi đã gặp & cách xử lý
-- **ts-node "exit 0 không output" với `import`**: thiếu `tsconfig.json` (Node 24 + TS6). Đã thêm `module:commonjs` + `ignoreDeprecations:"6.0"`.
-- **`@supabase/supabase-js` làm mất `@types/node`**: thêm `"types":["node"]` vào tsconfig server.
-- **Tailwind v3 (project cha) xung đột v4**: `css:{postcss:{plugins:[]}}` trong `vite.config.ts` để @tailwindcss/vite tự xử lý.
-- **Tailwind không sinh class trong `src/components`**: thêm `@source "../src/components/ui"` & `layout` trong `web/styles.css`.
-- **Class layout (lg:w-[60px]) không áp**: dùng `max-lg:w-[240px]` thay base `w-[240px]`; và **restart Vite dev** để regen CSS.
-- **sync_logs schema khác migration**: dùng đúng cột thật (`rows_inserted/rows_updated/error_message`, không `duration_ms/detail`).
-- **content_code/sheet có khoảng trắng thừa** (`QT Liên `): resolve tên sheet thật từ metadata trước khi đọc.
-- **Bash cwd nhảy về cha** → luôn `cd` đầy đủ.
-- **Screenshot timeout** → verify bằng `preview_eval`.
+## 15. Next Session Instructions (cho Claude mới)
+1. **Đọc trước:** file này → `PROJECT_SPEC.md` → `PROJECT_BACKLOG.md` → `DESIGN_SYSTEM.md`. Source chính: `src/server.ts`, `web/main.tsx`, `web/GlobalFilter.tsx`, `src/components/ui/tokens.ts`, và toàn bộ `src/ads-monitor/` + `web/ads-monitor/`.
+2. **cwd:** luôn `cd /c/Users/Admin/Downloads/wesd/content-dashboard` (Bash hay nhảy về `wesd` — project Next.js khác).
+3. **Chạy:** `npm run dashboard` (Express :4000, serve web/dist + API) · `npm run dev` (Vite :5173, proxy `/api` + `/ads-monitor` → :4000) · `npm run build` (vite build) · `npm run typecheck`. Sync: `npm run sync` / `scheduler` / `ads:import` / `ads:verify`. Sau khi sửa `server.ts`/`src/ads-monitor` phải **restart Express** (ts-node không reload).
+4. **Git/Deploy:** làm trên `main`; commit + `git push origin main` → Railway tự deploy. **`git status` đang có Phase 4/5 chưa commit** — quyết định commit trước khi làm việc mới. Repo dùng `git config` local (user.email phamcao62@gmail.com).
+5. **Verify:** screenshot tool hay timeout → dùng `preview_eval` (DOM) hoặc test trên bản build qua Express :4000 (`/#/...`). Đối chiếu Supabase bằng script `ts-node` tạm rồi xóa.
+6. **TUYỆT ĐỐI KHÔNG:** đổi KPI/lifecycle/sync formula, đổi DB schema (thêm migration mới), sửa `public/index.html` (legacy), tái tạo Authentication, dùng service/repo Content cho Ads. Ads Monitor giữ độc lập.
+7. **Việc tiếp theo gợi ý:** xem §7 (P1: commit Phase 4/5 + tạo `ads_monitor` + cấu hình Ads Sheet; P2: scale 100k server-side).
 
----
-
-## 15. Danh sách file đã chỉnh sửa/ tạo trong phiên này
-**Tạo mới:** toàn bộ `src/components/ui/*` (16 file), `src/components/layout/*` (12 file), `web/*` (index.html, main.tsx, styles.css, OverviewPage, AssigneesPage, MarketsPage, ExplorerPage, LifecyclePage, GlobalFilter), `vite.config.ts`, `tailwind.config.js`; các tài liệu `PROJECT_SPEC.md, PROJECT_BACKLOG.md, DESIGN_SYSTEM.md, WIREFRAMES.md, SPRINT_REVIEW_2.md, UI_REVIEW_R2.md, UX_REVIEW_R3.md, PERF_REVIEW_R4.md, CODE_REVIEW_R5.md, BUSINESS_REVIEW_R6.md, PROJECT_HANDOFF.md`; `sql/001..004`.
-**Sửa:** `src/server.ts` (thêm field additive: `editor_name` vào lifecycle-table; `status_group,trello_link` vào lifecycle top20; endpoints lifecycle/contents/sync-status; dateField test_date_real), `package.json` (scripts + deps), `tsconfig.json` (exclude components, ignoreDeprecations), `src/sync-all-content.ts` (sinh `*_real`).
-**Sửa S3-001/001.1:** `src/components/layout/AppShell.tsx`, `Sidebar.tsx`; `web/main.tsx`; `web/{Overview,Assignees,Markets,Explorer,Lifecycle}Page.tsx`; `src/components/ui/{tokens.ts,StatusBadge.tsx,KPICard.tsx,PageContainer.tsx}`; `web/GlobalFilter.tsx`; `DESIGN_SYSTEM.md`.
-
----
-
-## 16. Context kỹ thuật trước khi viết code
-- **Hai tsconfig riêng** cho `src/components/ui` và `layout` (jsx react-jsx, ESM). Server dùng tsconfig gốc (commonjs, **exclude `src/components/**`**). Đừng để server build quét file `.tsx`.
-- **Tailwind v4**: cấu hình màu qua `@theme` trong `web/styles.css` (map sang CSS var trong `tokens.css`). Class arbitrary (`text-[#fb923c]`, `h-11`) hợp lệ. Thêm class mới trong `src/components` → **restart Vite dev** mới có CSS.
-- **Vite root = `web/`**, proxy `/api` → `:4000`. Phải có **Express chạy song song** mới có dữ liệu.
-- **Server cache 10s**: sau khi sửa server.ts phải **restart Express** (ts-node không reload); dữ liệu có thể trễ ≤10s.
-- **DetailDrawer** (Explorer) đã export, tái dùng ở Lifecycle — đừng tạo drawer mới.
-- **GlobalFilter** lấy danh sách Biên tập bằng 1 fetch `/api/v3/lifecycle-table` (cache module-level) — read-only.
-- **Verify chuẩn:** `preview_eval` đọc DOM/computed-style; đối chiếu Supabase bằng script `ts-node` tạm (`src/_x.ts` rồi `rm`). Đừng tin "cảm giác" — đo.
-- **Realtime**: client dùng anon key (`/api/config`), polling 30s fallback.
-
----
-
-## 17. (đã đặt ở đầu — xem mục 0 "START HERE")
-```
-
-> Nếu chỉ đọc 1 mục: đọc **mục 0 START HERE**. Nếu sắp viết code: đọc thêm **mục 5 (quyết định)**, **mục 10 (ràng buộc)**, **mục 16 (context kỹ thuật)**.
-```
+> Nếu chỉ đọc 1 mục: đọc **§9 (Important Decisions)** + **§8 (Known Issues)** trước khi viết code.

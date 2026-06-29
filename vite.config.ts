@@ -10,6 +10,7 @@ export default defineConfig({
   // Chặn Vite nạp postcss.config của project cha (Tailwind v3) — để @tailwindcss/vite tự xử lý.
   css: { postcss: { plugins: [] } },
   server: {
-    proxy: { '/api': 'http://localhost:4000' },
+    // /api: Dashboard Content · /ads-monitor: API module Ads Monitor (Phase 5)
+    proxy: { '/api': 'http://localhost:4000', '/ads-monitor': 'http://localhost:4000' },
   },
 });

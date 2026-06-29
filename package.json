@@ -13,6 +13,8 @@
     "dashboard": "ts-node src/server.ts",
     "sync": "ts-node src/sync-all-content.ts",
     "scheduler": "ts-node src/sync-scheduler.ts",
+    "ads:import": "ts-node src/ads-monitor/import.ts",
+    "ads:verify": "ts-node src/ads-monitor/verify.ts",
     "backfill": "ts-node src/backfill-dates.ts",
     "typecheck:ui": "tsc -p src/components/ui/tsconfig.json",
     "typecheck:layout": "tsc -p src/components/layout/tsconfig.json",

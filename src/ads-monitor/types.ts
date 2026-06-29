@@ -24,3 +24,25 @@ export interface AdsMonitorDTO extends AdsMonitorRecord {
 export interface AdsMonitorSummary {
   total: number; duyTri: number; test: number; moiChay: number; daTat: number; totalAmount: number;
 }
+
+/** Tham số truy vấn server-side (PHASE 5): phân trang + filter + sort. Tất cả filter chạy ở SQL. */
+export interface AdsQueryParams {
+  page: number;
+  pageSize: number;
+  content?: string | null;
+  adsOwner?: string | null;
+  location?: string | null;
+  pageCode?: string | null;
+  status?: AdsStatus | string | null;   // map sang WHERE theo amount_spent ở SQL
+  dateFrom?: string | null;              // 'YYYY-MM-DD' (theo sheet_date)
+  dateTo?: string | null;                // 'YYYY-MM-DD'
+  sortField?: string;                    // whitelist ở SQL/route
+  sortDir?: 'asc' | 'desc';
+}
+
+/** Kết quả 1 trang (PHASE 5): chỉ chứa đúng số dòng của trang + KPI (tính bằng SQL) + tổng để phân trang. */
+export interface AdsQueryResult {
+  items: AdsMonitorRecord[];
+  total: number;                         // số dòng khớp TẤT CẢ filter (gồm status) — cho phân trang
+  kpi: AdsMonitorSummary;                // KPI theo dimension+ngày (KHÔNG lọc status) — cho 6 thẻ
+}

@@ -1,29 +1,37 @@
-/* Ads Monitor — Service (PHASE 3). Ghép Repository + tính status bằng calculateAdsStatus().
- * Hiện chỉ MOCK, chưa đọc Google Sheet. */
-import { AdsMonitorRepository } from './AdsMonitorRepository';
+/* Ads Monitor — Service (PHASE 5). Gọi Repository.query() (SQL server-side) — KHÔNG tải toàn bộ.
+ * status LUÔN tính bằng calculateAdsStatus(amount_spent) — KHÔNG đọc/lưu status.
+ * KPI lấy thẳng từ SQL (function ads_monitor_query) — service KHÔNG COUNT/SUM trong JS. */
+import { AdsMonitorRepository, type AdsSource } from './AdsMonitorRepository';
 import { calculateAdsStatus } from './calculateAdsStatus';
-import type { AdsMonitorDTO, AdsMonitorSummary, AdsStatus } from './types';
+import type { AdsMonitorDTO, AdsMonitorSummary, AdsQueryParams } from './types';
+
+export interface AdsPagedResult {
+  items: AdsMonitorDTO[];
+  summary: AdsMonitorSummary;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  source: AdsSource;
+}
 
 export class AdsMonitorService {
   constructor(private readonly repo: AdsMonitorRepository = new AdsMonitorRepository()) {}
 
-  /** Danh sách bản ghi kèm status (tính từ amount_spent). */
-  async list(): Promise<AdsMonitorDTO[]> {
-    const records = await this.repo.findAll();
-    return records.map((r) => ({ ...r, status: calculateAdsStatus(r.amount_spent) }));
-  }
-
-  /** KPI tổng hợp — đếm theo status (tính động), tổng amount. */
-  async summary(): Promise<AdsMonitorSummary> {
-    const items = await this.list();
-    const count = (s: AdsStatus) => items.filter((x) => x.status === s).length;
+  /** Lấy đúng 1 trang (kèm status tính động) + KPI (từ SQL) + tổng + nguồn. 1 query. */
+  async getData(params: AdsQueryParams): Promise<AdsPagedResult> {
+    const { items: records, total, kpi } = await this.repo.query(params);
+    const items = records.map((r) => ({ ...r, status: calculateAdsStatus(r.amount_spent) }));
+    const summary: AdsMonitorSummary = {
+      total: kpi.total, duyTri: kpi.duyTri, test: kpi.test,
+      moiChay: kpi.moiChay, daTat: kpi.daTat, totalAmount: kpi.totalAmount,
+    };
+    const pageSize = params.pageSize;
     return {
-      total: items.length,
-      duyTri: count('Đang duy trì'),
-      test: count('Đang test'),
-      moiChay: count('Mới chạy'),
-      daTat: count('Đã tắt'),
-      totalAmount: items.reduce((sum, x) => sum + x.amount_spent, 0),
+      items, summary, total,
+      page: params.page, pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      source: this.repo.source,
     };
   }
 }

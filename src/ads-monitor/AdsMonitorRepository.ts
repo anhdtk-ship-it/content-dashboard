@@ -1,17 +1,160 @@
-/* Ads Monitor — Repository riêng (PHASE 3).
- * KHÔNG dùng bảng/repository của Dashboard Content. KHÔNG đọc Supabase/Sheet ở phase này.
- * Hiện trả MOCK; Phase 4+ sẽ đọc bảng `ads_monitor` (hoặc qua AdsMonitorSyncProvider). */
-import type { AdsMonitorRecord } from './types';
+/* Ads Monitor — Repository (PHASE 5): truy vấn SERVER-SIDE qua Postgres function `ads_monitor_query`.
+ * KHÔNG còn findAll() tải toàn bộ bảng vào RAM. Phân trang/filter/KPI đều tính ở SQL.
+ * KHÔNG dùng repo/bảng của module khác. KHÔNG đọc cột `status` (status tính ở tầng app / CASE WHEN SQL).
+ * Fallback an toàn về MOCK (tính trong RAM — mock chỉ ~30 dòng) khi function/bảng chưa tồn tại / đọc lỗi. */
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { AdsMonitorRecord, AdsQueryParams, AdsQueryResult } from './types';
 import { MOCK_ADS_RECORDS } from './mock';
 
+export type AdsSource = 'supabase' | 'mock';
+
 export class AdsMonitorRepository {
-  /** Lấy toàn bộ bản ghi thô (chưa kèm status). */
-  async findAll(): Promise<AdsMonitorRecord[]> {
-    return MOCK_ADS_RECORDS;
+  /** Nguồn dữ liệu của lần query gần nhất (để API báo minh bạch). */
+  public source: AdsSource = 'mock';
+  private readonly supa: SupabaseClient | null;
+  /** Đã cấu hình Supabase? (có URL + service key). */
+  private readonly configured: boolean;
+  /**
+   * Cho phép fallback mock hay không (PHASE 6 — Go Live):
+   *   - CHƯA cấu hình Supabase  → mock (môi trường dev/chưa kết nối).
+   *   - ĐÃ cấu hình             → KHÔNG mock; lỗi RPC sẽ NÉM ra (không che dữ liệu thật bằng mock),
+   *                               TRỪ khi đặt rõ cờ dev ADS_USE_MOCK=true.
+   */
+  private readonly allowMock: boolean;
+
+  constructor() {
+    const url = process.env.SUPABASE_URL?.trim();
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    this.configured = !!(url && key);
+    this.supa = this.configured ? createClient(url!, key!, { auth: { persistSession: false } }) : null;
+    this.allowMock = !this.configured || process.env.ADS_USE_MOCK === 'true';
   }
 
-  /** Tìm theo page_code (mock). */
-  async findByPageCode(pageCode: string): Promise<AdsMonitorRecord[]> {
-    return MOCK_ADS_RECORDS.filter((r) => r.page_code === pageCode);
+  /** Truy vấn 1 trang + KPI bằng SQL (function ads_monitor_query). 1 round-trip. */
+  async query(p: AdsQueryParams): Promise<AdsQueryResult> {
+    // Chưa cấu hình Supabase → chỉ có thể dùng mock (dev).
+    if (!this.supa) { this.source = 'mock'; return mockQuery(p); }
+    try {
+      const { data, error } = await this.supa.rpc('ads_monitor_query', {
+        p_content: p.content ?? null,
+        p_ads_owner: p.adsOwner ?? null,
+        p_location: p.location ?? null,
+        p_page_code: p.pageCode ?? null,
+        p_status: p.status ?? null,
+        p_date_from: p.dateFrom ?? null,
+        p_date_to: p.dateTo ?? null,
+        p_sort_field: p.sortField ?? 'updated_at',
+        p_sort_dir: p.sortDir ?? 'desc',
+        p_page: p.page,
+        p_page_size: p.pageSize,
+      });
+      if (error) throw error;
+      const r = (data ?? {}) as any;
+      this.source = 'supabase';
+      return {
+        items: (r.items ?? []).map(normalizeRow),
+        total: Number(r.total) || 0,
+        kpi: normalizeKpi(r.kpi),
+      };
+    } catch (e: any) {
+      // PHASE 6: đã cấu hình mà vẫn dùng mock sẽ che lỗi production → chỉ mock khi được phép (dev).
+      if (this.allowMock) {
+        console.warn(`[ads_monitor] RPC lỗi → fallback mock (ADS_USE_MOCK/dev): ${e?.message ?? e}`);
+        this.source = 'mock';
+        return mockQuery(p);
+      }
+      console.error(`[ads_monitor] RPC ads_monitor_query lỗi (đã cấu hình Supabase, KHÔNG fallback mock): ${e?.message ?? e}`);
+      throw new Error(`Ads Monitor đọc Supabase lỗi: ${e?.message ?? e}`);
+    }
   }
+}
+
+function normalizeRow(x: any): AdsMonitorRecord {
+  return {
+    id: x.id,
+    content: x.content ?? '',
+    location: x.location ?? '',
+    ads_owner: x.ads_owner ?? '',
+    page_code: x.page_code ?? '',
+    amount_spent: Number(x.amount_spent) || 0,
+    updated_at: x.updated_at,
+    created_at: x.created_at ?? x.updated_at,
+    sheet_date: x.sheet_date ?? null,
+  };
+}
+
+function normalizeKpi(k: any): AdsQueryResult['kpi'] {
+  return {
+    total: Number(k?.total) || 0,
+    duyTri: Number(k?.duyTri) || 0,
+    test: Number(k?.test) || 0,
+    moiChay: Number(k?.moiChay) || 0,
+    daTat: Number(k?.daTat) || 0,
+    totalAmount: Number(k?.totalAmount) || 0,
+  };
+}
+
+/* ----------------------------------------------------------------------------
+ * Fallback MOCK — mô phỏng ĐÚNG ngữ nghĩa SQL: latest theo (page_code, content),
+ * lọc dimension+ngày, KPI trên tập dimension, filter status, sort, phân trang.
+ * Chỉ chạy khi không có DB / function chưa tạo (mock ~30 dòng → rẻ).
+ * -------------------------------------------------------------------------- */
+function statusMatches(amount: number, status?: string | null): boolean {
+  if (!status) return true;
+  switch (status) {
+    case 'Đã tắt': return amount <= 0;
+    case 'Mới chạy': return amount >= 1 && amount <= 100_000;
+    case 'Đang test': return amount >= 100_001 && amount <= 4_999_999;
+    case 'Đang duy trì': return amount >= 5_000_000;
+    default: return true;
+  }
+}
+
+function mockQuery(p: AdsQueryParams): AdsQueryResult {
+  const ilike = (hay: string, needle?: string | null) => !needle || hay.toLowerCase().includes(needle.toLowerCase());
+  // 1) lọc dimension + ngày TRƯỚC khi gộp (giống SQL).
+  const rowsIn = MOCK_ADS_RECORDS.filter((r) =>
+    ilike(r.content, p.content) &&
+    (!p.adsOwner || r.ads_owner === p.adsOwner) &&
+    (!p.location || r.location === p.location) &&
+    ilike(r.page_code, p.pageCode) &&
+    (!p.dateFrom || (r.sheet_date ?? '') >= p.dateFrom) &&
+    (!p.dateTo || (r.sheet_date ?? '') <= p.dateTo));
+  // 2) TÍCH LŨY/ĐỜI: gộp SUM(amount_spent) theo (page_code, content) qua mọi ngày.
+  const aggMap = new Map<string, AdsMonitorRecord>();
+  for (const r of rowsIn) {
+    const k = `${r.page_code}||${r.content}`;
+    const cur = aggMap.get(k);
+    if (cur) {
+      cur.amount_spent += r.amount_spent;
+      if ((r.sheet_date ?? '') > (cur.sheet_date ?? '')) cur.sheet_date = r.sheet_date;
+      if (r.updated_at > cur.updated_at) cur.updated_at = r.updated_at;
+    } else {
+      aggMap.set(k, { ...r });
+    }
+  }
+  const dim = [...aggMap.values()];
+
+  // 3) KPI trên tập dimension (KHÔNG lọc status)
+  const kpi = {
+    total: dim.length,
+    daTat: dim.filter((r) => r.amount_spent <= 0).length,
+    moiChay: dim.filter((r) => r.amount_spent >= 1 && r.amount_spent <= 100_000).length,
+    test: dim.filter((r) => r.amount_spent >= 100_001 && r.amount_spent <= 4_999_999).length,
+    duyTri: dim.filter((r) => r.amount_spent >= 5_000_000).length,
+    totalAmount: dim.reduce((s, r) => s + r.amount_spent, 0),
+  };
+
+  // 4) filter status → 5) sort → 6) phân trang
+  const filtered = dim.filter((r) => statusMatches(r.amount_spent, p.status));
+  const field = (p.sortField ?? 'updated_at') as keyof AdsMonitorRecord;
+  const dir = p.sortDir === 'asc' ? 1 : -1;
+  filtered.sort((a, b) => {
+    const av = a[field] as any, bv = b[field] as any;
+    if (av === bv) return 0;
+    return (av > bv ? 1 : -1) * dir;
+  });
+  const start = (Math.max(1, p.page) - 1) * p.pageSize;
+  const items = filtered.slice(start, start + p.pageSize);
+  return { items, total: filtered.length, kpi };
 }

@@ -293,4 +293,36 @@ content-dashboard/
 
 ---
 
+## 11. Ads Monitor (module độc lập) — PHASE 5: tối ưu chịu tải 100k–500k+
+
+> Module ĐỘC LẬP với Dashboard Content (không dùng chung service/repo/bảng). `status` KHÔNG lưu — luôn tính từ `amount_spent` (`calculateAdsStatus` ở app / `CASE WHEN` ở SQL): `=0` Đã tắt · `1–100.000` Mới chạy · `100.001–4.999.999` Đang test · `≥5.000.000` Đang duy trì.
+
+### 11.1 Schema (`sql/005_ads_monitor.sql`) — mô hình LƯU LỊCH SỬ THEO NGÀY
+- Bảng `ads_monitor(id, content, location, ads_owner, page_code, amount_spent, updated_at, created_at, sheet_date NOT NULL)`. **KHÔNG có cột `status`.**
+- **Khóa snapshot:** `UNIQUE (page_code, content, sheet_date)` (thay cho `(page_code, content)` cũ — đã đổi để **giữ lịch sử theo ngày**, không ghi đè).
+- **VIEW `ads_monitor_latest`** = `DISTINCT ON (page_code, content) … ORDER BY sheet_date DESC` → "mới nhất" cho mỗi quảng cáo.
+- **FUNCTION `ads_monitor_query(...)`** (plpgsql, STABLE): nhận filter + phân trang + sort, trả JSON `{ kpi, total, items }` — KPI bằng `COUNT/SUM/FILTER`, list bằng `LIMIT/OFFSET`, tất cả ở SQL.
+
+### 11.2 Index (giải thích)
+- `ads_monitor_daily_key UNIQUE (page_code, content, sheet_date DESC)` — idempotent upsert theo ngày **+** phục vụ `DISTINCT ON` của view latest.
+- `ads_monitor_sheet_date_idx (sheet_date)` — lọc theo ngày/khoảng ngày + truy vấn lịch sử.
+- `ads_monitor_owner_idx (ads_owner)` — lọc "Nhân viên Ads".
+- *Cố ý KHÔNG tạo:* `page_code` (đã là prefix của khóa), `amount_spent` (lọc trên tập latest nhỏ), `location` (cardinality cực thấp), `content` (ILIKE substring → btree vô dụng; dùng `pg_trgm` nếu cần sau).
+
+### 11.3 API — `GET /ads-monitor` (SERVER-SIDE)
+- Query params: `page, pageSize, content, adsOwner, location, pageCode, status, sheetDate (hoặc dateFrom/dateTo), sortField, sortDirection`.
+- Trả: `{ items, summary, total, page, pageSize, totalPages, source, generatedAt }`. `source` = `supabase|mock`.
+- **KHÔNG còn `findAll()` tải toàn bộ.** Filter/sort/phân trang/KPI đều ở SQL (function). Repository fallback **mock** (tính trong RAM, ~30 dòng) khi bảng/function chưa tồn tại.
+
+### 11.4 Import (`npm run ads:import`) + Mapping Sheet thật (PHASE 6 — Go Live)
+- Upsert theo khóa `(page_code, content, sheet_date)`; `sheet_date` rỗng → ngày chạy import. Import lại cùng ngày = idempotent; ngày khác = dòng mới (giữ lịch sử). Verify: `npm run ads:verify`.
+- **Nguồn thật:** `ADS_SHEET_TAB=Raw_Data` — export **Facebook Ads cấp ad/ngày** (cột `date, account_*, campaign_name, adset_name, ad_name, amount_spent, ...`). KHÁC giả định 6-cột ban đầu.
+- **Mapping (`GoogleSheetAdsSyncProvider`, suy luận từ dữ liệu — GIẢ ĐỊNH, cần nghiệp vụ xác nhận):**
+  - `content ← ad_name` · `page_code ← adset_name` · `ads_owner ← token đầu adset_name` · `location ← 'TQ'|'NN' tách từ campaign_name` · `sheet_date ← date`.
+  - `amount_spent ← SUM` theo `(page_code, content, sheet_date)` (gộp các bản sao ad trong cùng ngày) ⇒ **chi tiêu/NGÀY**.
+- **⚠️ Ngữ nghĩa cần chốt:** ngưỡng status (`≥5tr`…) đang áp trên chi tiêu/ngày của ngày mới nhất → ad không chi ngày cuối = "Đã tắt". Nếu muốn theo chi tiêu **tích lũy/đời**, đổi cách gộp ở provider (chưa làm).
+- Kết quả import lần đầu: 9423 dòng thô (lịch sử 2026-03-23→06-28), 886 ad ở VIEW latest.
+
+---
+
 > **Quy tắc vàng:** PR/commit nào đổi schema, API, sync, dashboard, phân quyền → **cập nhật PROJECT_SPEC.md trong cùng thay đổi đó**.

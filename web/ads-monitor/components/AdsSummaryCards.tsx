@@ -1,10 +1,10 @@
-/* Ads Monitor — thanh KPI 6 card (mock). Tái dùng KPICard để đồng bộ style. */
+/* Ads Monitor — thanh KPI 6 card (PHASE 5: dữ liệu từ API qua prop summary). */
 import { KPICard } from '../../../src/components/ui';
-import { MOCK_SUMMARY } from '../services/mockAds';
+import type { AdsSummary } from '../types/ads';
 import { formatNumber, formatVND } from '../utils/format';
 
-export function AdsSummaryCards() {
-  const s = MOCK_SUMMARY;
+export function AdsSummaryCards({ summary }: { summary: AdsSummary }) {
+  const s = summary;
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <KPICard label="Tổng Ads" value={formatNumber(s.total)} tone="accent" />
