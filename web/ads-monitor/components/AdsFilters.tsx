@@ -20,6 +20,9 @@ export function AdsFilters({
 }) {
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3">
+      <Field label="📅 Tháng">
+        <input type="month" className={ctrl} value={value.month} onChange={(e) => onChange({ month: e.target.value })} />
+      </Field>
       <Field label="Content">
         <SearchBox value={value.content} onChange={(v) => onChange({ content: v })} placeholder="Tìm content…" className="w-[180px]" />
       </Field>

@@ -310,7 +310,8 @@ content-dashboard/
 - *Cố ý KHÔNG tạo:* `page_code` (đã là prefix của khóa), `amount_spent` (lọc trên tập latest nhỏ), `location` (cardinality cực thấp), `content` (ILIKE substring → btree vô dụng; dùng `pg_trgm` nếu cần sau).
 
 ### 11.3 API — `GET /ads-monitor` (SERVER-SIDE)
-- Query params: `page, pageSize, content, adsOwner, location, pageCode, status, sheetDate (hoặc dateFrom/dateTo), sortField, sortDirection`.
+- Query params: `page, pageSize, content, adsOwner, location, pageCode, status, month (YYYY-MM) | sheetDate | dateFrom/dateTo, sortField, sortDirection`.
+- **Bộ lọc Tháng:** `month=YYYY-MM` (vd `2026-06`) → route đổi thành range `sheet_date >= 'YYYY-MM-01' AND <= 'YYYY-MM-<ngày cuối>'` (trên cột DATE = `< đầu tháng kế tiếp`; range scan dùng index `sheet_date`, KHÔNG dùng EXTRACT/MONTH). Ưu tiên: `month` > `sheetDate` > `dateFrom/dateTo`. Frontend mặc định **tháng hiện tại**, lọc 100% ở server.
 - Trả: `{ items, summary, total, page, pageSize, totalPages, source, generatedAt }`. `source` = `supabase|mock`.
 - **KHÔNG còn `findAll()` tải toàn bộ.** Filter/sort/phân trang/KPI đều ở SQL (function). Repository fallback **mock** (tính trong RAM, ~30 dòng) khi bảng/function chưa tồn tại.
 

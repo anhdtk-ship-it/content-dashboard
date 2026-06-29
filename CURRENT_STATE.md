@@ -3,17 +3,21 @@
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
 > Cập nhật: 2026-06-29 — sau **Phase 5** + bắt đầu **Phase 6 (Go Live)** của Ads Monitor.
 
-## Phase 6 (Go Live) — ✅ LIVE với dữ liệu thật (2026-06-29)
-- ✅ Migration `005` đã chạy trên Supabase (bảng + VIEW `ads_monitor_latest` + FUNCTION `ads_monitor_query`).
-- ✅ `.env`: `ADS_SHEET_ID=1kqVs8dyOgnk5l3CsgcGlhex-eI7OHhAkS6GLKnXh4j0`, `ADS_SHEET_TAB=Raw_Data`; SA đã được share.
-- ✅ Import lần đầu: **Read 9423 / Insert 9423 / 0 lỗi**. ads_monitor có **9423 dòng thô** (lịch sử `2026-03-23` → `2026-06-28`), VIEW latest = **886 ad**.
-- ✅ Dashboard chạy `source: supabase` (KHÔNG mock). Verify PASS (KPI SQL = tính lại). total 886 · totalAmount 209.534.542 · duyTri 2 · test 337 · moiChay 37 · daTat 510.
+## Phase 6 (Go Live) — ✅ LIVE PRODUCTION với dữ liệu thật, tích lũy (2026-06-29)
+- ✅ Migration `005` đã chạy (bảng + FUNCTION `ads_monitor_query` tích lũy). `.env` + Railway env có `ADS_SHEET_ID=1kqVs8dyOgnk5l3CsgcGlhex-eI7OHhAkS6GLKnXh4j0`, `ADS_SHEET_TAB=Raw_Data`; SA đã share.
+- ✅ Import lần đầu: **Read 9423 / Insert 9423 / 0 lỗi**. ads_monitor có **9423 dòng thô** (lịch sử `2026-03-23` → `2026-06-28`); gộp đời = **886 ad**.
+- ✅ Code Phase 4/5/6 commit + push `main` (`5207afe`); **Railway production LIVE** (`content-dashboard-production-4e96.up.railway.app`): `/health` 200, `/ads-monitor` `source: supabase`.
+- ✅ **amount_spent = TÍCH LŨY/ĐỜI** = `SUM` theo `(page_code, content)` qua mọi ngày (function GROUP BY). Verify PASS: total 886 · totalAmount **9.122.961.003** · duyTri **310** · test 563 · moiChay 5 · daTat **8**.
 - ✅ Bỏ fallback-mock âm thầm: mock CHỈ khi chưa cấu hình Supabase hoặc `ADS_USE_MOCK=true`.
 
-### ⚠️ Mapping Raw_Data (FB Ads cấp ad/ngày) — GIẢ ĐỊNH, cần nghiệp vụ xác nhận
-`content←ad_name · page_code←adset_name · ads_owner←token đầu adset_name · location←TQ/NN trong campaign_name · sheet_date←date · amount_spent←SUM bản sao theo (page_code,content,ngày)`.
-- **CẢNH BÁO ngữ nghĩa:** `amount_spent` là **chi tiêu/NGÀY** (không tích lũy). VIEW latest lấy ngày mới nhất → ad không chi tiêu ngày cuối (`2026-06-28`) bị tính **"Đã tắt"** (=0). Đó là lý do daTat=510/886. Nếu nghiệp vụ muốn trạng thái theo **chi tiêu tích lũy/đời** thì phải đổi cách gộp (chưa làm — chờ xác nhận).
-- `ads_owner` chưa chuẩn hóa hoa/thường ("LIÊN" vs "Khiêm"). Cân nhắc join Config (account_id→Ads_name) để chuẩn hơn.
+### Bộ lọc Tháng (mới) — server-side, mặc định tháng hiện tại
+- UI thêm field "📅 Tháng" (input month, MM/YYYY); API nhận `month=YYYY-MM` → route đổi thành range `sheet_date` (đầu→cuối tháng), KHÔNG đổi SQL/DDL. KPI + bảng + filter khác đều theo tháng đang chọn. Verified: 2026-06 → 391 ad/3.01B; tháng rỗng → 0; không month → 886/9.12B (đời).
+- ⚠️ Thay đổi này (route + frontend) **chưa commit/push** (kèm CURRENT_STATE/PROJECT_SPEC). Cần commit để Railway deploy.
+
+### ⚠️ Còn lại / cần lưu ý
+- **VIEW chưa khớp migration:** trên DB vẫn còn `ads_monitor_latest` (cũ), chưa tạo `ads_monitor_lifetime`. KHÔNG ảnh hưởng dashboard (app dùng FUNCTION, không dùng view). Chạy lại phần "VIEW" trong `sql/005` để khớp (tùy chọn).
+- **Mapping Raw_Data là GIẢ ĐỊNH:** `content←ad_name · page_code←adset_name · ads_owner←token đầu adset_name · location←TQ/NN từ campaign_name · sheet_date←date`. `ads_owner` chưa chuẩn hóa hoa/thường ("LIÊN" vs "Khiêm") → cân nhắc join Config (account_id→Ads_name).
+- Lịch import hằng ngày (worker riêng) + `EXPLAIN ANALYZE` ở mốc lớn — chưa làm.
 
 ## Tổng quan nhanh
 - **Dashboard Content:** ổn định (V5). KHÔNG đụng tới trong phiên này.

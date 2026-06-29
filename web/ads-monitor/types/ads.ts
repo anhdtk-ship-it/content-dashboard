@@ -37,8 +37,15 @@ export interface AdsFilterState {
   location: string;
   pageCode: string;
   status: string;
+  month: string;   // 'YYYY-MM' — rỗng = tất cả các tháng
 }
 
 export const EMPTY_FILTERS: AdsFilterState = {
-  content: '', adsOwner: 'ALL', location: 'ALL', pageCode: '', status: 'ALL',
+  content: '', adsOwner: 'ALL', location: 'ALL', pageCode: '', status: 'ALL', month: '',
 };
+
+/** Tháng hiện tại dạng 'YYYY-MM' (mặc định bộ lọc Tháng). */
+export function currentMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}

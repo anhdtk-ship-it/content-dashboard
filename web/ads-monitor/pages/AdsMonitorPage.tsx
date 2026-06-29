@@ -5,7 +5,7 @@ import { PageContainer, SectionHeader, LoadingSkeleton, EmptyState } from '../..
 import { AdsSummaryCards } from '../components/AdsSummaryCards';
 import { AdsFilters } from '../components/AdsFilters';
 import { AdsTable } from '../components/AdsTable';
-import { EMPTY_FILTERS, type AdsFilterState, type AdsResponse } from '../types/ads';
+import { EMPTY_FILTERS, currentMonth, type AdsFilterState, type AdsResponse } from '../types/ads';
 
 const PAGE_SIZE = 50;
 
@@ -21,11 +21,13 @@ function buildQuery(f: AdsFilterState, page: number, sortField: string, sortDir:
   if (f.location !== 'ALL') p.set('location', f.location);
   if (f.pageCode.trim()) p.set('pageCode', f.pageCode.trim());
   if (f.status !== 'ALL') p.set('status', f.status);
+  if (f.month) p.set('month', f.month); // YYYY-MM → server đổi thành range sheet_date
   return p.toString();
 }
 
 export function AdsMonitorPage() {
-  const [filters, setFilters] = useState<AdsFilterState>(EMPTY_FILTERS);
+  // Mặc định: tháng hiện tại (MM/YYYY).
+  const [filters, setFilters] = useState<AdsFilterState>(() => ({ ...EMPTY_FILTERS, month: currentMonth() }));
   const [page, setPage] = useState(1);
   const [sortField, setSortField] = useState('updated_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -51,7 +53,7 @@ export function AdsMonitorPage() {
 
   // Đổi filter → quay về trang 1.
   const patchFilter = (patch: Partial<AdsFilterState>) => { setFilters((f) => ({ ...f, ...patch })); setPage(1); };
-  const resetFilters = () => { setFilters(EMPTY_FILTERS); setPage(1); };
+  const resetFilters = () => { setFilters({ ...EMPTY_FILTERS, month: currentMonth() }); setPage(1); };
 
   // Click header: cùng cột → đảo chiều; cột khác → chọn cột mới (desc) và về trang 1.
   const onSort = (field: string) => {
