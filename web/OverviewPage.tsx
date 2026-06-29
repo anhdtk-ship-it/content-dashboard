@@ -217,9 +217,9 @@ export function OverviewPage() {
         )}
       </PageContainer>
 
-      {/* Di chuyển từ "Tiến độ sử dụng Content": Content theo trạng thái + Bảng xếp hạng
-          (nhúng — ẩn khối KPI riêng; giữ nguyên filter/biểu đồ/bảng/cách tính). */}
-      <AssigneesPage embedded />
+      {/* Di chuyển từ "Tiến độ sử dụng Content": Content theo trạng thái + Bảng xếp hạng.
+          Nhúng — ẩn khối KPI riêng + ẩn thanh lọc dưới; chạy theo bộ lọc trên cùng của Tổng Quan. */}
+      <AssigneesPage embedded filter={{ preset: range.preset, from: range.from, to: range.to, market, assignee, status, editor }} />
 
       {drill && (
         <AlertDrawer

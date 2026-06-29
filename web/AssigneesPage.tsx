@@ -166,9 +166,13 @@ function StatusChart({ rows }: { rows: AggRow[] }) {
 }
 
 /* ============ Page ============ */
-// `embedded`: khi nhúng vào Tổng Quan thì ẩn riêng khối KPI "Hiệu suất tổng"
-// (Tổng Quan đã có KPI nghiệp vụ). Giữ nguyên filter + chart + bảng + cách tính.
-export function AssigneesPage({ embedded = false }: { embedded?: boolean }) {
+// `embedded`: nhúng vào Tổng Quan → ẩn khối KPI "Hiệu suất tổng" (Tổng Quan đã có KPI nghiệp vụ).
+// `filter`: nếu truyền vào (khi nhúng) → dùng bộ lọc của Tổng Quan và ẩn thanh lọc riêng bên dưới.
+// Cách tính/biểu đồ/bảng giữ nguyên 100%.
+export function AssigneesPage({ embedded = false, filter }: {
+  embedded?: boolean;
+  filter?: { preset: string; from?: string; to?: string; market: string; assignee: string; status: string; editor: string };
+}) {
   const [range, setRange] = useState<DateRangeValue>({ preset: 'thismonth' });
   const [market, setMarket] = useState('ALL');
   const [assignee, setAssignee] = useState('ALL');
@@ -180,16 +184,26 @@ export function AssigneesPage({ embedded = false }: { embedded?: boolean }) {
   const [sort, setSort] = useState<SortState | null>(null);
   const [drill, setDrill] = useState<string | null>(null);
 
-  const period = range.preset === 'custom' ? { from: range.from, to: range.to } : presetRange(range.preset);
+  // Khi nhúng kèm `filter` (từ Tổng Quan) → dùng bộ lọc trên cùng; ngược lại dùng state nội bộ.
+  const controlled = embedded && !!filter;
+  const cRange: DateRangeValue = controlled
+    ? { preset: filter!.preset as DateRangeValue['preset'], from: filter!.from, to: filter!.to }
+    : range;
+  const cMarket = controlled ? filter!.market : market;
+  const cAssignee = controlled ? filter!.assignee : assignee;
+  const cStatus = controlled ? filter!.status : status;
+  const cEditor = controlled ? filter!.editor : editor;
+
+  const period = cRange.preset === 'custom' ? { from: cRange.from, to: cRange.to } : presetRange(cRange.preset);
   const query = useMemo(() => {
     const p = new URLSearchParams();
     if (period.from) p.set('from', period.from);
     if (period.to) p.set('to', period.to);
-    if (market !== 'ALL') p.set('market', market);
-    if (assignee !== 'ALL') p.set('assignee', assignee);
-    if (status !== 'ALL') p.set('status', status);
+    if (cMarket !== 'ALL') p.set('market', cMarket);
+    if (cAssignee !== 'ALL') p.set('assignee', cAssignee);
+    if (cStatus !== 'ALL') p.set('status', cStatus);
     return p.toString();
-  }, [period.from, period.to, market, assignee, status]);
+  }, [period.from, period.to, cMarket, cAssignee, cStatus]);
 
   useEffect(() => {
     let alive = true; setLoading(true);
@@ -201,7 +215,7 @@ export function AssigneesPage({ embedded = false }: { embedded?: boolean }) {
   }, [query]);
 
   // Lọc "Biên tập" phía client (additive — không đổi công thức KPI)
-  const rowsF = useMemo(() => (rows && editor !== 'ALL' ? rows.filter((r) => (r.editor_name || '') === editor) : rows), [rows, editor]);
+  const rowsF = useMemo(() => (rows && cEditor !== 'ALL' ? rows.filter((r) => (r.editor_name || '') === cEditor) : rows), [rows, cEditor]);
   const agg = useMemo(() => (rowsF ? aggregate(rowsF) : []), [rowsF]);
   const ranked = useMemo(() => {
     const arr = [...agg];
@@ -251,25 +265,27 @@ export function AssigneesPage({ embedded = false }: { embedded?: boolean }) {
   if (drill) return (
     <div className="text-fg">
       <FilterBar title="Tiến độ Test Content → Explorer" />
-      <ExplorerView assignee={drill} from={period.from} to={period.to} market={market} onBack={() => setDrill(null)} />
+      <ExplorerView assignee={drill} from={period.from} to={period.to} market={cMarket} onBack={() => setDrill(null)} />
     </div>
   );
 
   const resetAll = () => { setRange({ preset: 'thismonth' }); setMarket('ALL'); setAssignee('ALL'); setStatus('ALL'); setEditor('ALL'); setSort(null); };
   return (
     <div className="text-fg">
-      <GlobalFilter
-        value={{ preset: range.preset, from: range.from, to: range.to, market, assignee, editor, status }}
-        onChange={(p) => {
-          if ('preset' in p || 'from' in p || 'to' in p)
-            setRange({ preset: (p.preset ?? range.preset) as DateRangeValue['preset'], from: p.from ?? range.from, to: p.to ?? range.to });
-          if (p.market !== undefined) setMarket(p.market);
-          if (p.assignee !== undefined) setAssignee(p.assignee);
-          if (p.editor !== undefined) setEditor(p.editor);
-          if (p.status !== undefined) setStatus(p.status);
-        }}
-        onReset={resetAll}
-      />
+      {!controlled && (
+        <GlobalFilter
+          value={{ preset: range.preset, from: range.from, to: range.to, market, assignee, editor, status }}
+          onChange={(p) => {
+            if ('preset' in p || 'from' in p || 'to' in p)
+              setRange({ preset: (p.preset ?? range.preset) as DateRangeValue['preset'], from: p.from ?? range.from, to: p.to ?? range.to });
+            if (p.market !== undefined) setMarket(p.market);
+            if (p.assignee !== undefined) setAssignee(p.assignee);
+            if (p.editor !== undefined) setEditor(p.editor);
+            if (p.status !== undefined) setStatus(p.status);
+          }}
+          onReset={resetAll}
+        />
+      )}
 
       <PageContainer>
         {error ? <EmptyState icon="⚠️" message={`Lỗi: ${error}`} />
