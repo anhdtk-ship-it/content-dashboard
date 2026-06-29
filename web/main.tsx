@@ -14,6 +14,7 @@ import { ExplorerPage } from './ExplorerPage';
 import { LifecyclePage } from './LifecyclePage';
 import { UsagePage } from './UsagePage';
 import { AnalyticsPage } from './AnalyticsPage';
+import { AdsMonitorPage } from './ads-monitor/pages/AdsMonitorPage';
 
 /* ---------- menu & routes (1 nguồn duy nhất) ----------
  * Menu (V5) đã gộp: chỉ hiện Tổng Quan + 2 trang gộp. Các route cũ
@@ -24,6 +25,10 @@ const NAV: { label: string; items: { icon: string; label: string; href: string; 
     { icon: '📋', label: 'Tổng Quan', href: '#/overview', key: 'overview' },
     { icon: '🌐', label: 'Thị Trường', href: '#/markets', key: 'markets' },
     { icon: '🔎', label: 'Content & Vòng đời', href: '#/analytics', key: 'analytics' },
+  ] },
+  // Module mới (PHASE 1) — độc lập, chỉ thêm mới, không đụng menu cũ.
+  { label: '📡 Ads Monitor', items: [
+    { icon: '📡', label: 'Ads Monitor', href: '#/ads-monitor', key: 'ads-monitor' },
   ] },
 ];
 
@@ -44,6 +49,8 @@ const PAGES: Record<string, { title: string; el: ReactNode }> = {
   sync: { title: 'Quản lý Sync', el: <Stub title="Quản lý Sync" /> },
   users: { title: 'User', el: <Stub title="Quản lý User" /> },
   settings: { title: 'Cài đặt', el: <Stub title="Cài đặt" /> },
+  // Module mới (PHASE 1)
+  'ads-monitor': { title: 'Ads Monitor', el: <AdsMonitorPage /> },
 };
 
 const routeKey = (h: string) => (h || '').replace(/^#\//, '').split('?')[0] || 'overview';
