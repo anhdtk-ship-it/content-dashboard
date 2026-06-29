@@ -3,6 +3,7 @@ import * as path from 'path';
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
+import adsMonitorRouter from './ads-monitor/routes';
 
 const PORT = Number(process.env.PORT ?? 4000);
 const url = process.env.SUPABASE_URL?.trim();
@@ -620,6 +621,9 @@ app.get('/api/v3/lifecycle-table', async (req, res) => {
     res.status(500).json({ error: e?.message ?? String(e) });
   }
 });
+
+// Ads Monitor — API nội bộ độc lập (PHASE 3, mock). Đăng ký TRƯỚC SPA fallback.
+app.use('/ads-monitor', adsMonitorRouter);
 
 // SPA fallback — trả về web/dist/index.html cho mọi route không phải /api/*
 app.get('/{*splat}', (_req, res) => {
