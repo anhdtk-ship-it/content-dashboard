@@ -313,7 +313,8 @@ content-dashboard/
 ### 11.3 API — `GET /ads-monitor` (SERVER-SIDE)
 - Query params: `page, pageSize, content, adsOwner, location, pageCode, status, month (YYYY-MM) | sheetDate | dateFrom/dateTo, sortField, sortDirection`.
 - **Bộ lọc Tháng:** `month=YYYY-MM` (vd `2026-06`) → route đổi thành range `sheet_date >= 'YYYY-MM-01' AND <= 'YYYY-MM-<ngày cuối>'` (trên cột DATE = `< đầu tháng kế tiếp`; range scan dùng index `sheet_date`, KHÔNG dùng EXTRACT/MONTH). Ưu tiên: `month` > `sheetDate` > `dateFrom/dateTo`. Frontend mặc định **tháng hiện tại**, lọc 100% ở server.
-- Trả: `{ items, summary, total, page, pageSize, totalPages, source, generatedAt }`. `source` = `supabase|mock`.
+- Trả: `{ items, summary, total, page, pageSize, totalPages, source, owners, generatedAt }`. `source` = `supabase|mock`. `owners` = distinct `ads_owner` toàn bảng (bộ lọc "Nhân viên Ads" **động** — KHÔNG hardcode; đã bỏ Minh/Trang mock).
+- **Loại trừ nhân viên:** `ads_monitor_query` loại `ads_owner ∈ {Khiêm}` khỏi MỌI tính toán (KPI/bảng/tổng/owners) — `where coalesce(ads_owner,'') <> all(array['Khiêm'])`. Mở rộng list tại function + `EXCLUDED_OWNERS` (mock). *(Còn `Br/BR/S` là dữ liệu nhiễu do `ads_owner`=token đầu adset_name — chưa lọc, chờ quyết định.)*
 - **KHÔNG còn `findAll()` tải toàn bộ.** Filter/sort/phân trang/KPI đều ở SQL (function). Repository fallback **mock** (tính trong RAM, ~30 dòng) khi bảng/function chưa tồn tại.
 
 ### 11.4 Import (`npm run ads:import`) + Mapping Sheet thật (PHASE 6 — Go Live)

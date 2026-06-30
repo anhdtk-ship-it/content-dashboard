@@ -13,6 +13,7 @@ export interface AdsPagedResult {
   pageSize: number;
   totalPages: number;
   source: AdsSource;
+  owners: string[];   // distinct ads_owner — cho bộ lọc động
 }
 
 export class AdsMonitorService {
@@ -20,7 +21,7 @@ export class AdsMonitorService {
 
   /** Lấy đúng 1 trang (kèm status tính động) + KPI (từ SQL) + tổng + nguồn. 1 query. */
   async getData(params: AdsQueryParams): Promise<AdsPagedResult> {
-    const { items: records, total, kpi } = await this.repo.query(params);
+    const { items: records, total, kpi, owners } = await this.repo.query(params);
     // PHASE 7: trạng thái = chi tiêu ngày mới nhất + lifecycle (KHÔNG dựa amount_spent tổng).
     const items = records.map((r) => ({ ...r, status: calculateAdsStatus(r.latest_amount ?? 0, r.lifecycle ?? 'NEW') }));
     const summary: AdsMonitorSummary = {
@@ -33,6 +34,7 @@ export class AdsMonitorService {
       page: params.page, pageSize,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
       source: this.repo.source,
+      owners,
     };
   }
 }

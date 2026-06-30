@@ -92,7 +92,8 @@ begin
       -- dòng trong cửa sổ ngày + lọc dimension (dùng index).
       select page_code, content, location, ads_owner, amount_spent, sheet_date, updated_at, id
       from public.ads_monitor
-      where ($1 is null or sheet_date >= $1)
+      where coalesce(ads_owner, '') <> all (array['Khiêm'])   -- LOẠI TRỪ nhân viên (mở rộng list tại đây)
+        and ($1 is null or sheet_date >= $1)
         and ($2 is null or sheet_date <= $2)
         and ($3 is null or content   ilike '%%' || $3 || '%%')
         and ($4 is null or ads_owner = $4)
@@ -136,6 +137,11 @@ begin
           else true end)
     )
     select json_build_object(
+      -- Danh sách Nhân viên Ads (distinct toàn bảng, để bộ lọc động — KHÔNG hardcode).
+      'owners', (select coalesce(array_to_json(array_agg(distinct ads_owner order by ads_owner)), '[]'::json)
+                 from public.ads_monitor
+                 where coalesce(ads_owner, '') <> ''
+                   and coalesce(ads_owner, '') <> all (array['Khiêm'])),   -- LOẠI TRỪ (đồng bộ với win)
       'kpi', (select json_build_object(
                 'total',       count(*),
                 'daTat',       count(*) filter (where latest_amount <= 0),

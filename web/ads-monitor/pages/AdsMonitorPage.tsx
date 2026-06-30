@@ -75,7 +75,7 @@ export function AdsMonitorPage() {
             <>
               <AdsSummaryCards summary={data.summary} />
               <div className="mt-4">
-                <AdsFilters value={filters} onChange={patchFilter} onReset={resetFilters} />
+                <AdsFilters value={filters} onChange={patchFilter} onReset={resetFilters} owners={data.owners ?? []} />
                 <AdsTable
                   rows={data.items}
                   total={data.total}

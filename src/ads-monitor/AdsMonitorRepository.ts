@@ -56,6 +56,7 @@ export class AdsMonitorRepository {
         items: (r.items ?? []).map(normalizeRow),
         total: Number(r.total) || 0,
         kpi: normalizeKpi(r.kpi),
+        owners: Array.isArray(r.owners) ? r.owners : [],
       };
     } catch (e: any) {
       // PHASE 6: đã cấu hình mà vẫn dùng mock sẽ che lỗi production → chỉ mock khi được phép (dev).
@@ -110,18 +111,22 @@ function statusMatches(latestAmount: number, lifecycle: Lifecycle, status?: stri
   return calculateAdsStatus(latestAmount, lifecycle) === status;
 }
 
+/** Nhân viên Ads bị LOẠI TRỪ khỏi Ads Monitor (đồng bộ với SQL function). */
+const EXCLUDED_OWNERS = new Set(['Khiêm']);
+
 function mockQuery(p: AdsQueryParams): AdsQueryResult {
   const ilike = (hay: string, needle?: string | null) => !needle || hay.toLowerCase().includes(needle.toLowerCase());
+  const BASE = MOCK_ADS_RECORDS.filter((r) => !EXCLUDED_OWNERS.has(r.ads_owner));
 
   // Lifecycle ĐỜI: tổng chi tiêu theo (page_code, content) qua MỌI ngày (không theo kỳ lọc).
   const lifetimeMap = new Map<string, number>();
-  for (const r of MOCK_ADS_RECORDS) {
+  for (const r of BASE) {
     const k = `${r.page_code}||${r.content}`;
     lifetimeMap.set(k, (lifetimeMap.get(k) ?? 0) + r.amount_spent);
   }
 
   // 1) lọc dimension + ngày TRƯỚC khi gộp (giống SQL).
-  const rowsIn = MOCK_ADS_RECORDS.filter((r) =>
+  const rowsIn = BASE.filter((r) =>
     ilike(r.content, p.content) &&
     (!p.adsOwner || r.ads_owner === p.adsOwner) &&
     (!p.location || r.location === p.location) &&
@@ -171,5 +176,6 @@ function mockQuery(p: AdsQueryParams): AdsQueryResult {
   });
   const start = (Math.max(1, p.page) - 1) * p.pageSize;
   const items = filtered.slice(start, start + p.pageSize);
-  return { items, total: filtered.length, kpi };
+  const owners = [...new Set(BASE.map((r) => r.ads_owner).filter(Boolean))].sort();
+  return { items, total: filtered.length, kpi, owners };
 }

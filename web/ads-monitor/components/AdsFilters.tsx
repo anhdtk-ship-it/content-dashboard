@@ -4,7 +4,6 @@ import { ActionButton, SearchBox } from '../../../src/components/ui';
 import type { AdsFilterState } from '../types/ads';
 
 const ctrl = 'h-9 rounded-control border border-line bg-surface px-2 text-[13px] text-fg focus:border-accent focus:outline-none';
-const ASSIGNEES = ['Hiếu', 'Ánh', 'KA', 'Liên', 'Minh', 'Trang'];
 const STATUSES = ['Đã tắt', 'Mới chạy', 'Đang test', 'Đang duy trì'];
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -12,11 +11,12 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function AdsFilters({
-  value, onChange, onReset,
+  value, onChange, onReset, owners = [],
 }: {
   value: AdsFilterState;
   onChange: (patch: Partial<AdsFilterState>) => void;
   onReset: () => void;
+  owners?: string[];   // danh sách Nhân viên Ads lấy động từ dữ liệu thật
 }) {
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -29,7 +29,7 @@ export function AdsFilters({
       <Field label="Nhân viên Ads">
         <select className={ctrl} value={value.adsOwner} onChange={(e) => onChange({ adsOwner: e.target.value })}>
           <option value="ALL">Tất cả</option>
-          {ASSIGNEES.map((a) => <option key={a} value={a}>{a}</option>)}
+          {owners.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
       </Field>
       <Field label="Địa lý">

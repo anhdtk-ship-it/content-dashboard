@@ -51,4 +51,5 @@ export interface AdsQueryResult {
   items: AdsMonitorRecord[];
   total: number;                         // số dòng khớp TẤT CẢ filter (gồm status) — cho phân trang
   kpi: AdsMonitorSummary;                // KPI theo dimension+ngày (KHÔNG lọc status) — cho 6 thẻ
+  owners: string[];                      // distinct ads_owner toàn bảng — cho bộ lọc động (PHASE 7)
 }

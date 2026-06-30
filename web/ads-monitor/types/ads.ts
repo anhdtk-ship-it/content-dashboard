@@ -28,6 +28,7 @@ export interface AdsResponse {
   totalPages: number;
   source: string;
   generatedAt: string;
+  owners?: string[];   // distinct ads_owner — cho bộ lọc động "Nhân viên Ads"
 }
 
 /** Trạng thái bộ lọc (gửi lên server). */
