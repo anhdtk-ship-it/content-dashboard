@@ -272,12 +272,13 @@ function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
 
   // Alerts (cũng theo bộ lọc thời gian)
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const STALE_DAYS = 14;
+  const STALE_DAYS = 10; // "Test quá lâu": quá 10 ngày kể từ Ngày Set Ads (test_date_real)
   const staleBefore = new Date(today); staleBefore.setDate(staleBefore.getDate() - STALE_DAYS);
   const staleIso = staleBefore.toISOString().slice(0, 10);
   const alerts = {
     chuaPhanLoai: countGroup(F, 'CHUA_PHAN_LOAI'),
-    testQuaLau: F.filter((r) => r.status_group === 'DANG_TEST' && r.upload_date_real && r.upload_date_real < staleIso).length,
+    // Đang test + Ngày test (test_date_real) cũ hơn 10 ngày (KHÔNG dùng upload_date).
+    testQuaLau: F.filter((r) => r.status_group === 'DANG_TEST' && r.test_date_real && r.test_date_real < staleIso).length,
     chuaTest: F.filter((r) => !(r.test_date ?? '').trim() && !['DANG_TEST', 'DUY_TRI', 'DA_DUNG'].includes(r.status_group)).length,
     thieuNgayTest: F.filter((r) => !(r.test_date ?? '').trim()).length,
     thieuTrello: F.filter((r) => !(r.trello_link ?? '').trim()).length,
@@ -347,13 +348,13 @@ app.get('/api/v3/contents', async (req, res) => {
     const alert = req.query.alert as string | undefined;
     if (alert) {
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const staleBefore = new Date(today); staleBefore.setDate(staleBefore.getDate() - 14);
+      const staleBefore = new Date(today); staleBefore.setDate(staleBefore.getDate() - 10); // "Test quá lâu": >10 ngày từ Ngày Set Ads
       const staleIso = staleBefore.toISOString().slice(0, 10);
       const tested = ['DANG_TEST', 'DUY_TRI', 'DA_DUNG'];
       list = list.filter((r) => {
         switch (alert) {
           case 'chuaPhanLoai': return r.status_group === 'CHUA_PHAN_LOAI';
-          case 'testQuaLau': return r.status_group === 'DANG_TEST' && !!r.upload_date_real && r.upload_date_real < staleIso;
+          case 'testQuaLau': return r.status_group === 'DANG_TEST' && !!r.test_date_real && r.test_date_real < staleIso;
           case 'chuaTest': return !(r.test_date ?? '').trim() && !tested.includes(r.status_group);
           case 'thieuNgayTest': return !(r.test_date ?? '').trim();
           case 'thieuTrello': return !(r.trello_link ?? '').trim();

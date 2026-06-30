@@ -40,7 +40,7 @@ export function KPICard({ label, value, sub, tone = 'default', tooltip, active, 
         <span>{label}</span>
         {tooltip && (
           <MetricTooltip tip={tooltip}>
-            <span className="inline-flex h-[14px] w-[14px] cursor-help items-center justify-center rounded-full bg-surface2 text-[10px] text-muted">
+            <span className="inline-flex h-[15px] w-[15px] shrink-0 cursor-help items-center justify-center rounded-full border border-accent bg-surface2 text-[10px] font-bold leading-none text-accent">
               i
             </span>
           </MetricTooltip>

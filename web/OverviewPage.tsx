@@ -37,8 +37,8 @@ const STATUS_COLOR: Record<string, string> = {
   CHO_CHAY: '#fb923c', DANG_TEST: 'var(--warn)', DUY_TRI: 'var(--success)',
   DA_DUNG: 'var(--slate)', KHONG_DUYET: 'var(--danger)', CHUA_PHAN_LOAI: 'var(--violet)',
 };
-// Ngưỡng "Test quá lâu" — chỉ để HIỂN THỊ (khớp ngưỡng >14d của /summary). Không đổi logic server.
-const TEST_OVERDUE_DAYS = 14;
+// Ngưỡng "Test quá lâu" — chỉ để HIỂN THỊ (khớp ngưỡng >10d theo test_date_real của /summary).
+const TEST_OVERDUE_DAYS = 10;
 // Card "Cần xử lý" — cảnh báo trực quan theo mức độ (đã bỏ "Thiếu link Trello").
 const ALERTS: { key: string; label: string; icon: string; color: string; sub?: string; badge?: string }[] = [
   { key: 'chuaPhanLoai', label: 'Chưa phân loại', icon: '⚠️', color: '#ef4444', badge: 'Khẩn cấp', sub: 'Mức ưu tiên cao nhất' },
