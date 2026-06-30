@@ -295,7 +295,8 @@ content-dashboard/
 
 ## 11. Ads Monitor (module độc lập) — PHASE 5: tối ưu chịu tải 100k–500k+
 
-> Module ĐỘC LẬP với Dashboard Content (không dùng chung service/repo/bảng). `status` KHÔNG lưu — luôn tính từ `amount_spent` (`calculateAdsStatus` ở app / `CASE WHEN` ở SQL): `=0` Đã tắt · `1–100.000` Mới chạy · `100.001–4.999.999` Đang test · `≥5.000.000` Đang duy trì.
+> Module ĐỘC LẬP với Dashboard Content (không dùng chung service/repo/bảng). `status` KHÔNG lưu.
+> **PHASE 7 — Lifecycle + Current Status (xem §11.5):** trạng thái KHÔNG còn chỉ dựa amount. Quy tắc: chi tiêu **ngày mới nhất trong kỳ = 0** → "Đã tắt"; >0 → theo **Lifecycle** (NEW→Mới chạy · TEST→Đang test · MAINTAIN→Đang duy trì). *(Ngưỡng amount cũ `≤100k/≤4.999.999/≥5tr` đã BỎ.)*
 
 ### 11.1 Schema (`sql/005_ads_monitor.sql`) — mô hình LƯU LỊCH SỬ THEO NGÀY
 - Bảng `ads_monitor(id, content, location, ads_owner, page_code, amount_spent, updated_at, created_at, sheet_date NOT NULL)`. **KHÔNG có cột `status`.**
@@ -323,6 +324,15 @@ content-dashboard/
   - `amount_spent ← SUM` theo `(page_code, content, sheet_date)` (gộp các bản sao ad trong cùng ngày) ⇒ **chi tiêu/NGÀY**.
 - **⚠️ Ngữ nghĩa cần chốt:** ngưỡng status (`≥5tr`…) đang áp trên chi tiêu/ngày của ngày mới nhất → ad không chi ngày cuối = "Đã tắt". Nếu muốn theo chi tiêu **tích lũy/đời**, đổi cách gộp ở provider (chưa làm).
 - Kết quả import lần đầu: 9423 dòng thô (lịch sử 2026-03-23→06-28), 886 ad ở VIEW latest.
+
+### 11.5 Lifecycle + Current Status (PHASE 7 — `sql/006_ads_lifecycle.sql`)
+- **Lifecycle (nội bộ, KHÔNG hiển thị):** `NEW | TEST | MAINTAIN`, lưu ở bảng **`ads_monitor_lifecycle`** (PK `(page_code, content)`), theo **tổng chi tiêu ĐỜI** (mọi ngày): `>3.000.000` MAINTAIN · `>100.000` TEST · còn lại NEW. **Monotonic — chỉ nâng, không hạ.**
+- **Cập nhật Lifecycle:** function **`ads_monitor_refresh_lifecycle()`** (set-based, ON CONFLICT giữ hạng cao hơn). Gọi **sau mỗi import** (`import.ts`), KHÔNG tính lại khi mở dashboard. Backfill từ lịch sử = chạy 1 lần (đã nhúng cuối `sql/006`).
+- **Trạng thái hiển thị (tính ở `calculateAdsStatus(latestAmount, lifecycle)` + KPI `CASE WHEN` SQL):**
+  - `latest_amount` (chi tiêu **ngày mới nhất trong kỳ**) `= 0` → **Đã tắt** (bỏ qua lifecycle).
+  - `> 0` → NEW→**Mới chạy** · TEST→**Đang test** · MAINTAIN→**Đang duy trì**.
+- **`ads_monitor_query`** (thay bản 005): trả thêm `latest_amount`, `lifecycle`; KPI đếm theo (latest_amount, lifecycle). "Tổng chi tiêu" (`amount_spent`) = SUM trong kỳ — KHÔNG quyết định trạng thái.
+- **Thứ tự triển khai:** chạy `sql/006` TRƯỚC khi deploy code Phase 7 (code mới đọc `latest_amount`/`lifecycle` từ function).
 
 ---
 

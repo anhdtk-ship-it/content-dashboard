@@ -21,7 +21,8 @@ export class AdsMonitorService {
   /** Lấy đúng 1 trang (kèm status tính động) + KPI (từ SQL) + tổng + nguồn. 1 query. */
   async getData(params: AdsQueryParams): Promise<AdsPagedResult> {
     const { items: records, total, kpi } = await this.repo.query(params);
-    const items = records.map((r) => ({ ...r, status: calculateAdsStatus(r.amount_spent) }));
+    // PHASE 7: trạng thái = chi tiêu ngày mới nhất + lifecycle (KHÔNG dựa amount_spent tổng).
+    const items = records.map((r) => ({ ...r, status: calculateAdsStatus(r.latest_amount ?? 0, r.lifecycle ?? 'NEW') }));
     const summary: AdsMonitorSummary = {
       total: kpi.total, duyTri: kpi.duyTri, test: kpi.test,
       moiChay: kpi.moiChay, daTat: kpi.daTat, totalAmount: kpi.totalAmount,

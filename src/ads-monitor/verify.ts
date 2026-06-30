@@ -29,7 +29,7 @@ const PAGE_SIZE = 500;
 
   const expTotal = all.length;
   const expAmount = all.reduce((s, x) => s + x.amount_spent, 0);
-  const cnt = (st: AdsStatus) => all.filter((x) => calculateAdsStatus(x.amount_spent) === st).length;
+  const cnt = (st: AdsStatus) => all.filter((x) => calculateAdsStatus(x.latest_amount ?? 0, x.lifecycle ?? 'NEW') === st).length;
   const exp = {
     duyTri: cnt('Đang duy trì'), test: cnt('Đang test'), moiChay: cnt('Mới chạy'), daTat: cnt('Đã tắt'),
   };

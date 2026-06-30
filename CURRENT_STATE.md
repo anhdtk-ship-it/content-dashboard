@@ -1,7 +1,14 @@
 # CURRENT_STATE — Content Operations Dashboard (Seryn) + Ads Monitor
 
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
-> Cập nhật: 2026-06-29 — sau **Phase 5** + bắt đầu **Phase 6 (Go Live)** của Ads Monitor.
+> Cập nhật: 2026-06-29 — **Phase 7 (Lifecycle + Current Status)** cho Ads Monitor.
+
+## Phase 7 — Lifecycle + Current Status (thuật toán trạng thái mới)
+- Trạng thái KHÔNG còn chỉ dựa amount. **Đã tắt** = chi tiêu ngày mới nhất trong kỳ = 0; ngược lại theo **Lifecycle** (NEW→Mới chạy · TEST→Đang test · MAINTAIN→Đang duy trì).
+- **Lifecycle** (NEW/TEST/MAINTAIN) theo **tổng chi tiêu ĐỜI** (>3tr MAINTAIN · >100k TEST · còn lại NEW), **monotonic**, lưu bảng `ads_monitor_lifecycle`, refresh **chỉ khi import** (`ads_monitor_refresh_lifecycle()`), dashboard chỉ đọc.
+- **Migration `sql/006`** (bảng + 2 function + backfill) — ⏳ **chờ chạy trên Supabase** rồi mới deploy code (code mới đọc `latest_amount`/`lifecycle`).
+- File sửa: `sql/006` (mới), `calculateAdsStatus.ts` (chữ ký mới), `types.ts`, `AdsMonitorRepository.ts` (normalizeRow+mock), `AdsMonitorService.ts`, `import.ts` (gọi refresh), `verify.ts`. **Frontend KHÔNG đổi** (lifecycle ẩn; build hash không đổi).
+- Đã verify logic TS (mock). ⏳ Chờ chạy `sql/006` để verify dữ liệu thật + commit/push.
 
 ## Phase 6 (Go Live) — ✅ LIVE PRODUCTION với dữ liệu thật, tích lũy (2026-06-29)
 - ✅ Migration `005` đã chạy (bảng + FUNCTION `ads_monitor_query` tích lũy). `.env` + Railway env có `ADS_SHEET_ID=1kqVs8dyOgnk5l3CsgcGlhex-eI7OHhAkS6GLKnXh4j0`, `ADS_SHEET_TAB=Raw_Data`; SA đã share.

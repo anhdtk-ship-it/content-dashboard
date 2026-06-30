@@ -2,17 +2,23 @@
 
 export type AdsStatus = 'Đã tắt' | 'Mới chạy' | 'Đang test' | 'Đang duy trì';
 
-/** Bản ghi LƯU TRỮ (bảng ads_monitor). KHÔNG có `status` — status được tính từ amount_spent. */
+/** Vòng đời nội bộ (PHASE 7) — KHÔNG hiển thị; chỉ nâng cấp, không hạ. */
+export type Lifecycle = 'NEW' | 'TEST' | 'MAINTAIN';
+
+/** Bản ghi LƯU TRỮ (bảng ads_monitor). KHÔNG có `status`/`lifecycle` cứng — tính ở tầng app/SQL. */
 export interface AdsMonitorRecord {
   id: number;
   content: string;
   location: string;        // 'TQ' | 'NN' (giá trị dữ liệu thô)
   ads_owner: string;
   page_code: string;
-  amount_spent: number;    // VND
+  amount_spent: number;    // VND. Dòng thô = chi tiêu/NGÀY; kết quả query = TỔNG chi tiêu trong kỳ.
   updated_at: string;      // ISO datetime
   created_at: string;      // ISO datetime
   sheet_date: string | null; // ngày của dòng trên Sheet (Phase 4)
+  // PHASE 7 — chỉ có khi đọc qua ads_monitor_query (không thuộc dòng thô):
+  latest_amount?: number;  // chi tiêu NGÀY MỚI NHẤT trong kỳ (quyết định "Đã tắt")
+  lifecycle?: Lifecycle;   // vòng đời đời (NEW/TEST/MAINTAIN)
 }
 
 /** Bản ghi TRẢ RA (đã kèm status tính động). */

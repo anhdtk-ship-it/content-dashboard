@@ -86,12 +86,22 @@ async function main(): Promise<void> {
     inserted = Math.round(inserted * ratio); updated = ok - inserted;
   }
 
+  // PHASE 7: cập nhật Lifecycle (NEW/TEST/MAINTAIN, monotonic) NGAY sau import — KHÔNG tính ở dashboard.
+  let lifecycleStatus = 'skipped';
+  try {
+    const { error } = await supa.rpc('ads_monitor_refresh_lifecycle');
+    lifecycleStatus = error ? `error: ${error.message}` : 'refreshed';
+  } catch (e: any) {
+    lifecycleStatus = `error: ${e?.message ?? e}`;
+  }
+
   console.log('================ ADS IMPORT RESULT ================');
   console.log(`Read    : ${read}`);
   console.log(`Insert  : ${inserted}`);
   console.log(`Update  : ${updated}`);
   console.log(`Skip    : ${skip}  (dòng trùng khóa)`);
   console.log(`Errors  : ${errors}`);
+  console.log(`Lifecycle: ${lifecycleStatus}`);
   console.log(`Status  : ${errors === 0 ? 'success' : 'partial'}`);
   console.log('===================================================');
 }

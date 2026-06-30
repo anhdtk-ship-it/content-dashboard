@@ -3,7 +3,8 @@
  * KHÔNG dùng repo/bảng của module khác. KHÔNG đọc cột `status` (status tính ở tầng app / CASE WHEN SQL).
  * Fallback an toàn về MOCK (tính trong RAM — mock chỉ ~30 dòng) khi function/bảng chưa tồn tại / đọc lỗi. */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { AdsMonitorRecord, AdsQueryParams, AdsQueryResult } from './types';
+import type { AdsMonitorRecord, AdsQueryParams, AdsQueryResult, Lifecycle } from './types';
+import { calculateAdsStatus, lifecycleFromLifetime } from './calculateAdsStatus';
 import { MOCK_ADS_RECORDS } from './mock';
 
 export type AdsSource = 'supabase' | 'mock';
@@ -76,10 +77,12 @@ function normalizeRow(x: any): AdsMonitorRecord {
     location: x.location ?? '',
     ads_owner: x.ads_owner ?? '',
     page_code: x.page_code ?? '',
-    amount_spent: Number(x.amount_spent) || 0,
+    amount_spent: Number(x.amount_spent) || 0,   // = TỔNG chi tiêu trong kỳ
     updated_at: x.updated_at,
     created_at: x.created_at ?? x.updated_at,
     sheet_date: x.sheet_date ?? null,
+    latest_amount: Number(x.latest_amount) || 0, // chi tiêu ngày mới nhất trong kỳ
+    lifecycle: (x.lifecycle as any) ?? 'NEW',
   };
 }
 
@@ -95,23 +98,28 @@ function normalizeKpi(k: any): AdsQueryResult['kpi'] {
 }
 
 /* ----------------------------------------------------------------------------
- * Fallback MOCK — mô phỏng ĐÚNG ngữ nghĩa SQL: latest theo (page_code, content),
- * lọc dimension+ngày, KPI trên tập dimension, filter status, sort, phân trang.
+ * Fallback MOCK — mô phỏng ĐÚNG ngữ nghĩa SQL (PHASE 7):
+ *   - Tổng chi tiêu trong kỳ = SUM theo (page_code, content) trong cửa sổ ngày.
+ *   - latest_amount = chi tiêu ngày mới nhất trong kỳ → quyết định "Đã tắt".
+ *   - lifecycle = theo TỔNG CHI TIÊU ĐỜI (mọi ngày, độc lập kỳ lọc).
+ *   - Trạng thái = calculateAdsStatus(latest_amount, lifecycle).
  * Chỉ chạy khi không có DB / function chưa tạo (mock ~30 dòng → rẻ).
  * -------------------------------------------------------------------------- */
-function statusMatches(amount: number, status?: string | null): boolean {
+function statusMatches(latestAmount: number, lifecycle: Lifecycle, status?: string | null): boolean {
   if (!status) return true;
-  switch (status) {
-    case 'Đã tắt': return amount <= 0;
-    case 'Mới chạy': return amount >= 1 && amount <= 100_000;
-    case 'Đang test': return amount >= 100_001 && amount <= 4_999_999;
-    case 'Đang duy trì': return amount >= 5_000_000;
-    default: return true;
-  }
+  return calculateAdsStatus(latestAmount, lifecycle) === status;
 }
 
 function mockQuery(p: AdsQueryParams): AdsQueryResult {
   const ilike = (hay: string, needle?: string | null) => !needle || hay.toLowerCase().includes(needle.toLowerCase());
+
+  // Lifecycle ĐỜI: tổng chi tiêu theo (page_code, content) qua MỌI ngày (không theo kỳ lọc).
+  const lifetimeMap = new Map<string, number>();
+  for (const r of MOCK_ADS_RECORDS) {
+    const k = `${r.page_code}||${r.content}`;
+    lifetimeMap.set(k, (lifetimeMap.get(k) ?? 0) + r.amount_spent);
+  }
+
   // 1) lọc dimension + ngày TRƯỚC khi gộp (giống SQL).
   const rowsIn = MOCK_ADS_RECORDS.filter((r) =>
     ilike(r.content, p.content) &&
@@ -120,33 +128,36 @@ function mockQuery(p: AdsQueryParams): AdsQueryResult {
     ilike(r.page_code, p.pageCode) &&
     (!p.dateFrom || (r.sheet_date ?? '') >= p.dateFrom) &&
     (!p.dateTo || (r.sheet_date ?? '') <= p.dateTo));
-  // 2) TÍCH LŨY/ĐỜI: gộp SUM(amount_spent) theo (page_code, content) qua mọi ngày.
+
+  // 2) gộp theo (page_code, content): SUM (tổng kỳ) + latest_amount (ngày mới nhất) + lifecycle (đời).
   const aggMap = new Map<string, AdsMonitorRecord>();
   for (const r of rowsIn) {
     const k = `${r.page_code}||${r.content}`;
     const cur = aggMap.get(k);
     if (cur) {
       cur.amount_spent += r.amount_spent;
-      if ((r.sheet_date ?? '') > (cur.sheet_date ?? '')) cur.sheet_date = r.sheet_date;
+      if ((r.sheet_date ?? '') > (cur.sheet_date ?? '')) { cur.sheet_date = r.sheet_date; cur.latest_amount = r.amount_spent; }
       if (r.updated_at > cur.updated_at) cur.updated_at = r.updated_at;
     } else {
-      aggMap.set(k, { ...r });
+      aggMap.set(k, { ...r, latest_amount: r.amount_spent, lifecycle: lifecycleFromLifetime(lifetimeMap.get(k) ?? 0) });
     }
   }
   const dim = [...aggMap.values()];
+  const lc = (r: AdsMonitorRecord) => r.lifecycle ?? 'NEW';
+  const la = (r: AdsMonitorRecord) => r.latest_amount ?? 0;
 
-  // 3) KPI trên tập dimension (KHÔNG lọc status)
+  // 3) KPI trên tập dimension (KHÔNG lọc status) — theo (latest_amount, lifecycle).
   const kpi = {
     total: dim.length,
-    daTat: dim.filter((r) => r.amount_spent <= 0).length,
-    moiChay: dim.filter((r) => r.amount_spent >= 1 && r.amount_spent <= 100_000).length,
-    test: dim.filter((r) => r.amount_spent >= 100_001 && r.amount_spent <= 4_999_999).length,
-    duyTri: dim.filter((r) => r.amount_spent >= 5_000_000).length,
+    daTat: dim.filter((r) => la(r) <= 0).length,
+    moiChay: dim.filter((r) => la(r) > 0 && lc(r) === 'NEW').length,
+    test: dim.filter((r) => la(r) > 0 && lc(r) === 'TEST').length,
+    duyTri: dim.filter((r) => la(r) > 0 && lc(r) === 'MAINTAIN').length,
     totalAmount: dim.reduce((s, r) => s + r.amount_spent, 0),
   };
 
   // 4) filter status → 5) sort → 6) phân trang
-  const filtered = dim.filter((r) => statusMatches(r.amount_spent, p.status));
+  const filtered = dim.filter((r) => statusMatches(la(r), lc(r), p.status));
   const field = (p.sortField ?? 'updated_at') as keyof AdsMonitorRecord;
   const dir = p.sortDir === 'asc' ? 1 : -1;
   filtered.sort((a, b) => {
