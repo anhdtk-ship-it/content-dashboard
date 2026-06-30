@@ -1,26 +1,21 @@
-/* Weekly Report — helper tuần (PHASE 8). Tuần = Thứ 2 → Chủ nhật. */
-import type { WeekRange } from '../types/report';
+/* Weekly Report — helper khoảng thời gian (PHASE 8). Tùy chỉnh theo ngày (Từ/Đến). */
+import type { DateRange } from '../types/report';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const dm = (d: Date) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+const dmy = (iso: string) => { const d = new Date(iso + 'T00:00:00'); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`; };
 
-function mondayOf(anchor: Date): Date {
-  const d = new Date(anchor); d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Mon=0 … Sun=6
-  return d;
+/** Tạo khoảng từ 2 ngày ISO; tự đảo nếu from > to. Label "dd/mm/yyyy – dd/mm/yyyy". */
+export function makeRange(from: string, to: string): DateRange {
+  let a = from, b = to;
+  if (a && b && a > b) { const t = a; a = b; b = t; }
+  return { from: a, to: b, label: `${dmy(a)} – ${dmy(b)}` };
 }
 
-export function weekRange(anchor: Date): WeekRange {
-  const mon = mondayOf(anchor);
+/** Mặc định: tuần hiện tại (Thứ 2 → Chủ nhật) — vẫn cho phép chỉnh theo ngày sau đó. */
+export function currentWeek(): DateRange {
+  const mon = new Date(); mon.setHours(0, 0, 0, 0);
+  mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
   const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
-  return { from: ymd(mon), to: ymd(sun), label: `Tuần ${dm(mon)} – ${pad(sun.getDate())}/${pad(sun.getMonth() + 1)}/${sun.getFullYear()}` };
-}
-
-export const currentWeek = (): WeekRange => weekRange(new Date());
-
-export function shiftWeek(w: WeekRange, deltaWeeks: number): WeekRange {
-  const mon = new Date(w.from + 'T00:00:00');
-  mon.setDate(mon.getDate() + deltaWeeks * 7);
-  return weekRange(mon);
+  return makeRange(ymd(mon), ymd(sun));
 }

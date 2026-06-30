@@ -7,7 +7,7 @@
 - Menu **Reports → Weekly Report** (`web/reports/` — types/services/components/pages/**hooks**/**utils**, `#/weekly-report`). KHÔNG đụng Content/Ads/Sync/DB/API.
 - **Service riêng** `WeeklyReportService` (`calculateWeeklyKPIs`/`calculateWeeklyEmployeeReport`) — KHÔNG dùng `calculateAdsStatus`/Lifecycle/metrics Dashboard. Đọc **dữ liệu thô** `/api/v3/contents` (phân trang) + tự tính.
 - KPI (§6): Đã cấp · Đã test (`test_date_real != null`) · Tồn (`cấp−test`) · Tỷ lệ test (1 chữ số TP) · Content test win (đạt "Duy trì") · Tỷ lệ win. ⚠️ "win = Duy trì" tính bằng rule riêng trên dữ liệu Content (KHÔNG dùng ads_monitor_lifecycle — grain khác) — **cần nghiệp vụ xác nhận**.
-- Bộ lọc Tuần (mặc định tuần hiện tại) + Địa lý. 3 phần I/II/III; II/III tự sinh (`insights`) + nhập tay (cục bộ, chưa persist). Xem trước. Export: Copy (chạy) + PDF/DOCX (interface).
+- Bộ lọc **Khoảng thời gian tùy chỉnh** (Từ/Đến theo ngày, mặc định tuần hiện tại) — **đã bỏ Địa lý**. Group theo `assignee_name` = Nhân viên Ads (không dùng Biên tập). 3 phần I/II/III; II/III tự sinh (`insights`) + nhập tay (cục bộ, chưa persist). Xem trước. Export: Copy (chạy) + PDF/DOCX (interface).
 - Verified preview tuần 01–07/06: cấp 87 · test 65 · tồn 22 · tỷ lệ test 74.7% · win 9 · tỷ lệ win 13.8%.
 
 ## Phase 7 — Lifecycle + Current Status (thuật toán trạng thái mới)

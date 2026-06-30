@@ -11,7 +11,7 @@ import { autoIssues, autoPlan } from '../services/insights';
 import type { ReportNarrative, IssueItem, WeeklyReportData } from '../types/report';
 
 export function WeeklyReportPage() {
-  const { week, geo, data, loading, error, setGeo, prevWeek, nextWeek, thisWeek } = useWeeklyReport();
+  const { range, data, loading, error, setFrom, setTo, thisWeek } = useWeeklyReport();
   const [preview, setPreview] = useState(true);
 
   // Phần soạn (II + III) — cục bộ, khởi tạo từ tự sinh khi dữ liệu đổi (CHƯA persist DB).
@@ -29,7 +29,7 @@ export function WeeklyReportPage() {
   const setPlan = (name: string, tasks: string[]) =>
     setNarrative((n) => ({ ...n, plans: { ...n.plans, [name]: tasks } }));
 
-  const exportData: WeeklyReportData = data ?? { week, geo, team: {} as any, employees: [], generatedAt: '' };
+  const exportData: WeeklyReportData = data ?? { range, team: {} as any, employees: [], generatedAt: '' };
 
   return (
     <div className="text-fg">
@@ -37,9 +37,9 @@ export function WeeklyReportPage() {
         <SectionHeader title="📝 Báo cáo tuần" action={<ExportBar data={exportData} narrative={narrative} />} />
 
         <ReportFilters
-          week={week} geo={geo} preview={preview}
-          onPrevWeek={prevWeek} onNextWeek={nextWeek} onThisWeek={thisWeek}
-          onGeo={setGeo} onTogglePreview={() => setPreview((p) => !p)}
+          range={range} preview={preview}
+          onFrom={setFrom} onTo={setTo} onThisWeek={thisWeek}
+          onTogglePreview={() => setPreview((p) => !p)}
         />
 
         {error ? <EmptyState icon="⚠️" message={`Lỗi tải dữ liệu: ${error}`} />

@@ -11,7 +11,7 @@
  *   Content test win = chuyển test→maintain → content đạt trạng thái "Duy trì" (và đã test)
  *   Tỷ lệ win     = win / Đã test
  */
-import type { Geo, ReportMetrics, WeekRange, WeeklyReportData, EmployeeReport } from '../types/report';
+import type { ReportMetrics, DateRange, WeeklyReportData, EmployeeReport } from '../types/report';
 
 /** Dòng content thô đọc từ /api/v3/contents (chỉ các field Weekly Report cần). */
 interface RawContent {
@@ -25,14 +25,13 @@ const isTested = (r: RawContent) => !!r.test_date_real; // đã đưa vào test 
 const isWin = (r: RawContent) => isTested(r) && (r.current_status ?? '').trim().startsWith('Duy trì'); // test→maintain
 
 export class WeeklyReportService {
-  /** Đọc TOÀN BỘ content trong tuần + địa lý (phân trang). "Đã cấp" theo Ngày Up Trello (dateField mặc định). */
-  async fetchContents(week: WeekRange, geo: Geo): Promise<RawContent[]> {
+  /** Đọc TOÀN BỘ content trong khoảng thời gian (phân trang). "Đã cấp" theo Ngày Up Trello (dateField mặc định). */
+  async fetchContents(range: DateRange): Promise<RawContent[]> {
     const out: RawContent[] = [];
     const pageSize = 100;
     for (let page = 1; ; page++) {
       const p = new URLSearchParams();
-      p.set('from', week.from); p.set('to', week.to);
-      if (geo !== 'ALL') p.set('market', geo);
+      p.set('from', range.from); p.set('to', range.to);
       p.set('page', String(page)); p.set('pageSize', String(pageSize));
       const res = await fetch('/api/v3/contents?' + p.toString());
       const d = await res.json();
@@ -74,11 +73,11 @@ export class WeeklyReportService {
       .sort((a, b) => b.metrics.capped - a.metrics.capped);
   }
 
-  /** Tổng hợp báo cáo tuần (1 lần đọc dữ liệu). */
-  async getReport(week: WeekRange, geo: Geo): Promise<WeeklyReportData> {
-    const rows = await this.fetchContents(week, geo);
+  /** Tổng hợp báo cáo (1 lần đọc dữ liệu). */
+  async getReport(range: DateRange): Promise<WeeklyReportData> {
+    const rows = await this.fetchContents(range);
     return {
-      week, geo,
+      range,
       team: this.calculateWeeklyKPIs(rows),
       employees: this.calculateWeeklyEmployeeReport(rows),
       generatedAt: new Date().toISOString(),

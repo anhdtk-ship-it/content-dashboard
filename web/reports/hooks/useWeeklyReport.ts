@@ -1,12 +1,11 @@
-/* Weekly Report — hook lấy dữ liệu (PHASE 8). Bọc WeeklyReportService + state tuần/địa lý. */
+/* Weekly Report — hook lấy dữ liệu (PHASE 8). Bọc WeeklyReportService + state khoảng thời gian (tùy chỉnh theo ngày). */
 import { useEffect, useState } from 'react';
 import { weeklyReportService } from '../services/WeeklyReportService';
-import { currentWeek, shiftWeek } from '../utils/week';
-import type { Geo, WeekRange, WeeklyReportData } from '../types/report';
+import { currentWeek, makeRange } from '../utils/week';
+import type { DateRange, WeeklyReportData } from '../types/report';
 
 export function useWeeklyReport() {
-  const [week, setWeek] = useState<WeekRange>(() => currentWeek());
-  const [geo, setGeo] = useState<Geo>('ALL');
+  const [range, setRange] = useState<DateRange>(() => currentWeek());
   const [data, setData] = useState<WeeklyReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,18 +13,17 @@ export function useWeeklyReport() {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    weeklyReportService.getReport(week, geo)
+    weeklyReportService.getReport(range)
       .then((d) => { if (!alive) return; setData(d); setError(null); })
       .catch((e) => alive && setError(e.message))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [week, geo]);
+  }, [range.from, range.to]);
 
   return {
-    week, geo, data, loading, error,
-    setGeo,
-    prevWeek: () => setWeek((w) => shiftWeek(w, -1)),
-    nextWeek: () => setWeek((w) => shiftWeek(w, 1)),
-    thisWeek: () => setWeek(currentWeek()),
+    range, data, loading, error,
+    setFrom: (from: string) => setRange((r) => makeRange(from || r.from, r.to)),
+    setTo: (to: string) => setRange((r) => makeRange(r.from, to || r.to)),
+    thisWeek: () => setRange(currentWeek()),
   };
 }

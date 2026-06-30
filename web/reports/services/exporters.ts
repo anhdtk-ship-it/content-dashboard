@@ -1,14 +1,13 @@
 /* Weekly Report — tầng XUẤT BÁO CÁO (PHASE 8: thiết kế interface; Copy đã chạy, PDF/DOCX để dành).
  * Mọi exporter cùng interface ReportExporter → sau này bổ sung PDF/DOCX không đụng UI. */
 import type { ReportExporter, WeeklyReportData, ReportNarrative } from '../types/report';
-import { GEO_LABEL } from '../types/report';
 import { fmtPct1, fmtNum } from '../utils/format';
 
 /** Dựng báo cáo dạng văn bản thuần (dùng cho Copy; PDF/DOCX có thể tái dùng). */
 export function buildPlainText(data: WeeklyReportData, n: ReportNarrative): string {
   const L: string[] = [];
   const t = data.team;
-  L.push(`BÁO CÁO TUẦN — ${data.week.label}  ·  Địa lý: ${GEO_LABEL[data.geo]}`);
+  L.push(`BÁO CÁO TUẦN — ${data.range.label}`);
   L.push('');
   L.push('I. TIẾN ĐỘ CONTENT');
   L.push(`  Tổng quan team: Đã cấp ${fmtNum(t.capped)} · Đã test ${fmtNum(t.tested)} · Tồn ${fmtNum(t.ton)} · Tỷ lệ test ${fmtPct1(t.testRate)} · Test win ${fmtNum(t.win)} · Tỷ lệ win ${fmtPct1(t.winRate)}`);

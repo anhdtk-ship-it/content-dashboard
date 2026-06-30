@@ -1,15 +1,11 @@
 /* Weekly Report — kiểu dữ liệu (PHASE 8). Module ĐỘC LẬP, KHÔNG dùng chung logic Dashboard Content/Ads.
  * Chỉ ĐỌC dữ liệu đã có qua API /api/v3/summary (Single Source of Truth). KHÔNG đọc Google Sheet. */
 
-export type Geo = 'ALL' | 'noi_dia' | 'quoc_te';
-
-export const GEO_LABEL: Record<Geo, string> = { ALL: 'Tất cả', noi_dia: 'Nội Địa', quoc_te: 'Quốc Tế' };
-
-/** Khoảng tuần (Thứ 2 → Chủ nhật), ISO 'YYYY-MM-DD'. */
-export interface WeekRange {
+/** Khoảng thời gian báo cáo (tùy chỉnh theo ngày), ISO 'YYYY-MM-DD'. */
+export interface DateRange {
   from: string;
   to: string;
-  label: string;   // "Tuần 23/06 – 29/06/2026"
+  label: string;   // "23/06/2026 – 29/06/2026"
 }
 
 /** Bộ KPI 1 nhân viên / cả team trong kỳ (BUSINESS RULE RIÊNG của Weekly Report — xem WeeklyReportService). */
@@ -36,8 +32,7 @@ export interface EmployeePlan { name: string; tasks: string[]; auto: boolean; }
 
 /** Dữ liệu báo cáo tuần (phần tự sinh từ Dashboard). */
 export interface WeeklyReportData {
-  week: WeekRange;
-  geo: Geo;
+  range: DateRange;
   team: ReportMetrics;
   employees: EmployeeReport[];
   generatedAt: string;

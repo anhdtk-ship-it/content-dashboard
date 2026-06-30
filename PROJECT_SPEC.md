@@ -342,7 +342,7 @@ content-dashboard/
 > Module **Reports → Weekly Report** (`web/reports/`, route `#/weekly-report`). ĐỘC LẬP — KHÔNG dùng chung logic Content/Ads, KHÔNG đọc Google Sheet, KHÔNG đổi DB/API. **Chỉ đọc `/api/v3/summary`** (Single Source of Truth).
 
 ### 12.1 Nguồn dữ liệu & luồng + Service riêng
-**BUSINESS RULE RIÊNG** (§5): KHÔNG dùng `calculateAdsStatus()`, Lifecycle (Ads), hay metrics()/status-set của Dashboard. `WeeklyReportService` (`services/WeeklyReportService.ts`) tự đọc **dữ liệu thô** qua `/api/v3/contents?from=<T2>&to=<CN>&market=<geo>` (phân trang) rồi tự tính KPI: `calculateWeeklyKPIs()` + `calculateWeeklyEmployeeReport()`. "Đã cấp" theo Ngày Up Trello (dateField mặc định). Bộ lọc: **Tuần** (mặc định tuần hiện tại, ◀▶) + **Địa lý**.
+**BUSINESS RULE RIÊNG** (§5): KHÔNG dùng `calculateAdsStatus()`, Lifecycle (Ads), hay metrics()/status-set của Dashboard. `WeeklyReportService` (`services/WeeklyReportService.ts`) tự đọc **dữ liệu thô** qua `/api/v3/contents?from&to` (phân trang) rồi tự tính KPI: `calculateWeeklyKPIs()` + `calculateWeeklyEmployeeReport()`. "Đã cấp" theo Ngày Up Trello (dateField mặc định). Bộ lọc: **Khoảng thời gian TÙY CHỈNH** (Từ/Đến chọn theo ngày, mặc định tuần hiện tại). *(Đã BỎ bộ lọc Địa lý.)* Group theo `assignee_name` = **Nhân viên Ads** (KHÔNG dùng `editor_name`/Biên tập).
 
 ### 12.2 Công thức KPI (RIÊNG — chỉnh ở `WeeklyReportService`)
 - **Đã cấp** = số content giao cho nhân viên (rows).
