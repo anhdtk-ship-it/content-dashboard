@@ -15,6 +15,7 @@ import { LifecyclePage } from './LifecyclePage';
 import { UsagePage } from './UsagePage';
 import { AnalyticsPage } from './AnalyticsPage';
 import { AdsMonitorPage } from './ads-monitor/pages/AdsMonitorPage';
+import { WeeklyReportPage } from './reports/pages/WeeklyReportPage';
 
 /* ---------- menu & routes (1 nguồn duy nhất) ----------
  * Menu (V5) đã gộp: chỉ hiện Tổng Quan + 2 trang gộp. Các route cũ
@@ -29,6 +30,10 @@ const NAV: { label: string; items: { icon: string; label: string; href: string; 
   // Module mới (PHASE 1) — độc lập, chỉ thêm mới, không đụng menu cũ.
   { label: '📡 Ads Monitor', items: [
     { icon: '📡', label: 'Ads Monitor', href: '#/ads-monitor', key: 'ads-monitor' },
+  ] },
+  // Module mới (PHASE 8) — Reports (hiện chỉ Weekly Report). Độc lập, chỉ đọc API.
+  { label: '📝 Reports', items: [
+    { icon: '📝', label: 'Weekly Report', href: '#/weekly-report', key: 'weekly-report' },
   ] },
 ];
 
@@ -51,6 +56,8 @@ const PAGES: Record<string, { title: string; el: ReactNode }> = {
   settings: { title: 'Cài đặt', el: <Stub title="Cài đặt" /> },
   // Module mới (PHASE 1)
   'ads-monitor': { title: 'Ads Monitor', el: <AdsMonitorPage /> },
+  // Module mới (PHASE 8)
+  'weekly-report': { title: 'Báo cáo tuần', el: <WeeklyReportPage /> },
 };
 
 const routeKey = (h: string) => (h || '').replace(/^#\//, '').split('?')[0] || 'overview';

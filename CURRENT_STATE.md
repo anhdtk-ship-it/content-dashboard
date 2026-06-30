@@ -3,6 +3,12 @@
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
 > Cập nhật: 2026-06-29 — **Phase 7 (Lifecycle + Current Status)** cho Ads Monitor.
 
+## Phase 8 — Weekly Report (module mới)
+- Menu **Reports → Weekly Report** (`web/reports/`, `#/weekly-report`). Chỉ đọc `/api/v3/summary` — KHÔNG đụng Content/Ads/Sync/DB/API.
+- Bộ lọc: Tuần (mặc định tuần hiện tại) + Địa lý. 3 phần: I. Tiến độ Content (team + từng nhân viên) · II. Vấn đề/Phương án (tự sinh + nhập tay) · III. HĐ tuần tới (tự sinh + nhập tay). Có Xem trước. Export: Copy (chạy) + PDF/DOCX (interface, chưa làm).
+- KPI map ở `reportService.toReportMetrics`: Đã sử dụng=`tested−fail`, Test win=`success` (⚠️ định nghĩa suy từ ví dụ — cần nghiệp vụ xác nhận). II/III lưu cục bộ (chưa persist).
+- Verified trên preview: render đủ 3 phần, week nav, empty state, toggle nhập tay, export buttons.
+
 ## Phase 7 — Lifecycle + Current Status (thuật toán trạng thái mới)
 - Trạng thái KHÔNG còn chỉ dựa amount. **Đã tắt** = chi tiêu **NGÀY DỮ LIỆU MỚI NHẤT (global)** = 0; ngược lại theo **Lifecycle** (NEW→Mới chạy · TEST→Đang test · MAINTAIN→Đang duy trì).
 - **FIX (quan trọng):** `latest_amount` lấy theo `max(sheet_date)` TOÀN HỆ THỐNG, không phải ngày-cuối-riêng-content. Sheet bỏ qua ngày không chi tiêu → content ngừng chạy không có dòng ngày mới nhất → 0 → Đã tắt. *(Trước fix: lấy nhầm ngày cuối riêng → ad ngừng vài ngày vẫn báo còn chạy.)* Verified: ngày 06-29 có 63 content chi tiêu >0 = đúng 63 "còn chạy"; 832 Đã tắt.

@@ -337,4 +337,31 @@ content-dashboard/
 
 ---
 
+## 12. Weekly Report (module độc lập) — PHASE 8
+
+> Module **Reports → Weekly Report** (`web/reports/`, route `#/weekly-report`). ĐỘC LẬP — KHÔNG dùng chung logic Content/Ads, KHÔNG đọc Google Sheet, KHÔNG đổi DB/API. **Chỉ đọc `/api/v3/summary`** (Single Source of Truth).
+
+### 12.1 Nguồn dữ liệu & luồng
+`/api/v3/summary?from=<T2>&to=<CN>&market=<geo>` → `reportService.fetchWeeklyReport` map `metrics` (team) + `byAssignee[].m` (nhân viên) → KPI báo cáo. "Đã cấp" theo Ngày Up Trello (dateField mặc định của summary). Bộ lọc: **Tuần** (mặc định tuần hiện tại, ◀▶) + **Địa lý** (Tất cả/Nội Địa/Quốc Tế).
+
+### 12.2 KPI (map trong `reportService.toReportMetrics` — chỉnh 1 chỗ)
+- Đã cấp = `capped` · Đã test = `tested` · Chưa test = `capped − tested`
+- **Đã sử dụng = `tested − fail`** (loại "Đã test-ko chạy") · Tỷ lệ sử dụng = `used/tested`
+- **Content test win = `success`** (Thành công = Duy trì + Đã chạy-Tắt) · Tỷ lệ test win = `win/tested`
+- *(Định nghĩa "Đã sử dụng"/"test win" suy từ ví dụ trong yêu cầu — cần nghiệp vụ xác nhận; đổi tại `toReportMetrics`.)*
+
+### 12.3 Cấu trúc báo cáo
+- **I. Tiến độ Content**: Tổng quan team (6 KPI) + block từng nhân viên (ngắn gọn, không bảng lớn).
+- **II. Vấn đề/Phương án**: theo nhân viên, ≤3 ý — **tự sinh** từ KPI (`insights.autoIssues`), thiếu dữ liệu → placeholder; nhập tay được.
+- **III. HĐ tuần tới + Đề xuất**: theo nhân viên, 2–3 đầu việc — tự sinh (`insights.autoPlan`) + nhập tay.
+- **Chế độ Xem trước** (toggle) — bố cục như báo cáo; phần II/III lưu **cục bộ** (CHƯA persist — không đổi DB).
+
+### 12.4 Xuất báo cáo (interface — `services/exporters.ts`)
+`ReportExporter` chung: **Copy (đã chạy)** · PDF/DOCX (`enabled:false`, chỉ thiết kế). Thêm exporter = đăng ký vào `EXPORTERS`.
+
+### 12.5 Mở rộng Monthly Report
+Tái dùng `reportService` (đổi `weekRange`→`monthRange`) + `insights` + `exporters`; thêm route `#/monthly-report`. Components I/II/III dùng lại gần như nguyên trạng.
+
+---
+
 > **Quy tắc vàng:** PR/commit nào đổi schema, API, sync, dashboard, phân quyền → **cập nhật PROJECT_SPEC.md trong cùng thay đổi đó**.
