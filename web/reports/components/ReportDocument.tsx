@@ -27,6 +27,36 @@ function KpiRows({ m }: { m: ReportMetrics }) {
   );
 }
 
+/** Bảng "Theo từng nhân viên" — 7 cột, hàng nhân viên (động) + dòng Tổng. Đơn giản, in PDF tốt. */
+function EmployeeTable({ employees, team }: { employees: WeeklyReportData['employees']; team: ReportMetrics }) {
+  const cols = ['Nhân viên', 'Đã cấp', 'Đã test', 'Tồn', 'Tỷ lệ test', 'Content test win', 'Tỷ lệ win'];
+  const vals = (m: ReportMetrics) => [fmtNum(m.capped), fmtNum(m.tested), fmtNum(m.ton), fmtPct1(m.testRate), fmtNum(m.win), fmtPct1(m.winRate)];
+  const num = 'border border-line px-2 py-1 text-right tabular-nums text-fg';
+  return (
+    <table className="emp-table w-full border-collapse text-[13px]">
+      <thead>
+        <tr>
+          {cols.map((c, i) => (
+            <th key={c} className={`emp-th border border-line bg-surface2 px-2 py-1 font-semibold text-muted ${i === 0 ? 'text-left' : 'text-right'}`}>{c}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {employees.map((e) => (
+          <tr key={e.name}>
+            <td className="border border-line px-2 py-1 text-left text-fg">{e.name}</td>
+            {vals(e.metrics).map((v, i) => <td key={i} className={num}>{v}</td>)}
+          </tr>
+        ))}
+        <tr className="total-row">
+          <td className="border border-line bg-surface2 px-2 py-1 text-left font-bold text-fg">Tổng</td>
+          {vals(team).map((v, i) => <td key={i} className={`${num} bg-surface2 font-bold`}>{v}</td>)}
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 function SectionHead({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="section-head mb-2 mt-1 border-y-2 border-line py-1 text-[15px] font-bold uppercase tracking-wide text-fg">
@@ -67,14 +97,7 @@ export function ReportDocument({
               <KpiRows m={data.team} />
             </div>
             <div className="mb-1 text-[13px] font-semibold text-muted">Theo từng nhân viên</div>
-            <div className="flex flex-col gap-3">
-              {data.employees.map((e) => (
-                <div key={e.name} className="emp-block">
-                  <div className="mb-1 text-[13px] font-bold uppercase tracking-wide text-fg">{e.name}</div>
-                  <KpiRows m={e.metrics} />
-                </div>
-              ))}
-            </div>
+            <EmployeeTable employees={data.employees} team={data.team} />
           </section>
 
           {/* II. ĐÁNH GIÁ */}

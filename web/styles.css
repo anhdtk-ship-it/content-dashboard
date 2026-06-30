@@ -74,6 +74,12 @@ html, body { background: var(--bg); }
   #report-doc .report-header { padding-bottom: 6pt; margin-bottom: 6pt; border-bottom: 1px solid #999; }
   #report-doc .report-title { font-size: 13pt; }   /* header compact khi in */
 
+  /* Bảng "Theo từng nhân viên": giữ nền xám header + dòng Tổng khi in (in cả nền), viền rõ trắng-đen */
+  #report-doc .emp-table { print-color-adjust: exact; -webkit-print-color-adjust: exact; break-inside: avoid; }
+  #report-doc .emp-table th, #report-doc .emp-table td { border: 1px solid #999 !important; }
+  #report-doc .emp-table .emp-th { background: #ededed !important; color: #111 !important; }
+  #report-doc .emp-table .total-row td { background: #f3f3f3 !important; font-weight: 700; }
+
   /* Ngắt trang: KHÔNG cắt block nhân viên giữa chừng → đẩy nguyên block sang trang sau */
   .emp-block { break-inside: avoid; page-break-inside: avoid; }
   .section-head { break-after: avoid; page-break-after: avoid; }

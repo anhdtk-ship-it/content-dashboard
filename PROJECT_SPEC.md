@@ -354,7 +354,7 @@ content-dashboard/
 
 ### 12.3 Cấu trúc báo cáo (PHASE 9 — print-friendly, `ReportDocument`)
 Bố cục **văn bản** (KHÔNG KPICard/biểu đồ/bảng Excel), dùng CHUNG cho web + in.
-- **I. Tiến độ Content**: Tổng quan team (6 KPI dạng hàng nhãn–giá trị) + block từng nhân viên.
+- **I. Tiến độ Content**: Tổng quan team (6 KPI dạng hàng nhãn–giá trị) + **bảng "Theo từng nhân viên"** (cột: Nhân viên · Đã cấp · Đã test · Tồn · Tỷ lệ test · Content test win · Tỷ lệ win; hàng nhân viên động + dòng **Tổng** nổi bật). Header nền xám nhạt, không card/biểu đồ/màu đậm; nền header+Tổng giữ khi in (`print-color-adjust: exact`).
 - **II. Đánh giá**: theo nhân viên — **Đánh giá (≤2)** + **Hành động tuần tới (≤2)**, sinh bằng **RULE ENGINE** (`services/ruleEngine.ts`): độc lập theo KPI của chính nhân viên (ngưỡng cố định; KHÔNG xếp hạng / so sánh / trung bình team), mỗi ý gắn **KPI cụ thể** + hành động rõ ràng. Nhập tay được.
 - **III. Kế hoạch tuần tới**: checklist (☐) lấy từ Hành động tuần tới của từng nhân viên.
 - **Chế độ Xem trước** (toggle); phần II/III lưu **cục bộ** (CHƯA persist).
