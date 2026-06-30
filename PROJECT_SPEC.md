@@ -354,8 +354,8 @@ content-dashboard/
 
 ### 12.3 Cấu trúc báo cáo
 - **I. Tiến độ Content**: Tổng quan team (6 KPI) + block từng nhân viên (ngắn gọn, không bảng lớn).
-- **II. Vấn đề/Phương án**: theo nhân viên, ≤3 ý — **tự sinh** từ KPI (`insights.autoIssues`), thiếu dữ liệu → placeholder; nhập tay được.
-- **III. HĐ tuần tới + Đề xuất**: theo nhân viên, 2–3 đầu việc — tự sinh (`insights.autoPlan`) + nhập tay.
+- **II. Đánh giá**: theo nhân viên, **≤2 ý** — sinh bằng **RULE ENGINE** (`services/ruleEngine.ts`), đánh giá **ĐỘC LẬP** theo KPI của chính nhân viên (ngưỡng cố định; KHÔNG xếp hạng / KHÔNG so sánh nhân viên khác / KHÔNG so trung bình team). Mỗi ý gắn **KPI cụ thể** (vd "Tỷ lệ test thấp 3.5% (2/57)"). Nhập tay được.
+- **III. Hành động tuần tới**: theo nhân viên, **≤2 ý** — mỗi rule sinh kèm 1 hành động rõ ràng tương ứng đánh giá (vd "Ưu tiên test 55 content tồn"). Nhập tay được.
 - **Chế độ Xem trước** (toggle) — bố cục như báo cáo; phần II/III lưu **cục bộ** (CHƯA persist — không đổi DB).
 
 ### 12.4 Xuất báo cáo (interface — `services/exporters.ts`)

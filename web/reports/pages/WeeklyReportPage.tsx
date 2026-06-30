@@ -5,29 +5,29 @@ import { PageContainer, SectionHeader, LoadingSkeleton, EmptyState } from '../..
 import { ReportFilters } from '../components/ReportFilters';
 import { ExportBar } from '../components/ExportBar';
 import { TeamSummaryBlock, EmployeeBlock } from '../components/SummaryBlocks';
-import { IssuesSection, NextWeekSection } from '../components/NarrativeSections';
+import { AssessmentSection, ActionSection } from '../components/NarrativeSections';
 import { useWeeklyReport } from '../hooks/useWeeklyReport';
-import { autoIssues, autoPlan } from '../services/insights';
-import type { ReportNarrative, IssueItem, WeeklyReportData } from '../types/report';
+import { evaluateEmployee } from '../services/ruleEngine';
+import type { ReportNarrative, WeeklyReportData } from '../types/report';
 
 export function WeeklyReportPage() {
   const { range, data, loading, error, setFrom, setTo, thisWeek } = useWeeklyReport();
   const [preview, setPreview] = useState(true);
 
-  // Phần soạn (II + III) — cục bộ, khởi tạo từ tự sinh khi dữ liệu đổi (CHƯA persist DB).
-  const [narrative, setNarrative] = useState<ReportNarrative>({ issues: {}, plans: {} });
+  // Phần soạn (II + III) — Rule Engine sinh mặc định khi dữ liệu đổi; nhập tay (cục bộ, CHƯA persist DB).
+  const [narrative, setNarrative] = useState<ReportNarrative>({ assessments: {}, actions: {} });
   useEffect(() => {
     if (!data) return;
-    const issues: Record<string, IssueItem[]> = {};
-    const plans: Record<string, string[]> = {};
-    for (const e of data.employees) { issues[e.name] = autoIssues(e).items; plans[e.name] = autoPlan(e).tasks; }
-    setNarrative({ issues, plans });
+    const assessments: Record<string, string[]> = {};
+    const actions: Record<string, string[]> = {};
+    for (const e of data.employees) { const ev = evaluateEmployee(e); assessments[e.name] = ev.assessments; actions[e.name] = ev.actions; }
+    setNarrative({ assessments, actions });
   }, [data]);
 
-  const setIssues = (name: string, items: IssueItem[]) =>
-    setNarrative((n) => ({ ...n, issues: { ...n.issues, [name]: items } }));
-  const setPlan = (name: string, tasks: string[]) =>
-    setNarrative((n) => ({ ...n, plans: { ...n.plans, [name]: tasks } }));
+  const setAssessment = (name: string, items: string[]) =>
+    setNarrative((n) => ({ ...n, assessments: { ...n.assessments, [name]: items } }));
+  const setAction = (name: string, items: string[]) =>
+    setNarrative((n) => ({ ...n, actions: { ...n.actions, [name]: items } }));
 
   const exportData: WeeklyReportData = data ?? { range, team: {} as any, employees: [], generatedAt: '' };
 
@@ -60,13 +60,13 @@ export function WeeklyReportPage() {
               </section>
 
               <section>
-                <SectionHeader title="II. Vấn đề / Phương án" />
-                <IssuesSection employees={data.employees} issues={narrative.issues} preview={preview} onChange={setIssues} />
+                <SectionHeader title="II. Đánh giá" />
+                <AssessmentSection employees={data.employees} assessments={narrative.assessments} preview={preview} onChange={setAssessment} />
               </section>
 
               <section>
-                <SectionHeader title="III. HĐ tuần tới" />
-                <NextWeekSection employees={data.employees} plans={narrative.plans} preview={preview} onChange={setPlan} />
+                <SectionHeader title="III. Hành động tuần tới" />
+                <ActionSection employees={data.employees} actions={narrative.actions} preview={preview} onChange={setAction} />
               </section>
             </div>
           ) : null}

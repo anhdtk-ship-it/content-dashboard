@@ -23,12 +23,11 @@ export interface EmployeeReport {
   metrics: ReportMetrics;
 }
 
-/** II. Vấn đề / Phương án (≤3 ý/nhân viên). */
-export interface IssueItem { problem: string; proposal: string; }
-export interface EmployeeIssues { name: string; items: IssueItem[]; auto: boolean; }
-
-/** III. HĐ tuần tới + Đề xuất (2–3 đầu việc/nhân viên). */
-export interface EmployeePlan { name: string; tasks: string[]; auto: boolean; }
+/** Kết quả Rule Engine cho 1 nhân viên (độc lập, theo KPI của chính họ). */
+export interface EmployeeEvaluation {
+  assessments: string[];   // II. Đánh giá (≤2) — mỗi ý gắn KPI cụ thể
+  actions: string[];       // III. Hành động tuần tới (≤2) — hành động rõ ràng
+}
 
 /** Dữ liệu báo cáo tuần (phần tự sinh từ Dashboard). */
 export interface WeeklyReportData {
@@ -38,10 +37,10 @@ export interface WeeklyReportData {
   generatedAt: string;
 }
 
-/** Phần soạn thảo (II + III) — tách khỏi dữ liệu tự sinh; có thể nhập tay, sau này AI tự sinh. */
+/** Phần soạn thảo (II + III) — Rule Engine sinh mặc định, nhập tay được. Key = tên nhân viên. */
 export interface ReportNarrative {
-  issues: Record<string, IssueItem[]>; // key = tên nhân viên
-  plans: Record<string, string[]>;     // key = tên nhân viên
+  assessments: Record<string, string[]>; // II. Đánh giá (≤2)
+  actions: Record<string, string[]>;      // III. Hành động tuần tới (≤2)
 }
 
 /* ---------- Interface XUẤT BÁO CÁO (PHASE 8: chỉ thiết kế, chưa implement đầy đủ) ---------- */

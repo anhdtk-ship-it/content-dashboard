@@ -16,16 +16,16 @@ export function buildPlainText(data: WeeklyReportData, n: ReportNarrative): stri
     L.push(`  • ${e.name}: cấp ${fmtNum(m.capped)}, test ${fmtNum(m.tested)}, tồn ${fmtNum(m.ton)}, tỷ lệ test ${fmtPct1(m.testRate)}, win ${fmtNum(m.win)} (${fmtPct1(m.winRate)})`);
   }
   L.push('');
-  L.push('II. VẤN ĐỀ / PHƯƠNG ÁN');
+  L.push('II. ĐÁNH GIÁ');
   for (const e of data.employees) {
     L.push(`  ${e.name}:`);
-    for (const it of n.issues[e.name] ?? []) L.push(`    - Vấn đề: ${it.problem}\n      Đề xuất: ${it.proposal}`);
+    for (const it of n.assessments[e.name] ?? []) L.push(`    - ${it}`);
   }
   L.push('');
-  L.push('III. HĐ TUẦN TỚI + ĐỀ XUẤT');
+  L.push('III. HÀNH ĐỘNG TUẦN TỚI');
   for (const e of data.employees) {
     L.push(`  ${e.name}:`);
-    for (const task of n.plans[e.name] ?? []) L.push(`    - ${task}`);
+    for (const task of n.actions[e.name] ?? []) L.push(`    - ${task}`);
   }
   return L.join('\n');
 }
