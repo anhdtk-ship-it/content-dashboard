@@ -53,7 +53,7 @@ export function MetricTooltip({ tip, children, className = '' }: MetricTooltipPr
               width: TIP_W,
               transform: pos.above ? 'translateY(-100%)' : 'none',
             }}
-            className="pointer-events-none z-[1000] rounded-control border border-line bg-[#0a101d] px-[11px] py-[9px] text-xs font-normal leading-snug text-fg shadow-[0_8px_24px_rgba(0,0,0,.55)]"
+            className="pointer-events-none z-[1000] rounded-control border border-[#243049] bg-[#0a101d] px-[11px] py-[9px] text-xs font-normal leading-snug text-[#e6edf6] shadow-[0_8px_24px_rgba(0,0,0,.55)]"
           >
             {tip}
           </span>,
