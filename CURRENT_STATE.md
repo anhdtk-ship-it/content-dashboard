@@ -8,7 +8,8 @@
 - **Service riêng** `WeeklyReportService` (`calculateWeeklyKPIs`/`calculateWeeklyEmployeeReport`) — KHÔNG dùng `calculateAdsStatus`/Lifecycle/metrics Dashboard. Đọc **dữ liệu thô** `/api/v3/contents` (phân trang) + tự tính.
 - KPI (§6): Đã cấp · Đã test (`test_date_real != null`) · Tồn (`cấp−test`) · Tỷ lệ test (1 chữ số TP) · Content test win (đạt "Duy trì") · Tỷ lệ win. ⚠️ "win = Duy trì" tính bằng rule riêng trên dữ liệu Content (KHÔNG dùng ads_monitor_lifecycle — grain khác) — **cần nghiệp vụ xác nhận**.
 - Bộ lọc **Khoảng thời gian tùy chỉnh** (Từ/Đến theo ngày, mặc định tuần hiện tại) — **đã bỏ Địa lý**. Group theo `assignee_name` = Nhân viên Ads (không dùng Biên tập).
-- **Section II "Đánh giá" + III "Hành động tuần tới"**: ≤2 ý/người, sinh bằng **Rule Engine** (`services/ruleEngine.ts`) — đánh giá ĐỘC LẬP theo KPI từng người (KHÔNG xếp hạng/so sánh/trung bình team), mỗi ý gắn KPI cụ thể + hành động rõ ràng. Nhập tay (cục bộ, chưa persist). Xem trước. Export: Copy (chạy) + PDF/DOCX (interface).
+- **Bố cục print-friendly (`ReportDocument`)**: I (text KPI) · II "Đánh giá" (Đánh giá ≤2 + Hành động tuần tới ≤2, Rule Engine độc lập theo KPI từng người, không so sánh) · III "Kế hoạch tuần tới" (checklist ☐). Nhập tay (cục bộ, chưa persist).
+- **Xuất PDF (Phase 9) = `window.print()` in chính `#report-doc`** — không template riêng; `@media print` trong `web/styles.css`: A4 portrait, ẩn chrome (aside/header/.no-print), header lặp mỗi trang, footer số trang, `.emp-block` không cắt giữa trang. Copy chạy; DOCX để dành. *(Pagination cuối cùng nên kiểm bằng Ctrl+P trên trình duyệt.)*
 - Verified preview tuần 01–07/06: cấp 87 · test 65 · tồn 22 · tỷ lệ test 74.7% · win 9 · tỷ lệ win 13.8%.
 
 ## Phase 7 — Lifecycle + Current Status (thuật toán trạng thái mới)

@@ -1,74 +1,79 @@
-/* Weekly Report — II. Đánh giá + III. Hành động tuần tới, theo từng nhân viên (PHASE 8 · điều chỉnh).
- * Mỗi nhân viên ĐỘC LẬP: ≤2 ý, do Rule Engine sinh (gắn KPI cụ thể); nhập tay được; Xem trước = chỉ đọc.
- * Lưu cục bộ trong state trang (CHƯA persist). */
+/* Weekly Report — II. Đánh giá (Đánh giá + Hành động tuần tới) + III. Kế hoạch tuần tới (PHASE 9).
+ * Mỗi nhân viên 1 block (.emp-block → không bị cắt khi in). ≤2 ý/mục, Rule Engine sinh, nhập tay được.
+ * Xem trước/IN = chỉ đọc (bullet/checklist); Chỉnh sửa = input. */
 import type { EmployeeReport } from '../types/report';
 
 const inp = 'w-full rounded-control border border-line bg-surface px-2 py-1 text-[13px] text-fg focus:border-accent focus:outline-none';
 const MAX = 2;
 
-/** Editor danh sách chuỗi (≤MAX) cho 1 nhân viên — dùng chung cho Đánh giá & Hành động. */
-function EmployeeList({
-  emp, items, preview, onChange, addLabel,
-}: {
-  emp: EmployeeReport; items: string[]; preview: boolean;
-  onChange: (items: string[]) => void; addLabel: string;
+/** Danh sách chuỗi ≤MAX của 1 nhân viên — bullet khi xem/in, input khi sửa. */
+function EditList({ items, preview, onChange, addLabel }: {
+  items: string[]; preview: boolean; onChange: (items: string[]) => void; addLabel: string;
 }) {
+  if (preview) {
+    return (
+      <ul className="ml-1 list-disc pl-4 text-[13px] leading-relaxed text-fg">
+        {items.filter((t) => t.trim()).map((t, i) => <li key={i}>{t}</li>)}
+      </ul>
+    );
+  }
   return (
-    <div className="rounded-card border border-line bg-surface p-3">
-      <div className="mb-2 text-[14px] font-bold text-fg">{emp.name}</div>
-      {preview ? (
-        <ul className="list-disc pl-5 text-[13px] text-fg">
-          {items.filter((t) => t.trim()).map((t, i) => <li key={i}>{t}</li>)}
-        </ul>
-      ) : (
-        <div className="flex flex-col gap-1">
-          {items.map((t, i) => (
-            <div key={i} className="flex items-center gap-1">
-              <input className={inp} value={t} onChange={(e) => onChange(items.map((x, idx) => (idx === i ? e.target.value : x)))} />
-              <button className="text-[11px] text-muted hover:text-danger" onClick={() => onChange(items.filter((_, idx) => idx !== i))}>✕</button>
-            </div>
-          ))}
-          {items.length < MAX && (
-            <button className="self-start text-[12px] text-accent hover:underline" onClick={() => onChange([...items, ''])}>+ {addLabel}</button>
-          )}
+    <div className="flex flex-col gap-1">
+      {items.map((t, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <input className={inp} value={t} onChange={(e) => onChange(items.map((x, idx) => (idx === i ? e.target.value : x)))} />
+          <button className="no-print text-[11px] text-muted hover:text-danger" onClick={() => onChange(items.filter((_, idx) => idx !== i))}>✕</button>
         </div>
+      ))}
+      {items.length < MAX && (
+        <button className="no-print self-start text-[12px] text-accent hover:underline" onClick={() => onChange([...items, ''])}>+ {addLabel}</button>
       )}
     </div>
   );
 }
 
-export function AssessmentSection({
-  employees, assessments, preview, onChange,
+/** II. ĐÁNH GIÁ — mỗi nhân viên: Đánh giá + Hành động tuần tới. */
+export function SectionII({
+  employees, assessments, actions, preview, onAssessment, onAction,
 }: {
   employees: EmployeeReport[];
   assessments: Record<string, string[]>;
+  actions: Record<string, string[]>;
   preview: boolean;
-  onChange: (name: string, items: string[]) => void;
+  onAssessment: (name: string, items: string[]) => void;
+  onAction: (name: string, items: string[]) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+    <div className="flex flex-col gap-3">
       {employees.map((e) => (
-        <EmployeeList key={e.name} emp={e} items={assessments[e.name] ?? []} preview={preview}
-          addLabel="Thêm đánh giá" onChange={(items) => onChange(e.name, items)} />
+        <div key={e.name} className="emp-block rounded-card border border-line p-3">
+          <div className="mb-1 text-[13px] font-bold uppercase tracking-wide text-fg">{e.name}</div>
+          <div className="mb-0.5 text-[12px] font-semibold text-muted">Đánh giá</div>
+          <EditList items={assessments[e.name] ?? []} preview={preview} addLabel="Thêm đánh giá" onChange={(it) => onAssessment(e.name, it)} />
+          <div className="mb-0.5 mt-2 text-[12px] font-semibold text-muted">Hành động tuần tới</div>
+          <EditList items={actions[e.name] ?? []} preview={preview} addLabel="Thêm hành động" onChange={(it) => onAction(e.name, it)} />
+        </div>
       ))}
     </div>
   );
 }
 
-export function ActionSection({
-  employees, actions, preview, onChange,
-}: {
-  employees: EmployeeReport[];
-  actions: Record<string, string[]>;
-  preview: boolean;
-  onChange: (name: string, items: string[]) => void;
-}) {
+/** III. KẾ HOẠCH TUẦN TỚI — checklist (□) theo từng nhân viên (lấy từ Hành động tuần tới). */
+export function SectionIII({ employees, actions }: { employees: EmployeeReport[]; actions: Record<string, string[]> }) {
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      {employees.map((e) => (
-        <EmployeeList key={e.name} emp={e} items={actions[e.name] ?? []} preview={preview}
-          addLabel="Thêm hành động" onChange={(items) => onChange(e.name, items)} />
-      ))}
+    <div className="flex flex-col gap-3">
+      {employees.map((e) => {
+        const tasks = (actions[e.name] ?? []).filter((t) => t.trim());
+        return (
+          <div key={e.name} className="emp-block rounded-card border border-line p-3">
+            <div className="mb-1 text-[13px] font-bold uppercase tracking-wide text-fg">{e.name}</div>
+            <div className="flex flex-col gap-0.5 text-[13px] text-fg">
+              {tasks.length === 0 ? <span className="text-muted">(chưa có kế hoạch)</span>
+                : tasks.map((t, i) => <div key={i}>☐ {t}</div>)}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

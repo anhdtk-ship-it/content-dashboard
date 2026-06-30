@@ -30,3 +30,49 @@ html, body { background: var(--bg); }
 /* Phóng to giao diện một chút cho dễ nhìn (chữ + UI). Đặt trên #root (không
  * phải body) để tooltip portal ra document.body vẫn định vị đúng. */
 #root { zoom: 1.1; }
+
+/* ============================================================
+ * PRINT / PDF — Weekly Report (PHASE 9)
+ * PDF = bản in của CHÍNH Weekly Report (#report-doc). KHÔNG template riêng.
+ * Web và PDF dùng chung markup; @media print chỉ ẩn chrome + tối ưu khổ A4.
+ * ========================================================== */
+.print-only, .print-header { display: none; }   /* chỉ hiện khi in (header lặp mỗi trang) */
+
+@media print {
+  /* Khổ A4 dọc + lề in; footer số trang (nơi hỗ trợ @page margin-box) */
+  @page {
+    size: A4 portrait;
+    margin: 24mm 14mm 16mm 14mm;
+    @bottom-right { content: "Trang " counter(page) " / " counter(pages); font-size: 9pt; color: #444; }
+  }
+
+  html, body { background: #fff !important; }
+  #root { zoom: 1 !important; }   /* bỏ zoom 1.1 khi in để đúng tỉ lệ A4 */
+
+  /* CHẾ ĐỘ IN: ẩn toàn bộ chrome — sidebar, top bar, filter, nút, search, toggle… */
+  aside, header, .no-print, [data-no-print] { display: none !important; }
+
+  /* Bỏ flex/scroll của AppShell để nội dung chảy qua nhiều trang */
+  body, #root, #root > div, #root > div > div, main {
+    display: block !important; height: auto !important; max-height: none !important; overflow: visible !important;
+  }
+
+  /* Báo cáo: chữ đen / nền trắng, font doanh nghiệp, đọc rõ khi in trắng đen */
+  #report-doc {
+    color: #111 !important;
+    font-family: Inter, Roboto, Arial, sans-serif;
+    font-size: 11pt; line-height: 1.45;
+  }
+  #report-doc * { color: #111 !important; background: transparent !important; box-shadow: none !important; }
+  #report-doc [class*="border"] { border-color: #bbb !important; }
+  #report-doc .report-title { font-size: 17pt; }
+  #report-doc .section-head { font-size: 13pt; }
+
+  /* Header lặp lại trên MỖI trang */
+  .print-header { display: block !important; position: fixed; top: 0; left: 0; right: 0; }
+
+  /* Ngắt trang: KHÔNG cắt block nhân viên giữa chừng → đẩy nguyên block sang trang sau */
+  .emp-block { break-inside: avoid; page-break-inside: avoid; }
+  .section-head { break-after: avoid; page-break-after: avoid; }
+  .report-section { break-inside: auto; }
+}

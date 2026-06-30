@@ -352,17 +352,20 @@ content-dashboard/
 - **Content test win** = chuyển test→maintain → content đạt trạng thái **"Duy trì"** (và đã test). ⚠️ Tính bằng rule riêng của Weekly trên dữ liệu Content; KHÔNG gọi `ads_monitor_lifecycle` (grain khác). *Cần nghiệp vụ xác nhận.*
 - **Tỷ lệ win** = `win / Đã test` (1 chữ số thập phân).
 
-### 12.3 Cấu trúc báo cáo
-- **I. Tiến độ Content**: Tổng quan team (6 KPI) + block từng nhân viên (ngắn gọn, không bảng lớn).
-- **II. Đánh giá**: theo nhân viên, **≤2 ý** — sinh bằng **RULE ENGINE** (`services/ruleEngine.ts`), đánh giá **ĐỘC LẬP** theo KPI của chính nhân viên (ngưỡng cố định; KHÔNG xếp hạng / KHÔNG so sánh nhân viên khác / KHÔNG so trung bình team). Mỗi ý gắn **KPI cụ thể** (vd "Tỷ lệ test thấp 3.5% (2/57)"). Nhập tay được.
-- **III. Hành động tuần tới**: theo nhân viên, **≤2 ý** — mỗi rule sinh kèm 1 hành động rõ ràng tương ứng đánh giá (vd "Ưu tiên test 55 content tồn"). Nhập tay được.
-- **Chế độ Xem trước** (toggle) — bố cục như báo cáo; phần II/III lưu **cục bộ** (CHƯA persist — không đổi DB).
+### 12.3 Cấu trúc báo cáo (PHASE 9 — print-friendly, `ReportDocument`)
+Bố cục **văn bản** (KHÔNG KPICard/biểu đồ/bảng Excel), dùng CHUNG cho web + in.
+- **I. Tiến độ Content**: Tổng quan team (6 KPI dạng hàng nhãn–giá trị) + block từng nhân viên.
+- **II. Đánh giá**: theo nhân viên — **Đánh giá (≤2)** + **Hành động tuần tới (≤2)**, sinh bằng **RULE ENGINE** (`services/ruleEngine.ts`): độc lập theo KPI của chính nhân viên (ngưỡng cố định; KHÔNG xếp hạng / so sánh / trung bình team), mỗi ý gắn **KPI cụ thể** + hành động rõ ràng. Nhập tay được.
+- **III. Kế hoạch tuần tới**: checklist (☐) lấy từ Hành động tuần tới của từng nhân viên.
+- **Chế độ Xem trước** (toggle); phần II/III lưu **cục bộ** (CHƯA persist).
 
-### 12.4 Xuất báo cáo (interface — `services/exporters.ts`)
-`ReportExporter` chung: **Copy (đã chạy)** · PDF/DOCX (`enabled:false`, chỉ thiết kế). Thêm exporter = đăng ký vào `EXPORTERS`.
+### 12.4 Xuất PDF = IN báo cáo (PHASE 9)
+- **PDF = bản in của chính `#report-doc`** qua `window.print()` — KHÔNG template/HTML/component riêng. Mọi thay đổi Weekly Report tự phản ánh khi in.
+- **`@media print`** (`web/styles.css`): @page A4 portrait + lề; ẩn chrome (`aside`/`header`/`.no-print`); chữ đen nền trắng; `.print-header` lặp mỗi trang (tên báo cáo + kỳ + ngày xuất); footer số trang `counter(page)`; `.emp-block { break-inside: avoid }` → không cắt block nhân viên giữa trang.
+- Copy (đã chạy) · DOCX (`enabled:false`, để dành). Nút "Xuất PDF" ép Xem trước rồi `window.print()`.
 
 ### 12.5 Mở rộng Monthly Report
-Tái dùng `reportService` (đổi `weekRange`→`monthRange`) + `insights` + `exporters`; thêm route `#/monthly-report`. Components I/II/III dùng lại gần như nguyên trạng.
+Tái dùng `WeeklyReportService` + `ruleEngine` + `ReportDocument` + print CSS; chỉ đổi `utils/week`→`utils/month`, thêm route `#/monthly-report`.
 
 ---
 
