@@ -17,10 +17,10 @@ import { schedule, validate } from 'node-cron';
  *  - Spawn cô lập lỗi: child crash KHÔNG kéo theo scheduler/server.
  *
  * ĐỘC LẬP với scheduler Content (sync-scheduler.ts) — biến env riêng.
- * Google Sheet Ads cập nhật 08:00 mỗi sáng → mặc định chạy 08:15.
+ * Google Sheet Ads cập nhật 09:20 mỗi sáng → mặc định chạy 09:35.
  * ========================================================== */
 
-const DEFAULT_CRON = '15 8 * * *'; // mặc định: 08:15 mỗi ngày (sau khi Sheet cập nhật 08:00). Fallback, không hardcode.
+const DEFAULT_CRON = '35 9 * * *'; // mặc định: 09:35 mỗi ngày (sau khi Sheet cập nhật 09:20). Fallback, không hardcode.
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..'); // src/ads-monitor → content-dashboard
 const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 

@@ -12,8 +12,9 @@
 
 ## Ads Import Scheduler (mới)
 - `npm run ads:scheduler` (`src/ads-monitor/ads-scheduler.ts`) — node-cron, spawn `npm run ads:import` theo lịch. Độc lập scheduler Content.
-- Env: `ADS_SYNC_ENABLED` (default true), `ADS_SYNC_CRON` (default `15 8 * * *` = 08:15, sau khi Sheet cập nhật 08:00). Chống chạy chồng, không crash, validate cron.
-- ⚠️ Cần chạy trên **worker/máy luôn bật** (Railway web service KHÔNG tự chạy scheduler) — xem gợi ý triển khai.
+- Env: `ADS_SYNC_ENABLED` (default true), `ADS_SYNC_CRON` (default `35 9 * * *` = 09:35, sau khi Sheet cập nhật **09:20**). Chống chạy chồng, không crash, validate cron.
+- ⚠️ Cần chạy trên **worker/máy luôn bật** (Railway web service KHÔNG tự chạy scheduler).
+- **Triển khai thực tế (máy Windows này):** Task Scheduler `AdsMonitorDailyImport` chạy `run-ads-import.bat` → `npm run ads:import` lúc **09:35 hằng ngày** (log: `ads-import.log`). Đổi giờ: `schtasks /Change /TN AdsMonitorDailyImport /ST hh:mm` (nếu hỏi mật khẩu thì dùng `schtasks /Create /F …`).
 
 ## Phase 6 (Go Live) — ✅ LIVE PRODUCTION với dữ liệu thật, tích lũy (2026-06-29)
 - ✅ Migration `005` đã chạy (bảng + FUNCTION `ads_monitor_query` tích lũy). `.env` + Railway env có `ADS_SHEET_ID=1kqVs8dyOgnk5l3CsgcGlhex-eI7OHhAkS6GLKnXh4j0`, `ADS_SHEET_TAB=Raw_Data`; SA đã share.
