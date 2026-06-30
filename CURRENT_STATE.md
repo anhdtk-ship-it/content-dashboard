@@ -4,7 +4,8 @@
 > Cập nhật: 2026-06-29 — **Phase 7 (Lifecycle + Current Status)** cho Ads Monitor.
 
 ## Phase 7 — Lifecycle + Current Status (thuật toán trạng thái mới)
-- Trạng thái KHÔNG còn chỉ dựa amount. **Đã tắt** = chi tiêu ngày mới nhất trong kỳ = 0; ngược lại theo **Lifecycle** (NEW→Mới chạy · TEST→Đang test · MAINTAIN→Đang duy trì).
+- Trạng thái KHÔNG còn chỉ dựa amount. **Đã tắt** = chi tiêu **NGÀY DỮ LIỆU MỚI NHẤT (global)** = 0; ngược lại theo **Lifecycle** (NEW→Mới chạy · TEST→Đang test · MAINTAIN→Đang duy trì).
+- **FIX (quan trọng):** `latest_amount` lấy theo `max(sheet_date)` TOÀN HỆ THỐNG, không phải ngày-cuối-riêng-content. Sheet bỏ qua ngày không chi tiêu → content ngừng chạy không có dòng ngày mới nhất → 0 → Đã tắt. *(Trước fix: lấy nhầm ngày cuối riêng → ad ngừng vài ngày vẫn báo còn chạy.)* Verified: ngày 06-29 có 63 content chi tiêu >0 = đúng 63 "còn chạy"; 832 Đã tắt.
 - **Lifecycle** (NEW/TEST/MAINTAIN) theo **tổng chi tiêu ĐỜI** (>3tr MAINTAIN · >100k TEST · còn lại NEW), **monotonic**, lưu bảng `ads_monitor_lifecycle`, refresh **chỉ khi import** (`ads_monitor_refresh_lifecycle()`), dashboard chỉ đọc.
 - **Migration `sql/006`** (bảng + 2 function + backfill) — ⏳ **chờ chạy trên Supabase** rồi mới deploy code (code mới đọc `latest_amount`/`lifecycle`).
 - File sửa: `sql/006` (mới), `calculateAdsStatus.ts` (chữ ký mới), `types.ts`, `AdsMonitorRepository.ts` (normalizeRow+mock), `AdsMonitorService.ts`, `import.ts` (gọi refresh), `verify.ts`. **Frontend KHÔNG đổi** (lifecycle ẩn; build hash không đổi).

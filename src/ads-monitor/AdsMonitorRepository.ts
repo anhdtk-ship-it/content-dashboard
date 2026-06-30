@@ -129,18 +129,22 @@ function mockQuery(p: AdsQueryParams): AdsQueryResult {
     (!p.dateFrom || (r.sheet_date ?? '') >= p.dateFrom) &&
     (!p.dateTo || (r.sheet_date ?? '') <= p.dateTo));
 
-  // 2) gộp theo (page_code, content): SUM (tổng kỳ) + latest_amount (ngày mới nhất) + lifecycle (đời).
+  // Ngày DỮ LIỆU MỚI NHẤT trong kỳ (global). Content không có dòng ngày này → latest_amount=0 → Đã tắt.
+  const vmax = rowsIn.reduce((mx, r) => ((r.sheet_date ?? '') > mx ? (r.sheet_date ?? '') : mx), '');
+
+  // 2) gộp theo (page_code, content): SUM (tổng kỳ) + latest_amount (chi tiêu ngày vmax) + lifecycle (đời).
   const aggMap = new Map<string, AdsMonitorRecord>();
   for (const r of rowsIn) {
     const k = `${r.page_code}||${r.content}`;
-    const cur = aggMap.get(k);
-    if (cur) {
-      cur.amount_spent += r.amount_spent;
-      if ((r.sheet_date ?? '') > (cur.sheet_date ?? '')) { cur.sheet_date = r.sheet_date; cur.latest_amount = r.amount_spent; }
-      if (r.updated_at > cur.updated_at) cur.updated_at = r.updated_at;
-    } else {
-      aggMap.set(k, { ...r, latest_amount: r.amount_spent, lifecycle: lifecycleFromLifetime(lifetimeMap.get(k) ?? 0) });
+    let cur = aggMap.get(k);
+    if (!cur) {
+      cur = { ...r, amount_spent: 0, latest_amount: 0, lifecycle: lifecycleFromLifetime(lifetimeMap.get(k) ?? 0) };
+      aggMap.set(k, cur);
     }
+    cur.amount_spent += r.amount_spent;
+    if ((r.sheet_date ?? '') === vmax) cur.latest_amount = (cur.latest_amount ?? 0) + r.amount_spent;
+    if ((r.sheet_date ?? '') > (cur.sheet_date ?? '')) cur.sheet_date = r.sheet_date;
+    if (r.updated_at > cur.updated_at) cur.updated_at = r.updated_at;
   }
   const dim = [...aggMap.values()];
   const lc = (r: AdsMonitorRecord) => r.lifecycle ?? 'NEW';

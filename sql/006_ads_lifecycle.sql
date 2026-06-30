@@ -99,22 +99,30 @@ begin
         and ($5 is null or location  = $5)
         and ($6 is null or page_code ilike '%%' || $6 || '%%')
     ),
-    agg as (   -- Tổng chi tiêu trong kỳ
-      select page_code, content, sum(amount_spent) as amount_spent, max(sheet_date) as sheet_date
+    agg as (   -- Tổng chi tiêu trong kỳ (+ thuộc tính đại diện của content)
+      select page_code, content,
+             sum(amount_spent) as amount_spent,
+             max(sheet_date)   as sheet_date,   -- ngày hoạt động gần nhất CỦA content (tham chiếu)
+             max(location)     as location,
+             max(ads_owner)    as ads_owner,
+             max(updated_at)   as updated_at,
+             min(id)           as id
       from win group by page_code, content
     ),
-    latest as (   -- chi tiêu của NGÀY MỚI NHẤT trong kỳ (quyết định Đã tắt)
-      select distinct on (page_code, content)
-             page_code, content, amount_spent as latest_amount, location, ads_owner, updated_at, id
+    latest as (   -- chi tiêu của NGÀY DỮ LIỆU MỚI NHẤT trong kỳ (global). Sheet bỏ qua ngày không chi
+                  -- tiêu → content KHÔNG có dòng ngày này sẽ không xuất hiện ở đây → latest_amount=0 → Đã tắt.
+      select page_code, content, sum(amount_spent) as latest_amount
       from win
-      order by page_code, content, sheet_date desc, id desc
+      where sheet_date = (select max(sheet_date) from win)
+      group by page_code, content
     ),
     dim as (
       select a.page_code, a.content, a.amount_spent, a.sheet_date,
-             l.latest_amount, l.location, l.ads_owner, l.updated_at, l.id,
-             coalesce(lc.lifecycle, 'NEW') as lifecycle   -- Lifecycle ĐỜI (độc lập kỳ lọc)
+             coalesce(l.latest_amount, 0) as latest_amount,   -- không có dòng ngày mới nhất → 0
+             a.location, a.ads_owner, a.updated_at, a.id,
+             coalesce(lc.lifecycle, 'NEW') as lifecycle        -- Lifecycle ĐỜI (độc lập kỳ lọc)
       from agg a
-      join latest l on l.page_code = a.page_code and l.content = a.content
+      left join latest l on l.page_code = a.page_code and l.content = a.content
       left join public.ads_monitor_lifecycle lc on lc.page_code = a.page_code and lc.content = a.content
     ),
     filtered as (

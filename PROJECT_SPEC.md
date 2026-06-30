@@ -329,8 +329,8 @@ content-dashboard/
 - **Lifecycle (nội bộ, KHÔNG hiển thị):** `NEW | TEST | MAINTAIN`, lưu ở bảng **`ads_monitor_lifecycle`** (PK `(page_code, content)`), theo **tổng chi tiêu ĐỜI** (mọi ngày): `>3.000.000` MAINTAIN · `>100.000` TEST · còn lại NEW. **Monotonic — chỉ nâng, không hạ.**
 - **Cập nhật Lifecycle:** function **`ads_monitor_refresh_lifecycle()`** (set-based, ON CONFLICT giữ hạng cao hơn). Gọi **sau mỗi import** (`import.ts`), KHÔNG tính lại khi mở dashboard. Backfill từ lịch sử = chạy 1 lần (đã nhúng cuối `sql/006`).
 - **Trạng thái hiển thị (tính ở `calculateAdsStatus(latestAmount, lifecycle)` + KPI `CASE WHEN` SQL):**
-  - `latest_amount` (chi tiêu **ngày mới nhất trong kỳ**) `= 0` → **Đã tắt** (bỏ qua lifecycle).
-  - `> 0` → NEW→**Mới chạy** · TEST→**Đang test** · MAINTAIN→**Đang duy trì**.
+  - `latest_amount` = chi tiêu của **NGÀY DỮ LIỆU MỚI NHẤT trong kỳ** (global `max(sheet_date)`), KHÔNG phải ngày-cuối-riêng-của-content. **Sheet FB bỏ qua ngày không chi tiêu** → content không có dòng ngày mới nhất ⇒ `latest_amount = 0` ⇒ **Đã tắt** (đúng "ngừng chi tiêu = tắt").
+  - `latest_amount = 0` → **Đã tắt** (bỏ qua lifecycle). `> 0` → NEW→**Mới chạy** · TEST→**Đang test** · MAINTAIN→**Đang duy trì**.
 - **`ads_monitor_query`** (thay bản 005): trả thêm `latest_amount`, `lifecycle`; KPI đếm theo (latest_amount, lifecycle). "Tổng chi tiêu" (`amount_spent`) = SUM trong kỳ — KHÔNG quyết định trạng thái.
 - **Thứ tự triển khai:** chạy `sql/006` TRƯỚC khi deploy code Phase 7 (code mới đọc `latest_amount`/`lifecycle` từ function).
 
