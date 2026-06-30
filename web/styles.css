@@ -36,13 +36,13 @@ html, body { background: var(--bg); }
  * PDF = bản in của CHÍNH Weekly Report (#report-doc). KHÔNG template riêng.
  * Web và PDF dùng chung markup; @media print chỉ ẩn chrome + tối ưu khổ A4.
  * ========================================================== */
-.print-only, .print-header { display: none; }   /* chỉ hiện khi in (header lặp mỗi trang) */
+.print-only { display: none; }   /* chỉ hiện khi in */
 
 @media print {
   /* Khổ A4 dọc + lề in; footer số trang (nơi hỗ trợ @page margin-box) */
   @page {
     size: A4 portrait;
-    margin: 24mm 14mm 16mm 14mm;
+    margin: 14mm 14mm 16mm 14mm;
     @bottom-right { content: "Trang " counter(page) " / " counter(pages); font-size: 9pt; color: #444; }
   }
 
@@ -68,8 +68,11 @@ html, body { background: var(--bg); }
   #report-doc .report-title { font-size: 17pt; }
   #report-doc .section-head { font-size: 13pt; }
 
-  /* Header lặp lại trên MỖI trang */
-  .print-header { display: block !important; position: fixed; top: 0; left: 0; right: 0; }
+  /* Header lặp lại trên MỖI trang qua <thead> (trình duyệt tự lặp + chừa chỗ, KHÔNG đè nội dung) */
+  #report-doc { width: 100%; }
+  #report-doc thead { display: table-header-group; }
+  #report-doc .report-header { padding-bottom: 6pt; margin-bottom: 6pt; border-bottom: 1px solid #999; }
+  #report-doc .report-title { font-size: 13pt; }   /* header compact khi in */
 
   /* Ngắt trang: KHÔNG cắt block nhân viên giữa chừng → đẩy nguyên block sang trang sau */
   .emp-block { break-inside: avoid; page-break-inside: avoid; }

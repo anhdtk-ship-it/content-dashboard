@@ -361,7 +361,8 @@ Bố cục **văn bản** (KHÔNG KPICard/biểu đồ/bảng Excel), dùng CHUN
 
 ### 12.4 Xuất PDF = IN báo cáo (PHASE 9)
 - **PDF = bản in của chính `#report-doc`** qua `window.print()` — KHÔNG template/HTML/component riêng. Mọi thay đổi Weekly Report tự phản ánh khi in.
-- **`@media print`** (`web/styles.css`): @page A4 portrait + lề; ẩn chrome (`aside`/`header`/`.no-print`); chữ đen nền trắng; `.print-header` lặp mỗi trang (tên báo cáo + kỳ + ngày xuất); footer số trang `counter(page)`; `.emp-block { break-inside: avoid }` → không cắt block nhân viên giữa trang.
+- **`@media print`** (`web/styles.css`): @page A4 portrait + lề; ẩn chrome (`aside`/`header`/`.no-print`); chữ đen nền trắng; footer số trang `counter(page)`; `.emp-block { break-inside: avoid }` → không cắt block nhân viên giữa trang.
+- **Header lặp mỗi trang** = đặt trong `<thead>` của `<table id="report-doc">` (`display: table-header-group`) → trình duyệt tự lặp **và chừa chỗ**, KHÔNG đè nội dung (đã fix lỗi "lồng chữ đầu trang" của `position:fixed`).
 - Copy (đã chạy) · DOCX (`enabled:false`, để dành). Nút "Xuất PDF" ép Xem trước rồi `window.print()`.
 
 ### 12.5 Mở rộng Monthly Report
