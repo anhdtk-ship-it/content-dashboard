@@ -8,7 +8,12 @@
 - **Lifecycle** (NEW/TEST/MAINTAIN) theo **tổng chi tiêu ĐỜI** (>3tr MAINTAIN · >100k TEST · còn lại NEW), **monotonic**, lưu bảng `ads_monitor_lifecycle`, refresh **chỉ khi import** (`ads_monitor_refresh_lifecycle()`), dashboard chỉ đọc.
 - **Migration `sql/006`** (bảng + 2 function + backfill) — ⏳ **chờ chạy trên Supabase** rồi mới deploy code (code mới đọc `latest_amount`/`lifecycle`).
 - File sửa: `sql/006` (mới), `calculateAdsStatus.ts` (chữ ký mới), `types.ts`, `AdsMonitorRepository.ts` (normalizeRow+mock), `AdsMonitorService.ts`, `import.ts` (gọi refresh), `verify.ts`. **Frontend KHÔNG đổi** (lifecycle ẩn; build hash không đổi).
-- Đã verify logic TS (mock). ⏳ Chờ chạy `sql/006` để verify dữ liệu thật + commit/push.
+- Đã verify logic TS (mock) + dữ liệu thật (verify PASS, 4 ví dụ khớp) + production đồng bộ.
+
+## Ads Import Scheduler (mới)
+- `npm run ads:scheduler` (`src/ads-monitor/ads-scheduler.ts`) — node-cron, spawn `npm run ads:import` theo lịch. Độc lập scheduler Content.
+- Env: `ADS_SYNC_ENABLED` (default true), `ADS_SYNC_CRON` (default `15 8 * * *` = 08:15, sau khi Sheet cập nhật 08:00). Chống chạy chồng, không crash, validate cron.
+- ⚠️ Cần chạy trên **worker/máy luôn bật** (Railway web service KHÔNG tự chạy scheduler) — xem gợi ý triển khai.
 
 ## Phase 6 (Go Live) — ✅ LIVE PRODUCTION với dữ liệu thật, tích lũy (2026-06-29)
 - ✅ Migration `005` đã chạy (bảng + FUNCTION `ads_monitor_query` tích lũy). `.env` + Railway env có `ADS_SHEET_ID=1kqVs8dyOgnk5l3CsgcGlhex-eI7OHhAkS6GLKnXh4j0`, `ADS_SHEET_TAB=Raw_Data`; SA đã share.
