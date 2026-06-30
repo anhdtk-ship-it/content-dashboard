@@ -15,3 +15,7 @@ credentials/*.json
 
 # Data dumps (backup/dry-run) — không commit
 backup/
+
+# ===== Ads Monitor — file cục bộ của máy (không commit) =====
+ads-import.log
+run-ads-import.bat
