@@ -12,15 +12,14 @@ export interface WeekRange {
   label: string;   // "Tuần 23/06 – 29/06/2026"
 }
 
-/** Bộ KPI 1 nhân viên / cả team trong kỳ. */
+/** Bộ KPI 1 nhân viên / cả team trong kỳ (BUSINESS RULE RIÊNG của Weekly Report — xem WeeklyReportService). */
 export interface ReportMetrics {
-  capped: number;     // Đã cấp (Content được cấp — theo Ngày Up Trello)
-  tested: number;     // Đã test
-  notTested: number;  // Chưa test = capped − tested
-  used: number;       // Đã sử dụng = tested − "Đã test-ko chạy" (= success + đang test)
-  usageRate: number;  // Tỷ lệ sử dụng = used / tested
-  win: number;        // Content test win = Thành công (Duy trì + Đã chạy-Tắt)
-  winRate: number;    // Tỷ lệ test win = win / tested
+  capped: number;   // Đã cấp = tổng content giao cho nhân viên Ads
+  tested: number;   // Đã test = đã đưa vào chạy test ≥1 lần (có Ngày Set Ads)
+  ton: number;      // Tồn = Đã cấp − Đã test (tính động, KHÔNG lưu DB)
+  testRate: number; // Tỷ lệ test = tested / capped (0..1)
+  win: number;      // Content test win = chuyển test→maintain (Content đạt "Duy trì")
+  winRate: number;  // Tỷ lệ win = win / tested (0..1)
 }
 
 export interface EmployeeReport {

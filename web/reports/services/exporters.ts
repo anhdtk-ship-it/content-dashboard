@@ -1,19 +1,20 @@
 /* Weekly Report — tầng XUẤT BÁO CÁO (PHASE 8: thiết kế interface; Copy đã chạy, PDF/DOCX để dành).
  * Mọi exporter cùng interface ReportExporter → sau này bổ sung PDF/DOCX không đụng UI. */
 import type { ReportExporter, WeeklyReportData, ReportNarrative } from '../types/report';
-import { fmtPct, fmtNum } from './reportService';
+import { GEO_LABEL } from '../types/report';
+import { fmtPct1, fmtNum } from '../utils/format';
 
 /** Dựng báo cáo dạng văn bản thuần (dùng cho Copy; PDF/DOCX có thể tái dùng). */
 export function buildPlainText(data: WeeklyReportData, n: ReportNarrative): string {
   const L: string[] = [];
   const t = data.team;
-  L.push(`BÁO CÁO TUẦN — ${data.week.label}  ·  Địa lý: ${data.geo === 'ALL' ? 'Tất cả' : data.geo === 'noi_dia' ? 'Nội Địa' : 'Quốc Tế'}`);
+  L.push(`BÁO CÁO TUẦN — ${data.week.label}  ·  Địa lý: ${GEO_LABEL[data.geo]}`);
   L.push('');
   L.push('I. TIẾN ĐỘ CONTENT');
-  L.push(`  Tổng quan team: Đã cấp ${t.capped} · Đã test ${t.tested} · Đã sử dụng ${t.used} (${fmtPct(t.usageRate)}) · Test win ${t.win} (${fmtPct(t.winRate)})`);
+  L.push(`  Tổng quan team: Đã cấp ${fmtNum(t.capped)} · Đã test ${fmtNum(t.tested)} · Tồn ${fmtNum(t.ton)} · Tỷ lệ test ${fmtPct1(t.testRate)} · Test win ${fmtNum(t.win)} · Tỷ lệ win ${fmtPct1(t.winRate)}`);
   for (const e of data.employees) {
     const m = e.metrics;
-    L.push(`  • ${e.name}: cấp ${m.capped}, test ${m.tested}, chưa test ${m.notTested}, dùng ${m.used} (${fmtPct(m.usageRate)}), win ${m.win} (${fmtPct(m.winRate)})`);
+    L.push(`  • ${e.name}: cấp ${fmtNum(m.capped)}, test ${fmtNum(m.tested)}, tồn ${fmtNum(m.ton)}, tỷ lệ test ${fmtPct1(m.testRate)}, win ${fmtNum(m.win)} (${fmtPct1(m.winRate)})`);
   }
   L.push('');
   L.push('II. VẤN ĐỀ / PHƯƠNG ÁN');

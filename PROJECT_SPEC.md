@@ -341,14 +341,16 @@ content-dashboard/
 
 > Module **Reports → Weekly Report** (`web/reports/`, route `#/weekly-report`). ĐỘC LẬP — KHÔNG dùng chung logic Content/Ads, KHÔNG đọc Google Sheet, KHÔNG đổi DB/API. **Chỉ đọc `/api/v3/summary`** (Single Source of Truth).
 
-### 12.1 Nguồn dữ liệu & luồng
-`/api/v3/summary?from=<T2>&to=<CN>&market=<geo>` → `reportService.fetchWeeklyReport` map `metrics` (team) + `byAssignee[].m` (nhân viên) → KPI báo cáo. "Đã cấp" theo Ngày Up Trello (dateField mặc định của summary). Bộ lọc: **Tuần** (mặc định tuần hiện tại, ◀▶) + **Địa lý** (Tất cả/Nội Địa/Quốc Tế).
+### 12.1 Nguồn dữ liệu & luồng + Service riêng
+**BUSINESS RULE RIÊNG** (§5): KHÔNG dùng `calculateAdsStatus()`, Lifecycle (Ads), hay metrics()/status-set của Dashboard. `WeeklyReportService` (`services/WeeklyReportService.ts`) tự đọc **dữ liệu thô** qua `/api/v3/contents?from=<T2>&to=<CN>&market=<geo>` (phân trang) rồi tự tính KPI: `calculateWeeklyKPIs()` + `calculateWeeklyEmployeeReport()`. "Đã cấp" theo Ngày Up Trello (dateField mặc định). Bộ lọc: **Tuần** (mặc định tuần hiện tại, ◀▶) + **Địa lý**.
 
-### 12.2 KPI (map trong `reportService.toReportMetrics` — chỉnh 1 chỗ)
-- Đã cấp = `capped` · Đã test = `tested` · Chưa test = `capped − tested`
-- **Đã sử dụng = `tested − fail`** (loại "Đã test-ko chạy") · Tỷ lệ sử dụng = `used/tested`
-- **Content test win = `success`** (Thành công = Duy trì + Đã chạy-Tắt) · Tỷ lệ test win = `win/tested`
-- *(Định nghĩa "Đã sử dụng"/"test win" suy từ ví dụ trong yêu cầu — cần nghiệp vụ xác nhận; đổi tại `toReportMetrics`.)*
+### 12.2 Công thức KPI (RIÊNG — chỉnh ở `WeeklyReportService`)
+- **Đã cấp** = số content giao cho nhân viên (rows).
+- **Đã test** = đã đưa vào chạy test ≥1 lần → `test_date_real != null`.
+- **Tồn** = `Đã cấp − Đã test` (động, không lưu DB).
+- **Tỷ lệ test** = `Đã test / Đã cấp` (làm tròn 1 chữ số thập phân).
+- **Content test win** = chuyển test→maintain → content đạt trạng thái **"Duy trì"** (và đã test). ⚠️ Tính bằng rule riêng của Weekly trên dữ liệu Content; KHÔNG gọi `ads_monitor_lifecycle` (grain khác). *Cần nghiệp vụ xác nhận.*
+- **Tỷ lệ win** = `win / Đã test` (1 chữ số thập phân).
 
 ### 12.3 Cấu trúc báo cáo
 - **I. Tiến độ Content**: Tổng quan team (6 KPI) + block từng nhân viên (ngắn gọn, không bảng lớn).

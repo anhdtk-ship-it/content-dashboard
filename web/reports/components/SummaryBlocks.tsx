@@ -1,6 +1,7 @@
-/* Weekly Report — Phần I: Tổng quan team (6 KPI) + block từng nhân viên (PHASE 8). */
+/* Weekly Report — Phần I: Tổng quan team (6 KPI) + block từng nhân viên (PHASE 8).
+ * KPI theo §6: Đã cấp · Đã test · Tồn · Tỷ lệ test · Content test win · Tỷ lệ win. Không bảng lớn, không biểu đồ. */
 import { KPICard } from '../../../src/components/ui';
-import { fmtPct, fmtNum } from '../services/reportService';
+import { fmtNum, fmtPct1 } from '../utils/format';
 import type { ReportMetrics, EmployeeReport } from '../types/report';
 
 export function TeamSummaryBlock({ team }: { team: ReportMetrics }) {
@@ -8,10 +9,10 @@ export function TeamSummaryBlock({ team }: { team: ReportMetrics }) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <KPICard label="Đã cấp" value={fmtNum(team.capped)} tone="accent" />
       <KPICard label="Đã test" value={fmtNum(team.tested)} />
-      <KPICard label="Đã sử dụng" value={fmtNum(team.used)} tone="info" tooltip="Đã test trừ 'Đã test-ko chạy' (content đã đưa vào chạy)." />
-      <KPICard label="Tỷ lệ sử dụng" value={fmtPct(team.usageRate)} tone="warn" tooltip="Đã sử dụng ÷ Đã test" />
-      <KPICard label="Content test win" value={fmtNum(team.win)} tone="good" tooltip="Thành công = Duy trì + Đã chạy-Tắt" />
-      <KPICard label="Tỷ lệ test win" value={fmtPct(team.winRate)} tone="good" tooltip="Content test win ÷ Đã test" />
+      <KPICard label="Tồn" value={fmtNum(team.ton)} tone="orange" tooltip="Đã cấp − Đã test (tính động)." />
+      <KPICard label="Tỷ lệ test" value={fmtPct1(team.testRate)} tone="warn" tooltip="Đã test ÷ Đã cấp" />
+      <KPICard label="Content test win" value={fmtNum(team.win)} tone="good" tooltip="Content chuyển test → maintain (đạt Duy trì)." />
+      <KPICard label="Tỷ lệ win" value={fmtPct1(team.winRate)} tone="good" tooltip="Content test win ÷ Đã test" />
     </div>
   );
 }
@@ -34,10 +35,10 @@ export function EmployeeBlock({ emp }: { emp: EmployeeReport }) {
       <div className="flex flex-col gap-1">
         {row('Đã cấp', fmtNum(m.capped))}
         {row('Đã test', fmtNum(m.tested))}
-        {row('Chưa test', fmtNum(m.notTested))}
-        {row('Đã sử dụng', fmtNum(m.used))}
-        {row('Tỷ lệ sử dụng', fmtPct(m.usageRate), true)}
-        {row('Content test win', `${fmtNum(m.win)} (${fmtPct(m.winRate)})`, true)}
+        {row('Tồn', fmtNum(m.ton))}
+        {row('Tỷ lệ test', fmtPct1(m.testRate), true)}
+        {row('Content test win', fmtNum(m.win))}
+        {row('Tỷ lệ win', fmtPct1(m.winRate), true)}
       </div>
     </div>
   );

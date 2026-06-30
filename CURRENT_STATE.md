@@ -3,11 +3,12 @@
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
 > Cập nhật: 2026-06-29 — **Phase 7 (Lifecycle + Current Status)** cho Ads Monitor.
 
-## Phase 8 — Weekly Report (module mới)
-- Menu **Reports → Weekly Report** (`web/reports/`, `#/weekly-report`). Chỉ đọc `/api/v3/summary` — KHÔNG đụng Content/Ads/Sync/DB/API.
-- Bộ lọc: Tuần (mặc định tuần hiện tại) + Địa lý. 3 phần: I. Tiến độ Content (team + từng nhân viên) · II. Vấn đề/Phương án (tự sinh + nhập tay) · III. HĐ tuần tới (tự sinh + nhập tay). Có Xem trước. Export: Copy (chạy) + PDF/DOCX (interface, chưa làm).
-- KPI map ở `reportService.toReportMetrics`: Đã sử dụng=`tested−fail`, Test win=`success` (⚠️ định nghĩa suy từ ví dụ — cần nghiệp vụ xác nhận). II/III lưu cục bộ (chưa persist).
-- Verified trên preview: render đủ 3 phần, week nav, empty state, toggle nhập tay, export buttons.
+## Phase 8 — Weekly Report (module mới, BUSINESS RULE RIÊNG)
+- Menu **Reports → Weekly Report** (`web/reports/` — types/services/components/pages/**hooks**/**utils**, `#/weekly-report`). KHÔNG đụng Content/Ads/Sync/DB/API.
+- **Service riêng** `WeeklyReportService` (`calculateWeeklyKPIs`/`calculateWeeklyEmployeeReport`) — KHÔNG dùng `calculateAdsStatus`/Lifecycle/metrics Dashboard. Đọc **dữ liệu thô** `/api/v3/contents` (phân trang) + tự tính.
+- KPI (§6): Đã cấp · Đã test (`test_date_real != null`) · Tồn (`cấp−test`) · Tỷ lệ test (1 chữ số TP) · Content test win (đạt "Duy trì") · Tỷ lệ win. ⚠️ "win = Duy trì" tính bằng rule riêng trên dữ liệu Content (KHÔNG dùng ads_monitor_lifecycle — grain khác) — **cần nghiệp vụ xác nhận**.
+- Bộ lọc Tuần (mặc định tuần hiện tại) + Địa lý. 3 phần I/II/III; II/III tự sinh (`insights`) + nhập tay (cục bộ, chưa persist). Xem trước. Export: Copy (chạy) + PDF/DOCX (interface).
+- Verified preview tuần 01–07/06: cấp 87 · test 65 · tồn 22 · tỷ lệ test 74.7% · win 9 · tỷ lệ win 13.8%.
 
 ## Phase 7 — Lifecycle + Current Status (thuật toán trạng thái mới)
 - Trạng thái KHÔNG còn chỉ dựa amount. **Đã tắt** = chi tiêu **NGÀY DỮ LIỆU MỚI NHẤT (global)** = 0; ngược lại theo **Lifecycle** (NEW→Mới chạy · TEST→Đang test · MAINTAIN→Đang duy trì).
