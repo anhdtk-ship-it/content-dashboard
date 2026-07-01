@@ -1,7 +1,17 @@
 # CURRENT_STATE — Content Operations Dashboard (Seryn) + Ads Monitor
 
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
-> Cập nhật: 2026-07-01 — sửa công thức **Tỷ lệ test thành công** + sync lại DB.
+> Cập nhật: 2026-07-01 — **Phase 12 (Auto-Sync Content qua Webhook)**.
+
+## Phase 12 — Auto-Sync Dashboard Content (Webhook + Debounce)
+- **Mục tiêu:** Content không cần Sync tay. Google Sheet đổi → Apps Script bắn webhook → Debounce Queue → ContentSyncService → Supabase → Dashboard (poll 30s) + Weekly Report.
+- **File mới:** `src/content-sync/ContentSyncService.ts` (nguồn logic sync DUY NHẤT: đọc Sheet → validate → **so sánh signature, CHỈ upsert bản ghi đổi** → prune guarded → log), `src/content-sync/SyncQueue.ts` (debounce 60s + Max-Wait 5m + mutex chống chạy chồng), `src/content-sync/routes.ts` (`POST /api/content-sync` webhook + `GET /api/content-sync/status`), `sql/007_sync_logs_source.sql`.
+- **File sửa:** `src/server.ts` (mount router trước SPA fallback + `invalidateContentsCache()` sau sync), `src/sync-all-content.ts` (thành CLI wrapper mỏng gọi service — DRY, scheduler P4 vẫn chạy), `.env.example` (+`CONTENT_SYNC_SECRET/_DEBOUNCE_MS/_MAX_WAIT_MS`).
+- **Bảo mật:** webhook bắt buộc `CONTENT_SYNC_SECRET` (header `x-content-sync-secret`); chưa cấu hình → 503; sai → 401.
+- **Hiệu năng:** chỉ ghi bản ghi thay đổi (diff signature), upsert 1-câu-lệnh (atomic) khi tập nhỏ; guard prune giữ nguyên; thiết kế chịu được ~50k dòng.
+- **Migration 007 (mở rộng `sync_logs`: source/rows_unchanged/rows_pruned/duration_ms) — CẦN chạy tay Supabase.** Chưa chạy thì service tự fallback payload tối thiểu (vẫn hoạt động, chỉ thiếu cột mới).
+- ✅ **Ads Monitor / Ads Sync / Ads Scheduler / Lifecycle Ads KHÔNG đụng.** Weekly Report giữ nguyên Business Rule/KPI (chỉ hưởng lợi dữ liệu mới trong Supabase).
+- ⚠️ **Triển khai vận hành còn cần:** đặt `CONTENT_SYNC_SECRET` trên Railway; gắn Apps Script trigger (đề xuất trong `PHASE_12_AUTO_SYNC.md`); áp migration 007.
 
 ## 2026-07-01 — Sửa Tỷ lệ test thành công + sync DB
 - **Sync**: chạy `npm run sync` (DB cũ 5 ngày). Kết quả: +11 mới, −34 mồ côi, 1435 updated → DB = **1446 dòng** khớp Google Sheet. "Không test" lần đầu lên **11** (trước = 0).

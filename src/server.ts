@@ -4,6 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import adsMonitorRouter from './ads-monitor/routes';
+import { createContentSyncRouter } from './content-sync/routes';
 
 const PORT = Number(process.env.PORT ?? 4000);
 const url = process.env.SUPABASE_URL?.trim();
@@ -78,6 +79,8 @@ function enrich(rows: Row[]): Enriched[] {
  * ========================================================== */
 let cache: { at: number; data: Enriched[] } | null = null;
 const CACHE_TTL = 10_000;
+/** Xoá cache getContents — gọi sau khi auto-sync ghi DB xong để Dashboard thấy dữ liệu mới ngay. */
+function invalidateContentsCache(): void { cache = null; }
 
 async function getContents(): Promise<Enriched[]> {
   if (cache && Date.now() - cache.at < CACHE_TTL) return cache.data;
@@ -639,6 +642,9 @@ app.get('/api/v3/lifecycle-table', async (req, res) => {
     res.status(500).json({ error: e?.message ?? String(e) });
   }
 });
+
+// Content auto-sync webhook (PHASE 12) — CHỈ Dashboard Content. Đăng ký TRƯỚC SPA fallback.
+app.use('/api/content-sync', createContentSyncRouter({ onSynced: invalidateContentsCache }));
 
 // Ads Monitor — API nội bộ độc lập (PHASE 3, mock). Đăng ký TRƯỚC SPA fallback.
 app.use('/ads-monitor', adsMonitorRouter);

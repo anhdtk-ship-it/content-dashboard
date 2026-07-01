@@ -107,7 +107,18 @@
 - **Đặc tính**: upsert + **khử trùng 1 chiều** (Sheet → DB; xóa dòng đã biến mất khỏi sheet, có guard). ✅ đồng bộ xóa stale (thay cho trạng thái kế hoạch trước đây).
 - **Tự động hoá**: scheduler `node-cron` (`src/sync-scheduler.ts`, `npm run scheduler`) — `SYNC_ENABLED`/`SYNC_CRON`. Hoặc chạy tay: `npm run sync`.
 
-Lệnh: `npm run sync` · `npm run backfill`.
+### 3.1 Auto-Sync theo thời gian thực (PHASE 12) — CHỈ Content
+> Chi tiết đầy đủ + đề xuất Google Apps Script: `PHASE_12_AUTO_SYNC.md`.
+
+- **Kiến trúc:** Google Sheet Content → **Apps Script Trigger** → **Webhook** (`POST /api/content-sync`) → **Debounce Queue (60s)** → **ContentSyncService** → Validate → Supabase → Dashboard (poll 30s) → Weekly Report.
+- **Nguồn logic sync gom về 1 chỗ:** `src/content-sync/ContentSyncService.ts` (`runContentSync()`); `src/sync-all-content.ts` (CLI) và webhook đều gọi hàm này (DRY). Điểm mới: **so sánh signature từng bản ghi → CHỈ upsert bản ghi thay đổi**; upsert 1-câu-lệnh (atomic) khi tập nhỏ (≤5000), lô hoá khi bulk lớn; validate loại bản ghi thiếu khóa; prune giữ nguyên guard.
+- **Webhook** (`src/content-sync/routes.ts`): chỉ báo "Sheet đã đổi" → đưa vào Queue; **KHÔNG** đọc Sheet/ghi DB tại đây; trả 202 ngay. Bảo mật bắt buộc `CONTENT_SYNC_SECRET` (header `x-content-sync-secret`); chưa cấu hình → 503; sai → 401. `GET /api/content-sync/status` xem trạng thái queue.
+- **SyncQueue** (`src/content-sync/SyncQueue.ts`): **Debounce** mỗi tín hiệu reset timer (`CONTENT_SYNC_DEBOUNCE_MS`=60000); **Maximum Wait** buộc chạy trong tối đa `CONTENT_SYNC_MAX_WAIT_MS`=300000 kể từ tín hiệu đầu; **Mutex** chống chạy chồng (đang sync → tín hiệu mới xếp `pending`, xong mở chu kỳ mới).
+- **Cache:** sau sync thành công gọi `invalidateContentsCache()` (server.ts) → poll kế tiếp thấy dữ liệu mới.
+- **Migration:** `sql/007_sync_logs_source.sql` (ALTER `sync_logs` +source/rows_unchanged/rows_pruned/duration_ms — additive, chạy tay). Service tự fallback payload tối thiểu nếu chưa áp dụng.
+- **KHÔNG áp dụng cho Ads** (Ads Monitor/Sync/Scheduler/Lifecycle/Business Rule giữ nguyên).
+
+Lệnh: `npm run sync` · `npm run backfill`. Webhook: `POST /api/content-sync` (secret).
 
 ---
 
