@@ -139,18 +139,21 @@ function countGroup(rows: Enriched[], g: string): number {
  * KPI nghiệp vụ (dựa trên current_status GỐC)
  * ========================================================== */
 const S_TESTED = new Set(['Đang test', 'Duy trì - Chưa vít', 'Duy trì - Đã vít', 'Đã test-ko chạy', 'Đã chạy-Tắt']);
-const S_SUCCESS = new Set(['Duy trì - Chưa vít', 'Duy trì - Đã vít', 'Đã chạy-Tắt']);
+const S_SUCCESS = new Set(['Duy trì - Chưa vít', 'Duy trì - Đã vít']); // Thành công = CHỈ Duy trì (Chưa vít + Đã vít)
+// "Đã có kết quả cuối" = mẫu số của Tỷ lệ test thành công (LOẠI 'Đang test' vì chưa xong).
+const S_FINALIZED = new Set(['Duy trì - Chưa vít', 'Duy trì - Đã vít', 'Đã test-ko chạy', 'Đã chạy-Tắt']);
 const S_FAIL = new Set(['Đã test-ko chạy']);
 const safeRate = (num: number, den: number) => (den === 0 ? 0 : num / den);
 
 /** Bộ chỉ số KPI cho 1 tập content (Tổng quan / Người nhận / Thị trường dùng chung). */
 function metrics(rows: Enriched[]) {
   const total = rows.length; // Content được cấp
-  let tested = 0, success = 0, fail = 0, dangTest = 0, khongDuyet = 0, choChay = 0, chuaPhanLoai = 0, khongTest = 0;
+  let tested = 0, finalized = 0, success = 0, fail = 0, dangTest = 0, khongDuyet = 0, choChay = 0, chuaPhanLoai = 0, khongTest = 0;
   for (const r of rows) {
     const v = (r.current_status ?? '').trim();
     if (v === 'Đang test') dangTest++;
     if (S_TESTED.has(v)) tested++;
+    if (S_FINALIZED.has(v)) finalized++;
     if (S_SUCCESS.has(v)) success++;
     if (S_FAIL.has(v)) fail++;
     if (v === 'Không test') khongTest++;         // PHASE 10 (không thuộc tested/tồn kho)
@@ -161,9 +164,9 @@ function metrics(rows: Enriched[]) {
   const tonKho = choChay + chuaPhanLoai; // đã cấp nhưng chưa test (không tính Không duyệt/Không test)
   return {
     capped: total,
-    tested, success, fail, dangTest, khongDuyet, choChay, chuaPhanLoai, khongTest, tonKho,
-    rateTested: safeRate(tested, total),     // Đã được test / Content được cấp
-    rateSuccess: safeRate(success, tested),  // Thành công / Đã được test
+    tested, finalized, success, fail, dangTest, khongDuyet, choChay, chuaPhanLoai, khongTest, tonKho,
+    rateTested: safeRate(tested, total),         // Đã được test / Content được cấp
+    rateSuccess: safeRate(success, finalized),   // Thành công (Duy trì) / Đã có kết quả cuối (loại Đang test)
     rateDangTest: safeRate(dangTest, total), // Đang test / Content được cấp
     rateTonKho: safeRate(tonKho, total),     // Tồn kho / Content được cấp
     rateKhongDuyet: safeRate(khongDuyet, total), // Không duyệt / Content được cấp

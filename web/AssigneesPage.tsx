@@ -72,11 +72,12 @@ function aggregate(rows: Row[]): AggRow[] {
       }
     }
     const tested = dangTest + duyTri + daChayTat + daTestKoChay;
-    const success = duyTri + daChayTat;
+    const coKetQua = duyTri + daChayTat + daTestKoChay; // đã có kết quả cuối (LOẠI 'Đang test')
+    const success = duyTri;                             // Thành công = CHỈ Duy trì (Chưa vít + Đã vít)
     return {
       assignee, total: rs.length, tested, dangTest, duyTri, daChayTat, daTestKoChay, choChay, khongDuyet,
       rateTested: rs.length ? tested / rs.length : 0,
-      rateSuccess: tested ? success / tested : 0,
+      rateSuccess: coKetQua ? success / coKetQua : 0,
       avgLife: lifeN ? Math.round(lifeSum / lifeN) : 0,
       duyTri30, duyTri60, duyTri90, duyTri180,
     };
@@ -233,14 +234,15 @@ export function AssigneesPage({ embedded = false, filter }: {
   const overall = useMemo(() => {
     const total = agg.reduce((s, r) => s + r.total, 0);
     const tested = agg.reduce((s, r) => s + r.tested, 0);
-    const success = agg.reduce((s, r) => s + r.duyTri + r.daChayTat, 0);
+    const coKetQua = agg.reduce((s, r) => s + r.duyTri + r.daChayTat + r.daTestKoChay, 0); // đã có kết quả cuối
+    const success = agg.reduce((s, r) => s + r.duyTri, 0);                                  // Thành công = CHỈ Duy trì
     const duyTri30 = agg.reduce((s, r) => s + r.duyTri30, 0);
     const duyTri60 = agg.reduce((s, r) => s + r.duyTri60, 0);
     const duyTri90 = agg.reduce((s, r) => s + r.duyTri90, 0);
     const duyTri180 = agg.reduce((s, r) => s + r.duyTri180, 0);
     const lifeW = agg.reduce((s, r) => s + r.avgLife * (r.duyTri + r.daChayTat), 0);
     const lifeN = agg.reduce((s, r) => s + r.duyTri + r.daChayTat, 0);
-    return { total, rateTested: total ? tested / total : 0, rateSuccess: tested ? success / tested : 0,
+    return { total, rateTested: total ? tested / total : 0, rateSuccess: coKetQua ? success / coKetQua : 0,
       avgLife: lifeN ? Math.round(lifeW / lifeN) : 0, duyTri30, duyTri60, duyTri90, duyTri180 };
   }, [agg]);
 
@@ -301,7 +303,7 @@ export function AssigneesPage({ embedded = false, filter }: {
                   <KPICard label="Tỷ lệ đã test" value={pct(overall.rateTested)} tone="default"
                     tooltip="Đã được test ÷ Tổng. Đã test = Đang test + Duy trì + Đã test-ko chạy + Đã chạy-Tắt." />
                   <KPICard label="Tỷ lệ test thành công" value={pct(overall.rateSuccess)} tone="good"
-                    tooltip="Thành công ÷ Đã được test. Thành công = Duy trì + Đã chạy-Tắt." />
+                    tooltip="Thành công ÷ Đã có kết quả cuối. Thành công = Duy trì (Chưa vít + Đã vít). Mẫu = Duy trì + Đã test-ko chạy + Đã chạy-Tắt (loại Đang test)." />
                   <KPICard label="Tuổi thọ content TB" value={`${overall.avgLife}d`}
                     tooltip="Trung bình số ngày từ Ngày Set Ads (test) của content Duy trì + Đã chạy-Tắt." />
                   <KPICard label="Duy trì > 30 ngày" value={overall.duyTri30} tone="accent"

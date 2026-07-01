@@ -58,10 +58,11 @@ function aggregate(rows: Row[], market: string): Agg {
     if (s.startsWith('Duy trì') || s === 'Đã chạy-Tắt') { const d = liveDays(r.test_date_real); if (d != null) { lifeSum += d; lifeN++; } }
   }
   const tested = dangTest + duyTri + daChayTat + daTestKoChay;
-  const success = duyTri + daChayTat;
+  const coKetQua = duyTri + daChayTat + daTestKoChay; // đã có kết quả cuối (LOẠI 'Đang test')
+  const success = duyTri;                             // Thành công = CHỈ Duy trì (Chưa vít + Đã vít)
   return {
     market, total: rs.length, tested, dangTest, duyTri, daChayTat, daTestKoChay, choChay, khongDuyet,
-    rateTested: rs.length ? tested / rs.length : 0, rateSuccess: tested ? success / tested : 0,
+    rateTested: rs.length ? tested / rs.length : 0, rateSuccess: coKetQua ? success / coKetQua : 0,
     avgLife: lifeN ? Math.round(lifeSum / lifeN) : 0, d30, d60, d90, d180,
   };
 }
@@ -100,7 +101,7 @@ function MarketCard({ a, onDrill }: { a: Agg; onDrill: () => void }) {
         </div>
         <div className="mt-3 grid grid-cols-3 gap-3 border-t border-line pt-3">
           <Metric label="Tỷ lệ đã test" value={pct(a.rateTested)} tip="Đã được test ÷ Tổng. Đã test = Đang test + Duy trì + Đã test-ko chạy + Đã chạy-Tắt." />
-          <Metric label="Tỷ lệ test thành công" value={pct(a.rateSuccess)} tone="good" tip="Thành công ÷ Đã được test. Thành công = Duy trì + Đã chạy-Tắt." />
+          <Metric label="Tỷ lệ test thành công" value={pct(a.rateSuccess)} tone="good" tip="Thành công ÷ Đã có kết quả cuối. Thành công = Duy trì (Chưa vít + Đã vít). Mẫu = Duy trì + Đã test-ko chạy + Đã chạy-Tắt (loại Đang test)." />
           <Metric label="Tuổi thọ content TB" value={`${a.avgLife}d`} tip="TB số ngày từ Ngày Set Ads (test) của content Duy trì + Đã chạy-Tắt." />
         </div>
         <div className="mt-3 grid grid-cols-4 gap-3 border-t border-line pt-3">

@@ -56,7 +56,7 @@ export function KPICardDemo() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <KPICard label="Tổng Content" value="311" tone="accent" />
-      <KPICard label="Tỷ lệ thành công" value="14%" sub="27/199" tone="good" tooltip="Thành công ÷ Đã được test" />
+      <KPICard label="Tỷ lệ thành công" value="14%" sub="27/199" tone="good" tooltip="Thành công (Duy trì) ÷ Đã có kết quả cuối" />
       <KPICard label="Đang Test" value="44" tone="warn" />
       <KPICard label="Đã Dừng" value="134" onClick={() => {}} active />
     </div>

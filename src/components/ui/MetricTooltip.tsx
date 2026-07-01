@@ -65,7 +65,7 @@ export function MetricTooltip({ tip, children, className = '' }: MetricTooltipPr
 
 export function MetricTooltipDemo() {
   return (
-    <MetricTooltip tip="Thành công ÷ Đã được test. Thành công = Duy trì + Đã chạy-Tắt.">
+    <MetricTooltip tip="Thành công ÷ Đã có kết quả cuối. Thành công = Duy trì (Chưa vít + Đã vít). Mẫu = Duy trì + Đã test-ko chạy + Đã chạy-Tắt (loại Đang test).">
       <span className="cursor-help text-sm text-fg">
         Tỷ lệ test thành công
         <span className="ml-1 inline-flex h-[14px] w-[14px] items-center justify-center rounded-full bg-surface2 text-[10px] text-muted">

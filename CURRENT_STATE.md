@@ -1,7 +1,12 @@
 # CURRENT_STATE — Content Operations Dashboard (Seryn) + Ads Monitor
 
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
-> Cập nhật: 2026-06-29 — **Phase 11 (2 nhóm KPI Content)** cho Weekly Report.
+> Cập nhật: 2026-07-01 — sửa công thức **Tỷ lệ test thành công** + sync lại DB.
+
+## 2026-07-01 — Sửa Tỷ lệ test thành công + sync DB
+- **Sync**: chạy `npm run sync` (DB cũ 5 ngày). Kết quả: +11 mới, −34 mồ côi, 1435 updated → DB = **1446 dòng** khớp Google Sheet. "Không test" lần đầu lên **11** (trước = 0).
+- **Công thức Tỷ lệ test thành công (CHỐT)**: Thành công = **CHỈ Duy trì** (Chưa vít + Đã vít) — bỏ 'Đã chạy-Tắt'. Mẫu = **Đã có kết quả cuối** = Duy trì + Đã test-ko chạy + Đã chạy-Tắt (**loại 'Đang test'**). Sửa: `src/server.ts metrics()` (S_SUCCESS + S_FINALIZED), `web/AssigneesPage.tsx` (per-NV + overall), `web/MarketsPage.tsx` + tooltip. `kpi.testSuccessRate` (buildSummary) vốn đã đúng, giữ nguyên.
+- ✅ Ads Monitor & Weekly Report KHÔNG đổi.
 
 ## Phase 11 — 2 nhóm KPI (Weekly Report Content)
 - **A. Phát sinh trong tháng** (cohort theo upload trong kỳ): **Đã cấp** (upload trong kỳ, KHÔNG cumulative) · **Không test** (upload trong kỳ & 'Không test') · **Content test win** (upload trong kỳ & 'Duy trì').
