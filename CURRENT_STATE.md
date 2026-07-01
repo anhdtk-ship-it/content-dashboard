@@ -13,6 +13,13 @@
 - ✅ **Ads Monitor / Ads Sync / Ads Scheduler / Lifecycle Ads KHÔNG đụng.** Weekly Report giữ nguyên Business Rule/KPI (chỉ hưởng lợi dữ liệu mới trong Supabase).
 - ⚠️ **Triển khai vận hành còn cần:** đặt `CONTENT_SYNC_SECRET` trên Railway; gắn Apps Script trigger (đề xuất trong `PHASE_12_AUTO_SYNC.md`); áp migration 007.
 
+### 2026-07-01 — GoogleAuthFactory (fix sync trên Railway)
+- **Vấn đề phát hiện:** webhook chạy đúng nhưng Sync trên Railway **failed** vì `ENOENT credentials/credentials.json` — Railway không có file credentials (thư mục `credentials/` bị gitignore).
+- **File mới `src/google-auth.ts`** — `createGoogleAuth()` / `createSheetsClient()`. Thứ tự: **`GOOGLE_CREDENTIALS_JSON`** (Railway/cloud, không cần file) → **`GOOGLE_CREDENTIALS_PATH`** (file, local) → throw rõ ràng.
+- **Refactor 7 nơi** dùng GoogleAuth về factory (chỉ đổi cách khởi tạo auth, KHÔNG đổi logic): `content-sync/ContentSyncService.ts`, `ads-monitor/GoogleSheetAdsSyncProvider.ts`, `sheets-reader.ts`, `transform-content.ts`, `analyze-headers.ts`, `check-duplicates.ts`, `test-google-connection.ts`. Bỏ các guard `GOOGLE_CREDENTIALS_PATH` cũ (chặn nhầm nhánh JSON).
+- **Verify:** nhánh JSON kết nối Sheet OK (dù PATH sai) · nhánh PATH local OK · thiếu cả hai → throw đúng thông báo. Typecheck+build xanh.
+- **Railway CẦN đặt `GOOGLE_CREDENTIALS_JSON`** (nội dung Service Account JSON) — sau đó webhook sync mới chạy được. Không cần thư mục credentials / Start Command đặc biệt.
+
 ## 2026-07-01 — Sửa Tỷ lệ test thành công + sync DB
 - **Sync**: chạy `npm run sync` (DB cũ 5 ngày). Kết quả: +11 mới, −34 mồ côi, 1435 updated → DB = **1446 dòng** khớp Google Sheet. "Không test" lần đầu lên **11** (trước = 0).
 - **Công thức Tỷ lệ test thành công (CHỐT)**: Thành công = **CHỈ Duy trì** (Chưa vít + Đã vít) — bỏ 'Đã chạy-Tắt'. Mẫu = **Đã có kết quả cuối** = Duy trì + Đã test-ko chạy + Đã chạy-Tắt (**loại 'Đang test'**). Sửa: `src/server.ts metrics()` (S_SUCCESS + S_FINALIZED), `web/AssigneesPage.tsx` (per-NV + overall), `web/MarketsPage.tsx` + tooltip. `kpi.testSuccessRate` (buildSummary) vốn đã đúng, giữ nguyên.

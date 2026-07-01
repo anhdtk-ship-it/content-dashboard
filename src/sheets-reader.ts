@@ -2,6 +2,7 @@ import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import { google, sheets_v4 } from 'googleapis';
+import { createGoogleAuth } from './google-auth';
 
 /* ============================================================
  * Cấu hình: các sheet KHÔNG BAO GIỜ được đọc
@@ -78,11 +79,7 @@ function buildHeaderKeys(header: string[]): string[] {
  * ========================================================== */
 
 function getSheetsClient(): sheets_v4.Sheets {
-  const auth = new google.auth.GoogleAuth({
-    keyFile: process.env.GOOGLE_CREDENTIALS_PATH!,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-  return google.sheets({ version: 'v4', auth });
+  return google.sheets({ version: 'v4', auth: createGoogleAuth() });
 }
 
 /** Lấy danh sách tên tất cả sheet. */
@@ -161,7 +158,6 @@ function analyzeSheet(sheetName: string, values: string[][]): SheetReport {
 export async function readAllSheets(): Promise<SheetReport[]> {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   if (!spreadsheetId) throw new Error('Thiếu GOOGLE_SHEET_ID trong .env');
-  if (!process.env.GOOGLE_CREDENTIALS_PATH) throw new Error('Thiếu GOOGLE_CREDENTIALS_PATH trong .env');
 
   const sheets = getSheetsClient();
   const names = await listSheetNames(sheets, spreadsheetId);

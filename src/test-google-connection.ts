@@ -1,24 +1,16 @@
 import 'dotenv/config';
 import { google } from 'googleapis';
+import { createGoogleAuth } from './google-auth';
 
 async function main(): Promise<void> {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const credentialsPath = process.env.GOOGLE_CREDENTIALS_PATH;
 
   if (!spreadsheetId) {
     throw new Error('Thiếu biến môi trường GOOGLE_SHEET_ID trong file .env');
   }
-  if (!credentialsPath) {
-    throw new Error('Thiếu biến môi trường GOOGLE_CREDENTIALS_PATH trong file .env');
-  }
 
-  // Xác thực bằng Service Account (chỉ cần quyền đọc để lấy metadata)
-  const auth = new google.auth.GoogleAuth({
-    keyFile: credentialsPath,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-
-  const sheets = google.sheets({ version: 'v4', auth });
+  // Xác thực bằng Service Account qua GoogleAuthFactory (JSON env → PATH file)
+  const sheets = google.sheets({ version: 'v4', auth: createGoogleAuth() });
 
   // Lấy metadata của spreadsheet (không đọc dữ liệu trong ô)
   const res = await sheets.spreadsheets.get({

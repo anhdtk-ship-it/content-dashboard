@@ -15,6 +15,7 @@
  *
  * Cấu hình env: ADS_SHEET_ID + ADS_SHEET_TAB. */
 import { google } from 'googleapis';
+import { createGoogleAuth } from '../google-auth';
 import type { AdsMonitorRecord } from './types';
 import type { AdsMonitorSyncProvider } from './AdsMonitorSyncProvider';
 
@@ -70,13 +71,9 @@ export class GoogleSheetAdsSyncProvider implements AdsMonitorSyncProvider {
     const tab = process.env.ADS_SHEET_TAB?.trim();
     if (!spreadsheetId) throw new Error('Thiếu ADS_SHEET_ID (spreadsheet Ads) trong env.');
     if (!tab) throw new Error('Thiếu ADS_SHEET_TAB (tên tab Ads) trong env.');
-    if (!process.env.GOOGLE_CREDENTIALS_PATH) throw new Error('Thiếu GOOGLE_CREDENTIALS_PATH trong env.');
 
-    const auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_CREDENTIALS_PATH,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'], // CHỈ ĐỌC
-    });
-    const sheets = google.sheets({ version: 'v4', auth });
+    // PHASE 12: dùng GoogleAuthFactory (JSON env → PATH file). CHỈ đổi cách khởi tạo auth.
+    const sheets = google.sheets({ version: 'v4', auth: createGoogleAuth() });
 
     // Resolve tên tab thật (chịu khoảng trắng thừa)
     const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });

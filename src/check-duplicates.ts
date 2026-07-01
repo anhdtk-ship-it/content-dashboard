@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { google, sheets_v4 } from 'googleapis';
+import { createGoogleAuth } from './google-auth';
 
 const TARGET_SHEETS = [
   'NĐ Hiếu', 'QT Hiếu', 'NĐ Ánh', 'QT Ánh',
@@ -35,11 +36,7 @@ function colIndex(header: string[], name: string): number {
 
 async function main(): Promise<void> {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID!;
-  const auth = new google.auth.GoogleAuth({
-    keyFile: process.env.GOOGLE_CREDENTIALS_PATH!,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-  const sheets: sheets_v4.Sheets = google.sheets({ version: 'v4', auth });
+  const sheets: sheets_v4.Sheets = google.sheets({ version: 'v4', auth: createGoogleAuth() });
 
   // resolve tên sheet thật (chống khoảng trắng thừa)
   const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });

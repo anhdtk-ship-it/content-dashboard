@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { google, sheets_v4 } from 'googleapis';
 import { EXCLUDED_SHEETS } from './sheets-reader';
+import { createGoogleAuth } from './google-auth';
 
 /** Một dòng rỗng nếu mọi ô đều trống/whitespace. */
 function isEmptyRow(row: string[]): boolean {
@@ -27,11 +28,7 @@ function findHeaderRowIndex(rows: string[][]): number {
 }
 
 function getSheetsClient(): sheets_v4.Sheets {
-  const auth = new google.auth.GoogleAuth({
-    keyFile: process.env.GOOGLE_CREDENTIALS_PATH!,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-  return google.sheets({ version: 'v4', auth });
+  return google.sheets({ version: 'v4', auth: createGoogleAuth() });
 }
 
 async function main(): Promise<void> {

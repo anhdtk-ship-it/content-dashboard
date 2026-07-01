@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { google, sheets_v4 } from 'googleapis';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parseDdmmToReal } from '../date-util';
+import { createGoogleAuth } from '../google-auth';
 
 /* ============================================================
  * ContentSyncService (PHASE 12)
@@ -148,13 +149,8 @@ function transformSheet(sheetTarget: string, values: string[][]): ContentRecord[
 export async function readContentSheet(): Promise<ContentRecord[]> {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   if (!spreadsheetId) throw new Error('Thiếu GOOGLE_SHEET_ID trong .env');
-  if (!process.env.GOOGLE_CREDENTIALS_PATH) throw new Error('Thiếu GOOGLE_CREDENTIALS_PATH trong .env');
 
-  const auth = new google.auth.GoogleAuth({
-    keyFile: process.env.GOOGLE_CREDENTIALS_PATH,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-  const sheets: sheets_v4.Sheets = google.sheets({ version: 'v4', auth });
+  const sheets: sheets_v4.Sheets = google.sheets({ version: 'v4', auth: createGoogleAuth() });
 
   const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
   const titles = (meta.data.sheets ?? []).map((s) => s.properties?.title ?? '');
