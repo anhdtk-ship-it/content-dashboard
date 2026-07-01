@@ -8,13 +8,14 @@ export interface DateRange {
   label: string;   // "23/06/2026 – 29/06/2026"
 }
 
-/** Bộ KPI 1 nhân viên / cả team trong kỳ (BUSINESS RULE RIÊNG của Weekly Report — xem WeeklyReportService). */
+/** Bộ KPI 1 nhân viên / cả team (BUSINESS RULE RIÊNG Weekly — §7 xuyên vòng đời theo tháng, xem WeeklyReportService). */
 export interface ReportMetrics {
-  capped: number;   // Đã cấp = tổng content giao cho nhân viên Ads
-  tested: number;   // Đã test = đã đưa vào chạy test ≥1 lần (có Ngày Set Ads)
-  ton: number;      // Tồn = Đã cấp − Đã test (tính động, KHÔNG lưu DB)
+  capped: number;   // Đã cấp = content upload ≤ cuối kỳ (cumulative)
+  tested: number;   // Đã test = có test_date trong kỳ
+  notTest: number;  // Không test = trạng thái "Không test" (cumulative, upload ≤ cuối kỳ) — PHASE 10
+  ton: number;      // Tồn = upload ≤ cuối kỳ & chưa test (đến cuối kỳ) & ≠ Không test (động, KHÔNG lưu DB)
   testRate: number; // Tỷ lệ test = tested / capped (0..1)
-  win: number;      // Content test win = chuyển test→maintain (Content đạt "Duy trì")
+  win: number;      // Content test win = tested & Content đạt "Duy trì"
   winRate: number;  // Tỷ lệ win = win / tested (0..1)
 }
 

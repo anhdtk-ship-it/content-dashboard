@@ -35,7 +35,7 @@ const selectCls = 'rounded-control border border-line bg-surface px-2 py-[6px] t
 // Màu chuẩn nghiệp vụ (S3-001.1): Chờ chạy=cam · Đang test=vàng · Duy trì=xanh lá · Đã dừng=xám · Không duyệt=đỏ
 const STATUS_COLOR: Record<string, string> = {
   CHO_CHAY: '#fb923c', DANG_TEST: 'var(--warn)', DUY_TRI: 'var(--success)',
-  DA_DUNG: 'var(--slate)', KHONG_DUYET: 'var(--danger)', CHUA_PHAN_LOAI: 'var(--violet)',
+  DA_DUNG: 'var(--slate)', KHONG_TEST: '#a1a1aa', KHONG_DUYET: 'var(--danger)', CHUA_PHAN_LOAI: 'var(--violet)',
 };
 // Ngưỡng "Test quá lâu" — chỉ để HIỂN THỊ (khớp ngưỡng >10d theo test_date_real của /summary).
 const TEST_OVERDUE_DAYS = 10;

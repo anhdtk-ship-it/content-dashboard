@@ -30,6 +30,13 @@ const RULES: Rule[] = [
     assessment: (m) => `Tồn cao ${fmtNum(m.ton)}/${fmtNum(m.capped)} content (${fmtPct1(m.ton / m.capped)}).`,
     action: (m) => `Lên lịch giải phóng ${fmtNum(m.ton)} content tồn.`,
   },
+  // Không test cao (PHASE 10) — content không phù hợp triển khai
+  {
+    when: (m) => m.capped > 0 && m.notTest / m.capped >= 0.2,
+    priority: 2,
+    assessment: (m) => `Khối lượng content không phù hợp để triển khai còn cao (Không test ${fmtNum(m.notTest)}/${fmtNum(m.capped)} = ${fmtPct1(m.notTest / m.capped)}).`,
+    action: () => `Rà soát lại tiêu chí lựa chọn content trước khi cấp cho Ads.`,
+  },
   // Chưa có win dù đã test
   {
     when: (m) => m.tested >= 3 && m.win === 0,

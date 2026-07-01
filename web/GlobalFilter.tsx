@@ -17,10 +17,11 @@ const PRESETS: [string, string][] = [
   ['thisweek', 'Tuần này'], ['lastweek', 'Tuần trước'], ['thismonth', 'Tháng này'], ['lastmonth', 'Tháng trước'],
   ['custom', 'Tùy chỉnh…'],
 ];
-// Trạng thái: 7 nhãn nghiệp vụ. (Đã chạy-Tắt & Đã test-ko chạy cùng nhóm DA_DUNG do cơ chế lọc theo status_group.)
+// Trạng thái: nhãn nghiệp vụ. (Đã chạy-Tắt & Đã test-ko chạy cùng nhóm DA_DUNG do cơ chế lọc theo status_group.)
 const STATUS_OPTS: [string, string][] = [
   ['ALL', 'Tất cả'], ['CHO_CHAY', 'Chờ chạy'], ['DANG_TEST', 'Đang test'], ['DUY_TRI', 'Duy trì'],
-  ['DA_DUNG', 'Đã chạy - Tắt'], ['DA_DUNG', 'Đã test - Không chạy'], ['KHONG_DUYET', 'Không được duyệt'],
+  ['DA_DUNG', 'Đã chạy - Tắt'], ['DA_DUNG', 'Đã test - Không chạy'],
+  ['KHONG_TEST', 'Không test'], ['KHONG_DUYET', 'Không được duyệt'],
 ];
 
 /* lấy danh sách Biên tập từ dữ liệu thực (đọc 1 lần, cache toàn cục — không đổi API/logic) */

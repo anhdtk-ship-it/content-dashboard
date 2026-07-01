@@ -1,7 +1,13 @@
 # CURRENT_STATE — Content Operations Dashboard (Seryn) + Ads Monitor
 
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
-> Cập nhật: 2026-06-29 — **Phase 7 (Lifecycle + Current Status)** cho Ads Monitor.
+> Cập nhật: 2026-06-29 — **Phase 10 (trạng thái "Không test")** cho Content Dashboard + Weekly Report.
+
+## Phase 10 — Trạng thái "Không test" (Content Dashboard + Weekly Report)
+- **Content Dashboard (additive):** nhận diện `current_status = 'Không test'` → group `KHONG_TEST` (`server.ts` statusGroup/metrics/byStatus); thêm vào **bộ lọc trạng thái** (GlobalFilter), **màu** (tokens: statusStyle/groupStyle/STATUS_GROUPS + OverviewPage chart), loại khỏi cảnh báo "chưa test". KHÔNG đổi công thức KPI/giao diện hiện có.
+- **Weekly Report (§4+§7):** thêm KPI **Không test** (team overview + cột bảng); **Tồn** = upload ≤ cuối kỳ & chưa test đến cuối kỳ & ≠ Không test; **§7 as-of cuối kỳ**: Đã cấp cumulative (upload ≤ cuối kỳ), Đã test theo test-date trong kỳ → content upload tháng trước/test tháng sau tính đúng. Rule Engine thêm nhận xét "Không test cao". Verified: kỳ 01–15/06 → cấp 1.304 (cumulative) · test 157 · không test 0 · tồn 367.
+- ⚠️ "Không test" hiện = 0 vì Google Sheet **chưa có** content trạng thái này; khi Sheet thêm → tự lên số. Không có ngày-đổi-trạng-thái → Không test tính **cumulative**.
+- ✅ **Ads Monitor KHÔNG đổi** (không file Ads nào sửa; API/status/lifecycle nguyên vẹn — verified).
 
 ## Phase 8 — Weekly Report (module mới, BUSINESS RULE RIÊNG)
 - Menu **Reports → Weekly Report** (`web/reports/` — types/services/components/pages/**hooks**/**utils**, `#/weekly-report`). KHÔNG đụng Content/Ads/Sync/DB/API.

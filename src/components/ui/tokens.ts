@@ -4,6 +4,7 @@ export const STATUS_GROUPS = {
   DANG_TEST: { label: 'Đang test', bg: '#3a2a14', fg: '#fbbf24' },
   DUY_TRI: { label: 'Duy trì', bg: '#0f3320', fg: '#34d399' },
   DA_DUNG: { label: 'Đã dừng', bg: '#22293a', fg: '#94a3b8' },
+  KHONG_TEST: { label: 'Không test', bg: '#2a2a2e', fg: '#a1a1aa' },
   KHONG_DUYET: { label: 'Không duyệt', bg: '#3a1d1d', fg: '#f87171' },
   CHUA_PHAN_LOAI: { label: 'Chưa phân loại', bg: '#2a2030', fg: '#c4b5fd' },
 } as const;
@@ -28,6 +29,7 @@ export function statusStyle(raw?: string): StatusStyle {
   if (v.startsWith('Duy trì')) return { label: v, bg: '#0f3320', fg: '#34d399', severity: 'Ổn định' };       // xanh lá
   if (v === 'Đã chạy-Tắt') return { label: v, bg: '#13283a', fg: '#7dd3fc' };                                  // xanh dương nhạt
   if (v === 'Đã test-ko chạy') return { label: v, bg: '#22293a', fg: '#94a3b8' };                              // xám
+  if (v === 'Không test') return { label: v, bg: '#2a2a2e', fg: '#a1a1aa', severity: 'Kết thúc' };            // xám trung tính (PHASE 10)
   if (v === 'Đang test') return { label: v, bg: '#3a2a14', fg: '#fbbf24', severity: 'Theo dõi' };             // vàng
   if (v === 'Chờ chạy') return { label: v, bg: '#3a2410', fg: '#fb923c', severity: 'Cần xử lý' };             // cam
   if (v === 'Không được duyệt') return { label: v, bg: '#3a1d1d', fg: '#f87171', severity: 'Khẩn cấp' };      // đỏ
@@ -41,6 +43,7 @@ export function groupStyle(group: string): StatusStyle {
     case 'CHO_CHAY': return { label: 'Chờ chạy', bg: '#3a2410', fg: '#fb923c', severity: 'Cần xử lý' };
     case 'KHONG_DUYET': return { label: 'Không duyệt', bg: '#3a1d1d', fg: '#f87171', severity: 'Khẩn cấp' };
     case 'DA_DUNG': return { label: 'Đã dừng', bg: '#22293a', fg: '#94a3b8' };
+    case 'KHONG_TEST': return { label: 'Không test', bg: '#2a2a2e', fg: '#a1a1aa' };
     default: return { label: 'Chưa phân loại', bg: '#2a2030', fg: '#c4b5fd' };
   }
 }

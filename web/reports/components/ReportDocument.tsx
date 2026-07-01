@@ -10,6 +10,7 @@ function KpiRows({ m }: { m: ReportMetrics }) {
   const rows: [string, string][] = [
     ['Đã cấp', fmtNum(m.capped)],
     ['Đã test', fmtNum(m.tested)],
+    ['Không test', fmtNum(m.notTest)],
     ['Tồn', fmtNum(m.ton)],
     ['Tỷ lệ test', fmtPct1(m.testRate)],
     ['Content test win', fmtNum(m.win)],
@@ -29,8 +30,8 @@ function KpiRows({ m }: { m: ReportMetrics }) {
 
 /** Bảng "Theo từng nhân viên" — 7 cột, hàng nhân viên (động) + dòng Tổng. Đơn giản, in PDF tốt. */
 function EmployeeTable({ employees, team }: { employees: WeeklyReportData['employees']; team: ReportMetrics }) {
-  const cols = ['Nhân viên', 'Đã cấp', 'Đã test', 'Tồn', 'Tỷ lệ test', 'Content test win', 'Tỷ lệ win'];
-  const vals = (m: ReportMetrics) => [fmtNum(m.capped), fmtNum(m.tested), fmtNum(m.ton), fmtPct1(m.testRate), fmtNum(m.win), fmtPct1(m.winRate)];
+  const cols = ['Nhân viên', 'Đã cấp', 'Đã test', 'Không test', 'Tồn', 'Tỷ lệ test', 'Content test win', 'Tỷ lệ win'];
+  const vals = (m: ReportMetrics) => [fmtNum(m.capped), fmtNum(m.tested), fmtNum(m.notTest), fmtNum(m.ton), fmtPct1(m.testRate), fmtNum(m.win), fmtPct1(m.winRate)];
   const num = 'border border-line px-2 py-1 text-right tabular-nums text-fg';
   return (
     <table className="emp-table w-full border-collapse text-[13px]">

@@ -10,10 +10,10 @@ export function buildPlainText(data: WeeklyReportData, n: ReportNarrative): stri
   L.push(`BÁO CÁO TUẦN — ${data.range.label}`);
   L.push('');
   L.push('I. TIẾN ĐỘ CONTENT');
-  L.push(`  Tổng quan team: Đã cấp ${fmtNum(t.capped)} · Đã test ${fmtNum(t.tested)} · Tồn ${fmtNum(t.ton)} · Tỷ lệ test ${fmtPct1(t.testRate)} · Test win ${fmtNum(t.win)} · Tỷ lệ win ${fmtPct1(t.winRate)}`);
+  L.push(`  Tổng quan team: Đã cấp ${fmtNum(t.capped)} · Đã test ${fmtNum(t.tested)} · Không test ${fmtNum(t.notTest)} · Tồn ${fmtNum(t.ton)} · Tỷ lệ test ${fmtPct1(t.testRate)} · Test win ${fmtNum(t.win)} · Tỷ lệ win ${fmtPct1(t.winRate)}`);
   for (const e of data.employees) {
     const m = e.metrics;
-    L.push(`  • ${e.name}: cấp ${fmtNum(m.capped)}, test ${fmtNum(m.tested)}, tồn ${fmtNum(m.ton)}, tỷ lệ test ${fmtPct1(m.testRate)}, win ${fmtNum(m.win)} (${fmtPct1(m.winRate)})`);
+    L.push(`  • ${e.name}: cấp ${fmtNum(m.capped)}, test ${fmtNum(m.tested)}, không test ${fmtNum(m.notTest)}, tồn ${fmtNum(m.ton)}, tỷ lệ test ${fmtPct1(m.testRate)}, win ${fmtNum(m.win)} (${fmtPct1(m.winRate)})`);
   }
   L.push('');
   L.push('II. ĐÁNH GIÁ');
