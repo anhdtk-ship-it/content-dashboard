@@ -16,54 +16,40 @@ interface Rule {
 }
 
 const RULES: Rule[] = [
-  // Tỷ lệ test thấp
+  // Chờ chạy (Tồn) cao — backlog nhiều (PHASE 11)
   {
-    when: (m) => m.capped > 0 && m.testRate < 0.6,
+    when: (m) => m.choChay >= 5,
     priority: 1,
-    assessment: (m) => `Tỷ lệ test thấp ${fmtPct1(m.testRate)} (đã test ${fmtNum(m.tested)}/${fmtNum(m.capped)}).`,
-    action: (m) => `Ưu tiên test ${fmtNum(m.ton)} content tồn trong tuần.`,
+    assessment: (m) => `Khối lượng content chờ triển khai còn nhiều (Chờ chạy ${fmtNum(m.choChay)}).`,
+    action: () => `Ưu tiên xử lý content chờ chạy trước khi nhận thêm content mới.`,
   },
-  // Tồn cao
+  // Đang test cao — triển khai đồng thời nhiều
   {
-    when: (m) => m.capped > 0 && m.ton > 0 && m.ton / m.capped >= 0.3,
+    when: (m) => m.dangTest >= 10,
     priority: 2,
-    assessment: (m) => `Tồn cao ${fmtNum(m.ton)}/${fmtNum(m.capped)} content (${fmtPct1(m.ton / m.capped)}).`,
-    action: (m) => `Lên lịch giải phóng ${fmtNum(m.ton)} content tồn.`,
+    assessment: (m) => `Đang triển khai nhiều content đồng thời (Đang test ${fmtNum(m.dangTest)}).`,
+    action: () => `Theo dõi sát kết quả test để sớm đưa ra quyết định.`,
   },
-  // Không test cao (PHASE 10) — content không phù hợp triển khai
+  // Không test cao — content không phù hợp triển khai
   {
     when: (m) => m.capped > 0 && m.notTest / m.capped >= 0.2,
     priority: 2,
     assessment: (m) => `Khối lượng content không phù hợp để triển khai còn cao (Không test ${fmtNum(m.notTest)}/${fmtNum(m.capped)} = ${fmtPct1(m.notTest / m.capped)}).`,
     action: () => `Rà soát lại tiêu chí lựa chọn content trước khi cấp cho Ads.`,
   },
-  // Chưa có win dù đã test
+  // Content cấp trong kỳ chưa có win
   {
-    when: (m) => m.tested >= 3 && m.win === 0,
-    priority: 1,
-    assessment: (m) => `Chưa có content win (0/${fmtNum(m.tested)} đã test).`,
-    action: () => `Tối ưu nội dung/nhắm mục tiêu để đạt win đầu tiên.`,
+    when: (m) => m.capped >= 3 && m.win === 0,
+    priority: 3,
+    assessment: (m) => `Content cấp trong kỳ chưa có win (0/${fmtNum(m.capped)}).`,
+    action: () => `Tối ưu nội dung/nhắm mục tiêu để sớm đạt win.`,
   },
-  // Tỷ lệ win thấp
+  // Có win (tích cực)
   {
-    when: (m) => m.tested >= 5 && m.win > 0 && m.winRate < 0.15,
-    priority: 2,
-    assessment: (m) => `Tỷ lệ win thấp ${fmtPct1(m.winRate)} (${fmtNum(m.win)}/${fmtNum(m.tested)}).`,
-    action: () => `Rà soát & nhân bản hướng content đã win gần đây.`,
-  },
-  // Tỷ lệ win tốt (tích cực)
-  {
-    when: (m) => m.tested >= 5 && m.winRate >= 0.3,
+    when: (m) => m.win > 0,
     priority: 5,
-    assessment: (m) => `Tỷ lệ win tốt ${fmtPct1(m.winRate)} (${fmtNum(m.win)}/${fmtNum(m.tested)}).`,
-    action: (m) => `Duy trì & nhân bản ${fmtNum(m.win)} content win.`,
-  },
-  // Tỷ lệ test tốt (tích cực)
-  {
-    when: (m) => m.capped > 0 && m.testRate >= 0.9,
-    priority: 6,
-    assessment: (m) => `Tỷ lệ test tốt ${fmtPct1(m.testRate)} (${fmtNum(m.tested)}/${fmtNum(m.capped)}).`,
-    action: (m) => (m.ton > 0 ? `Test nốt ${fmtNum(m.ton)} content tồn còn lại.` : `Giữ nhịp độ test hiện tại.`),
+    assessment: (m) => `Có ${fmtNum(m.win)} content win trong kỳ.`,
+    action: (m) => `Nhân bản hướng nội dung của ${fmtNum(m.win)} content win.`,
   },
 ];
 

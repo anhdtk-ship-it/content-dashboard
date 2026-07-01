@@ -1,7 +1,14 @@
 # CURRENT_STATE — Content Operations Dashboard (Seryn) + Ads Monitor
 
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
-> Cập nhật: 2026-06-29 — **Phase 10 (trạng thái "Không test")** cho Content Dashboard + Weekly Report.
+> Cập nhật: 2026-06-29 — **Phase 11 (2 nhóm KPI Content)** cho Weekly Report.
+
+## Phase 11 — 2 nhóm KPI (Weekly Report Content)
+- **A. Phát sinh trong tháng** (cohort theo upload trong kỳ): **Đã cấp** (upload trong kỳ, KHÔNG cumulative) · **Không test** (upload trong kỳ & 'Không test') · **Content test win** (upload trong kỳ & 'Duy trì').
+- **B. Trạng thái hiện tại** (ALL, không giới hạn tháng): **Chờ chạy (Tồn)** · **Đang test** — backlog thực tế theo `current_status`.
+- Weekly Report: bộ KPI mới (5 team overview / 6 cột bảng); **bỏ** Đã test/Tồn-cũ/Tỷ lệ test/Tỷ lệ win. Rule Engine đổi nhận xét theo KPI mới (Chờ chạy cao / Đang test cao / Không test cao / win). `WeeklyReportService` fetch TOÀN BỘ content (no date filter).
+- Verified: kỳ 01–30/06 → cấp 297; kỳ 01–07/06 → cấp 87 (theo tháng) nhưng Chờ chạy 31 / Đang test 39 **giữ nguyên** (all-time) ✓.
+- ✅ Ads Monitor KHÔNG đổi (Phase 11 chỉ sửa `web/reports/`; `server.ts` không đổi lần này).
 
 ## Phase 10 — Trạng thái "Không test" (Content Dashboard + Weekly Report)
 - **Content Dashboard (additive):** nhận diện `current_status = 'Không test'` → group `KHONG_TEST` (`server.ts` statusGroup/metrics/byStatus); thêm vào **bộ lọc trạng thái** (GlobalFilter), **màu** (tokens: statusStyle/groupStyle/STATUS_GROUPS + OverviewPage chart), loại khỏi cảnh báo "chưa test". KHÔNG đổi công thức KPI/giao diện hiện có.

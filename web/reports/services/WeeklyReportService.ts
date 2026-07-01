@@ -1,40 +1,35 @@
-/* Weekly Report — SERVICE RIÊNG (PHASE 8/10 §5+§7).
- * Business Rule ĐỘC LẬP — KHÔNG dùng calculateAdsStatus()/Lifecycle Ads/status-set Dashboard.
- * Tự đọc dữ liệu THÔ qua /api/v3/contents (API có sẵn, KHÔNG sửa) và tự tính KPI.
+/* Weekly Report — SERVICE RIÊNG (PHASE 11 §1+§2). Business Rule ĐỘC LẬP với Ads Monitor.
+ * Tự đọc dữ liệu THÔ qua /api/v3/contents (API có sẵn, KHÔNG sửa) và tự tính KPI theo 2 nhóm:
  *
- * §7 — XUYÊN VÒNG ĐỜI THEO THÁNG (as-of cuối kỳ; content upload tháng trước, test tháng sau vẫn tính đúng):
- *   Đã cấp   = content có upload_date ≤ CUỐI kỳ (cumulative).
- *   Đã test  = content có test_date NẰM TRONG kỳ [from, to].
- *   Không test = content trạng thái "Không test" (cumulative, upload ≤ cuối kỳ) — đọc trực tiếp, không suy luận.
- *   Tồn      = upload ≤ cuối kỳ & CHƯA test tính đến cuối kỳ & ≠ "Không test".
- *   Content test win = content ĐÃ TEST trong kỳ & đạt trạng thái "Duy trì".
- *   Tỷ lệ test = Đã test / Đã cấp ; Tỷ lệ win = win / Đã test.
+ *   A. PHÁT SINH TRONG THÁNG (cohort theo upload_date trong kỳ [from,to]):
+ *      - Đã cấp = content upload trong kỳ.
+ *      - Không test = upload trong kỳ & trạng thái "Không test" (không cộng dồn tháng sau).
+ *      - Content test win = upload trong kỳ & đạt "Duy trì" (rule win không đổi).
+ *   B. TRẠNG THÁI HIỆN TẠI (ALL — không giới hạn tháng, backlog thực tế):
+ *      - Chờ chạy (Tồn) = trạng thái hiện tại "Chờ chạy".
+ *      - Đang test = trạng thái hiện tại "Đang test".
+ *
+ * "Đang test" ở đây CHỈ để thống kê Dashboard/Weekly — KHÔNG liên quan Business Rule Ads Monitor.
  */
 import type { ReportMetrics, DateRange, WeeklyReportData, EmployeeReport } from '../types/report';
 
 interface RawContent {
   assignee_name: string;
   current_status: string;
-  test_date_real: string | null;   // 'YYYY-MM-DD'
-  upload_date_real: string | null;
+  upload_date_real: string | null;   // 'YYYY-MM-DD'
 }
 
-/* ---- Business Rule RIÊNG (chỉnh tại đây) ---- */
 const st = (r: RawContent) => (r.current_status ?? '').trim();
-const isNotTest = (r: RawContent) => st(r) === 'Không test';
-const isMaintain = (r: RawContent) => st(r).startsWith('Duy trì');
-const testedByEnd = (r: RawContent, end: string) => !!r.test_date_real && r.test_date_real <= end;
-const testedInPeriod = (r: RawContent, from: string, to: string) =>
-  !!r.test_date_real && r.test_date_real >= from && r.test_date_real <= to;
+const uploadedInPeriod = (r: RawContent, from: string, to: string) =>
+  !!r.upload_date_real && r.upload_date_real >= from && r.upload_date_real <= to;
 
 export class WeeklyReportService {
-  /** Đọc TOÀN BỘ content upload ≤ cuối kỳ (cumulative, §7) — phân trang. */
-  async fetchContents(range: DateRange): Promise<RawContent[]> {
+  /** Đọc TOÀN BỘ content (KHÔNG lọc ngày) — cần cho KPI trạng thái hiện tại (Chờ chạy/Đang test, all-time). */
+  async fetchContents(): Promise<RawContent[]> {
     const out: RawContent[] = [];
     const pageSize = 100;
     for (let page = 1; ; page++) {
       const p = new URLSearchParams();
-      p.set('to', range.to);                 // chỉ chặn trên: upload_date_real ≤ cuối kỳ (dateField mặc định)
       p.set('page', String(page)); p.set('pageSize', String(pageSize));
       const res = await fetch('/api/v3/contents?' + p.toString());
       const d = await res.json();
@@ -42,7 +37,6 @@ export class WeeklyReportService {
       const items: RawContent[] = (d.items ?? []).map((x: any) => ({
         assignee_name: x.assignee_name || '(trống)',
         current_status: x.current_status ?? '',
-        test_date_real: x.test_date_real ?? null,
         upload_date_real: x.upload_date_real ?? null,
       }));
       out.push(...items);
@@ -51,18 +45,18 @@ export class WeeklyReportService {
     return out;
   }
 
-  /** KPI cho 1 tập content (team hoặc từng nhân viên), theo §7 as-of cuối kỳ. */
+  /** KPI cho 1 tập content (team hoặc từng nhân viên). */
   calculateWeeklyKPIs(rows: RawContent[], range: DateRange): ReportMetrics {
     const { from, to } = range;
-    const capped = rows.length; // đã là upload ≤ to (fetch chặn trên)
-    const tested = rows.filter((r) => testedInPeriod(r, from, to)).length;
-    const notTest = rows.filter(isNotTest).length;
-    const ton = rows.filter((r) => !testedByEnd(r, to) && !isNotTest(r)).length;
-    const win = rows.filter((r) => testedInPeriod(r, from, to) && isMaintain(r)).length;
+    const inPeriod = rows.filter((r) => uploadedInPeriod(r, from, to));
     return {
-      capped, tested, notTest, ton,
-      testRate: capped ? tested / capped : 0,
-      win, winRate: tested ? win / tested : 0,
+      // A. cohort theo upload trong kỳ
+      capped: inPeriod.length,
+      notTest: inPeriod.filter((r) => st(r) === 'Không test').length,
+      win: inPeriod.filter((r) => st(r).startsWith('Duy trì')).length,
+      // B. trạng thái hiện tại (ALL)
+      choChay: rows.filter((r) => st(r) === 'Chờ chạy').length,
+      dangTest: rows.filter((r) => st(r) === 'Đang test').length,
     };
   }
 
@@ -75,11 +69,13 @@ export class WeeklyReportService {
     }
     return [...byName.entries()]
       .map(([name, rs]) => ({ name, metrics: this.calculateWeeklyKPIs(rs, range) }))
+      // sắp theo Đã cấp trong kỳ; loại nhân viên không có gì để hiển thị
+      .filter((e) => e.metrics.capped > 0 || e.metrics.choChay > 0 || e.metrics.dangTest > 0)
       .sort((a, b) => b.metrics.capped - a.metrics.capped);
   }
 
   async getReport(range: DateRange): Promise<WeeklyReportData> {
-    const rows = await this.fetchContents(range);
+    const rows = await this.fetchContents();
     return {
       range,
       team: this.calculateWeeklyKPIs(rows, range),

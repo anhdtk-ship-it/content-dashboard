@@ -2,19 +2,17 @@
  * Header lặp mỗi trang bằng <thead> của 1 <table> bao toàn báo cáo → trình duyệt tự lặp + CHỪA CHỖ
  * (không đè nội dung — fix lỗi "lồng chữ ở đầu trang" của position:fixed).
  * Bố cục văn bản print-friendly: KHÔNG card dashboard / biểu đồ / bảng Excel. .emp-block không bị cắt giữa trang. */
-import { fmtNum, fmtPct1 } from '../utils/format';
+import { fmtNum } from '../utils/format';
 import { SectionII, SectionIII } from './NarrativeSections';
 import type { ReportMetrics, WeeklyReportData, ReportNarrative } from '../types/report';
 
 function KpiRows({ m }: { m: ReportMetrics }) {
   const rows: [string, string][] = [
     ['Đã cấp', fmtNum(m.capped)],
-    ['Đã test', fmtNum(m.tested)],
     ['Không test', fmtNum(m.notTest)],
-    ['Tồn', fmtNum(m.ton)],
-    ['Tỷ lệ test', fmtPct1(m.testRate)],
+    ['Chờ chạy (Tồn)', fmtNum(m.choChay)],
+    ['Đang test', fmtNum(m.dangTest)],
     ['Content test win', fmtNum(m.win)],
-    ['Tỷ lệ win', fmtPct1(m.winRate)],
   ];
   return (
     <div className="max-w-[380px]">
@@ -30,8 +28,8 @@ function KpiRows({ m }: { m: ReportMetrics }) {
 
 /** Bảng "Theo từng nhân viên" — 7 cột, hàng nhân viên (động) + dòng Tổng. Đơn giản, in PDF tốt. */
 function EmployeeTable({ employees, team }: { employees: WeeklyReportData['employees']; team: ReportMetrics }) {
-  const cols = ['Nhân viên', 'Đã cấp', 'Đã test', 'Không test', 'Tồn', 'Tỷ lệ test', 'Content test win', 'Tỷ lệ win'];
-  const vals = (m: ReportMetrics) => [fmtNum(m.capped), fmtNum(m.tested), fmtNum(m.notTest), fmtNum(m.ton), fmtPct1(m.testRate), fmtNum(m.win), fmtPct1(m.winRate)];
+  const cols = ['Nhân viên', 'Đã cấp', 'Không test', 'Chờ chạy', 'Đang test', 'Content test win'];
+  const vals = (m: ReportMetrics) => [fmtNum(m.capped), fmtNum(m.notTest), fmtNum(m.choChay), fmtNum(m.dangTest), fmtNum(m.win)];
   const num = 'border border-line px-2 py-1 text-right tabular-nums text-fg';
   return (
     <table className="emp-table w-full border-collapse text-[13px]">

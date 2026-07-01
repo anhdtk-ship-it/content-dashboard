@@ -8,15 +8,15 @@ export interface DateRange {
   label: string;   // "23/06/2026 – 29/06/2026"
 }
 
-/** Bộ KPI 1 nhân viên / cả team (BUSINESS RULE RIÊNG Weekly — §7 xuyên vòng đời theo tháng, xem WeeklyReportService). */
+/** Bộ KPI 1 nhân viên / cả team (BUSINESS RULE RIÊNG Weekly — PHASE 11: 2 nhóm, xem WeeklyReportService). */
 export interface ReportMetrics {
-  capped: number;   // Đã cấp = content upload ≤ cuối kỳ (cumulative)
-  tested: number;   // Đã test = có test_date trong kỳ
-  notTest: number;  // Không test = trạng thái "Không test" (cumulative, upload ≤ cuối kỳ) — PHASE 10
-  ton: number;      // Tồn = upload ≤ cuối kỳ & chưa test (đến cuối kỳ) & ≠ Không test (động, KHÔNG lưu DB)
-  testRate: number; // Tỷ lệ test = tested / capped (0..1)
-  win: number;      // Content test win = tested & Content đạt "Duy trì"
-  winRate: number;  // Tỷ lệ win = win / tested (0..1)
+  // A. Phát sinh trong tháng (cohort theo upload trong kỳ):
+  capped: number;   // Đã cấp = content UPLOAD trong kỳ (KHÔNG cumulative)
+  notTest: number;  // Không test = upload trong kỳ & trạng thái "Không test" (không cộng dồn tháng sau)
+  win: number;      // Content test win = upload trong kỳ & đạt "Duy trì" (rule win KHÔNG đổi)
+  // B. Trạng thái hiện tại (ALL, KHÔNG giới hạn tháng — backlog thực tế):
+  choChay: number;  // Chờ chạy (Tồn) = trạng thái hiện tại "Chờ chạy"
+  dangTest: number; // Đang test = trạng thái hiện tại "Đang test"
 }
 
 export interface EmployeeReport {

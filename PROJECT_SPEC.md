@@ -345,18 +345,19 @@ content-dashboard/
 **BUSINESS RULE RIÊNG** (§5): KHÔNG dùng `calculateAdsStatus()`, Lifecycle (Ads), hay metrics()/status-set của Dashboard. `WeeklyReportService` (`services/WeeklyReportService.ts`) tự đọc **dữ liệu thô** qua `/api/v3/contents?from&to` (phân trang) rồi tự tính KPI: `calculateWeeklyKPIs()` + `calculateWeeklyEmployeeReport()`. "Đã cấp" theo Ngày Up Trello (dateField mặc định). Bộ lọc: **Khoảng thời gian TÙY CHỈNH** (Từ/Đến chọn theo ngày, mặc định tuần hiện tại). *(Đã BỎ bộ lọc Địa lý.)* Group theo `assignee_name` = **Nhân viên Ads** (KHÔNG dùng `editor_name`/Biên tập).
 
 ### 12.2 Công thức KPI (RIÊNG — chỉnh ở `WeeklyReportService`)
-**PHASE 10 §7 — as-of CUỐI kỳ, xuyên vòng đời** (content upload tháng trước / test tháng sau vẫn đúng). Fetch content `upload_date_real ≤ cuối kỳ` (cumulative), tính client-side:
-- **Đã cấp** = content upload ≤ cuối kỳ (cumulative).
-- **Đã test** = content có `test_date_real` **trong kỳ** [from,to].
-- **Không test** = content trạng thái **"Không test"** (cumulative; đọc trực tiếp, không suy luận). *(Không có ngày-đổi-trạng-thái → tính cumulative, đã chốt với nghiệp vụ.)*
-- **Tồn** = upload ≤ cuối kỳ **& chưa test tính đến cuối kỳ & ≠ "Không test"** (động, không lưu DB).
-- **Tỷ lệ test** = `Đã test / Đã cấp` (1 chữ số thập phân).
-- **Content test win** = đã test trong kỳ & đạt **"Duy trì"** (rule riêng Weekly; KHÔNG dùng `ads_monitor_lifecycle`). **Tỷ lệ win** = `win / Đã test`.
-- *Lưu ý:* Đã cấp/Tồn (cumulative) và Đã test (trong kỳ) khác cơ sở ngày → KHÔNG có đẳng thức `capped = test + tồn + notTest`.
+**PHASE 11 — 2 NHÓM KPI** (fetch TOÀN BỘ content, tính client-side; đọc trực tiếp, không suy luận):
+- **A. Phát sinh trong tháng** (cohort theo `upload_date_real` **trong kỳ** [from,to]):
+  - **Đã cấp** = content upload trong kỳ (KHÔNG cumulative).
+  - **Không test** = upload trong kỳ & trạng thái "Không test" (không cộng dồn tháng sau).
+  - **Content test win** = upload trong kỳ & đạt "Duy trì" (rule win KHÔNG đổi; KHÔNG dùng `ads_monitor_lifecycle`).
+- **B. Trạng thái hiện tại** (ALL — KHÔNG giới hạn tháng, backlog thực tế):
+  - **Chờ chạy (Tồn)** = trạng thái hiện tại "Chờ chạy".
+  - **Đang test** = trạng thái hiện tại "Đang test" (chỉ thống kê Dashboard/Weekly, KHÔNG liên quan Ads).
+- *(Đã bỏ Đã test/Tồn-cũ/Tỷ lệ test/Tỷ lệ win khỏi Weekly Report.)*
 
 ### 12.3 Cấu trúc báo cáo (PHASE 9 — print-friendly, `ReportDocument`)
 Bố cục **văn bản** (KHÔNG KPICard/biểu đồ/bảng Excel), dùng CHUNG cho web + in.
-- **I. Tiến độ Content**: Tổng quan team (7 KPI: Đã cấp · Đã test · **Không test** · Tồn · Tỷ lệ test · Content test win · Tỷ lệ win) + **bảng "Theo từng nhân viên"** (cột: Nhân viên · Đã cấp · Đã test · **Không test** · Tồn · Tỷ lệ test · Content test win · Tỷ lệ win; hàng nhân viên động + dòng **Tổng** nổi bật). Header nền xám nhạt, không card/biểu đồ/màu đậm; nền header+Tổng giữ khi in (`print-color-adjust: exact`).
+- **I. Tiến độ Content** (PHASE 11): Tổng quan team (5 KPI: Đã cấp · Không test · Chờ chạy (Tồn) · Đang test · Content test win) + **bảng "Theo từng nhân viên"** (cột: Nhân viên · Đã cấp · Không test · Chờ chạy · Đang test · Content test win; hàng nhân viên động + dòng **Tổng** nổi bật). Header nền xám nhạt, không card/biểu đồ/màu đậm; nền header+Tổng giữ khi in (`print-color-adjust: exact`).
 - **II. Đánh giá**: theo nhân viên — **Đánh giá (≤2)** + **Hành động tuần tới (≤2)**, sinh bằng **RULE ENGINE** (`services/ruleEngine.ts`): độc lập theo KPI của chính nhân viên (ngưỡng cố định; KHÔNG xếp hạng / so sánh / trung bình team), mỗi ý gắn **KPI cụ thể** + hành động rõ ràng. Nhập tay được.
 - **III. Kế hoạch tuần tới**: checklist (☐) lấy từ Hành động tuần tới của từng nhân viên.
 - **Chế độ Xem trước** (toggle); phần II/III lưu **cục bộ** (CHƯA persist).
