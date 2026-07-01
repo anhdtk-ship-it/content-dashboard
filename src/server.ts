@@ -227,7 +227,8 @@ function bucketKey(dateIso: string, mode: string): string {
 function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
   // Tập đã lọc đầy đủ: date + market + assignee + status.
   // MỌI KPI / chart / bảng / alert đều tính trên tập này.
-  const F = applyDate(applyBase(rows, f), f);
+  const base = applyBase(rows, f);          // market/assignee/status — KHÔNG lọc ngày (cho KPI backlog all-time)
+  const F = applyDate(base, f);
 
   const noiDia = F.filter((r) => r.market === 'noi_dia').length;
   const quocTe = F.filter((r) => r.market === 'quoc_te').length;
@@ -300,7 +301,18 @@ function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
   const trend = [...trendMap.entries()].sort((a, b) => a[0].localeCompare(b[0]))
     .map(([bucket, v]) => ({ bucket, ...v }));
 
-  return { kpi, metrics: metrics(F), funnel, byAssignee, byMarket, byStatus, alerts, trend, generatedAt: new Date().toISOString() };
+  // PHASE 11 — bộ KPI Content 2 nhóm cho Overview (+ Weekly Report cùng nghiệp vụ):
+  //  A. Phát sinh trong tháng (trên F — cohort theo upload trong kỳ): capped · khongTest · win(Duy trì)
+  //  B. Trạng thái hiện tại (trên base — KHÔNG giới hạn ngày): choChay · dangTest
+  const contentKpi = {
+    capped: F.length,
+    khongTest: countGroup(F, 'KHONG_TEST'),
+    win: countGroup(F, 'DUY_TRI'),
+    choChay: countGroup(base, 'CHO_CHAY'),
+    dangTest: countGroup(base, 'DANG_TEST'),
+  };
+
+  return { kpi, metrics: metrics(F), contentKpi, funnel, byAssignee, byMarket, byStatus, alerts, trend, generatedAt: new Date().toISOString() };
 }
 
 /* ============================================================

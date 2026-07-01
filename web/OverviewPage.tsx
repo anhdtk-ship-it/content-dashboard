@@ -76,6 +76,8 @@ function AlertCard({ icon, label, value, color, sub, badge, onClick }: {
 interface Summary {
   metrics: { capped: number; tested: number; success: number; dangTest: number; tonKho: number; khongDuyet: number;
     rateTested: number; rateSuccess: number; rateDangTest: number; rateTonKho: number; rateKhongDuyet: number };
+  // PHASE 11 — bộ KPI Content 2 nhóm (A: cohort theo upload trong kỳ · B: trạng thái hiện tại all-time)
+  contentKpi: { capped: number; khongTest: number; win: number; choChay: number; dangTest: number };
   funnel: { stage: string; value: number; conv: number }[];
   byStatus: { group: string; label: string; value: number }[];
   alerts: Record<string, number>;
@@ -141,7 +143,7 @@ export function OverviewPage() {
 
   const clearAll = () => { setRange({ preset: 'thismonth' }); setMarket('ALL'); setAssignee('ALL'); setStatus('ALL'); setEditor('ALL'); };
 
-  const m = data?.metrics;
+  const c = data?.contentKpi;
 
   return (
     <div className="text-fg">
@@ -172,22 +174,20 @@ export function OverviewPage() {
             <LoadingSkeleton variant="kpi" count={6} />
             <LoadingSkeleton variant="block" />
           </div>
-        ) : m ? (
+        ) : c ? (
           <>
             <SectionHeader title="KPI nghiệp vụ" action={<span className="text-xs text-muted">di chuột vào ⓘ để xem công thức</span>} />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <KPICard label="Content được cấp" value={m.capped} tone="accent"
-                tooltip="Đếm theo Ngày Up Trello (upload_date_real) trong kỳ lọc." />
-              <KPICard label="Tỷ lệ đã được test" value={pct(m.rateTested)} sub={`${m.tested}/${m.capped}`}
-                tooltip="Đã được test ÷ Content được cấp" />
-              <KPICard label="Tỷ lệ test thành công" value={pct(m.rateSuccess)} sub={`${m.success}/${m.tested}`} tone="good"
-                tooltip="Thành công ÷ Đã được test" />
-              <KPICard label="Tỷ lệ đang test" value={pct(m.rateDangTest)} sub={`${m.dangTest}/${m.capped}`} tone="warn"
-                tooltip="Đang test ÷ Content được cấp" />
-              <KPICard label="Tỷ lệ tồn kho" value={pct(m.rateTonKho)} sub={`${m.tonKho}/${m.capped}`} tone="orange"
-                tooltip="Tồn kho ÷ Content được cấp" />
-              <KPICard label="Tỷ lệ không duyệt" value={pct(m.rateKhongDuyet)} sub={`${m.khongDuyet}/${m.capped}`} tone="danger"
-                tooltip="Không duyệt ÷ Content được cấp" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <KPICard label="Đã cấp" value={c.capped} tone="accent"
+                tooltip="Content Upload trong kỳ lọc (Ngày Up Trello). Phát sinh trong tháng." />
+              <KPICard label="Không test" value={c.khongTest} tone="orange"
+                tooltip="Upload trong kỳ & trạng thái 'Không test' (không cộng dồn tháng sau)." />
+              <KPICard label="Chờ chạy (Tồn)" value={c.choChay} tone="warn"
+                tooltip="Tất cả content trạng thái hiện tại 'Chờ chạy' — backlog, KHÔNG giới hạn tháng." />
+              <KPICard label="Đang test" value={c.dangTest} tone="info"
+                tooltip="Tất cả content trạng thái hiện tại 'Đang test' — KHÔNG giới hạn tháng (chỉ thống kê)." />
+              <KPICard label="Content test win" value={c.win} tone="good"
+                tooltip="Upload trong kỳ & đạt 'Duy trì'." />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">

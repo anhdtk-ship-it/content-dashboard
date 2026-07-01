@@ -8,7 +8,8 @@
 - **B. Trạng thái hiện tại** (ALL, không giới hạn tháng): **Chờ chạy (Tồn)** · **Đang test** — backlog thực tế theo `current_status`.
 - Weekly Report: bộ KPI mới (5 team overview / 6 cột bảng); **bỏ** Đã test/Tồn-cũ/Tỷ lệ test/Tỷ lệ win. Rule Engine đổi nhận xét theo KPI mới (Chờ chạy cao / Đang test cao / Không test cao / win). `WeeklyReportService` fetch TOÀN BỘ content (no date filter).
 - Verified: kỳ 01–30/06 → cấp 297; kỳ 01–07/06 → cấp 87 (theo tháng) nhưng Chờ chạy 31 / Đang test 39 **giữ nguyên** (all-time) ✓.
-- ✅ Ads Monitor KHÔNG đổi (Phase 11 chỉ sửa `web/reports/`; `server.ts` không đổi lần này).
+- **Overview (Tổng Quan) đã đổi thẻ KPI** sang đúng bộ 5 (Đã cấp · Không test · Chờ chạy (Tồn) · Đang test · Content test win) — server trả `summary.contentKpi` (A trên F cohort, B trên base all-time); bỏ các thẻ tỷ lệ cũ. Verified: June capped 297 vs week1 87 (theo tháng); Chờ chạy 31/Đang test 39 giữ nguyên (all-time).
+- ✅ Ads Monitor KHÔNG đổi (server.ts chỉ thêm `contentKpi` ở buildSummary Content; route/ads-monitor + status/lifecycle nguyên vẹn — verified source=supabase).
 
 ## Phase 10 — Trạng thái "Không test" (Content Dashboard + Weekly Report)
 - **Content Dashboard (additive):** nhận diện `current_status = 'Không test'` → group `KHONG_TEST` (`server.ts` statusGroup/metrics/byStatus); thêm vào **bộ lọc trạng thái** (GlobalFilter), **màu** (tokens: statusStyle/groupStyle/STATUS_GROUPS + OverviewPage chart), loại khỏi cảnh báo "chưa test". KHÔNG đổi công thức KPI/giao diện hiện có.
