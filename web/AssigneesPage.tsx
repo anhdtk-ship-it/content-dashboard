@@ -44,6 +44,7 @@ interface AggRow {
   daChayTat: number; daTestKoChay: number; choChay: number; khongDuyet: number;
   rateTested: number; rateSuccess: number; avgLife: number;
   duyTri30: number; duyTri60: number; duyTri90: number; duyTri180: number;
+  dangTestAll: number; // 'Đang test' ALL-TIME (giống KPI nghiệp vụ) — gán sau khi có dữ liệu all-time
 }
 
 function aggregate(rows: Row[]): AggRow[] {
@@ -80,6 +81,7 @@ function aggregate(rows: Row[]): AggRow[] {
       rateSuccess: coKetQua ? success / coKetQua : 0,
       avgLife: lifeN ? Math.round(lifeSum / lifeN) : 0,
       duyTri30, duyTri60, duyTri90, duyTri180,
+      dangTestAll: 0, // gán sau (merge từ dữ liệu all-time)
     };
   });
 }
@@ -180,6 +182,7 @@ export function AssigneesPage({ embedded = false, filter }: {
   const [status, setStatus] = useState('ALL');
   const [editor, setEditor] = useState('ALL');
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [allRows, setAllRows] = useState<Row[] | null>(null); // toàn bộ (KHÔNG giới hạn kỳ) — cho cột 'Đang test' all-time
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortState | null>(null);
@@ -215,11 +218,45 @@ export function AssigneesPage({ embedded = false, filter }: {
     return () => { alive = false; };
   }, [query]);
 
+  // Query all-time = CÙNG bộ lọc nhưng BỎ from/to (giống KPI 'Đang test': không giới hạn kỳ).
+  const allTimeQuery = useMemo(() => {
+    const p = new URLSearchParams();
+    if (cMarket !== 'ALL') p.set('market', cMarket);
+    if (cAssignee !== 'ALL') p.set('assignee', cAssignee);
+    if (cStatus !== 'ALL') p.set('status', cStatus);
+    return p.toString();
+  }, [cMarket, cAssignee, cStatus]);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/v3/lifecycle-table?' + allTimeQuery).then((r) => r.json())
+      .then((d) => { if (alive && !d.error) setAllRows(d.items); })
+      .catch(() => { /* cột all-time là phụ trợ — lỗi không chặn bảng */ });
+    return () => { alive = false; };
+  }, [allTimeQuery]);
+
   // Lọc "Biên tập" phía client (additive — không đổi công thức KPI)
   const rowsF = useMemo(() => (rows && cEditor !== 'ALL' ? rows.filter((r) => (r.editor_name || '') === cEditor) : rows), [rows, cEditor]);
   const agg = useMemo(() => (rowsF ? aggregate(rowsF) : []), [rowsF]);
+
+  // Đếm 'Đang test' ALL-TIME theo Nhân viên Ads (giống công thức KPI nghiệp vụ: current_status === 'Đang test').
+  const dangTestAllMap = useMemo(() => {
+    const src = allRows ? (cEditor !== 'ALL' ? allRows.filter((r) => (r.editor_name || '') === cEditor) : allRows) : [];
+    const m = new Map<string, number>();
+    for (const r of src) {
+      if ((r.current_status || '').trim() === 'Đang test') {
+        const k = r.assignee_name || '(trống)';
+        m.set(k, (m.get(k) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [allRows, cEditor]);
+
+  // Gộp số 'Đang test' all-time vào từng dòng (chỉ cho cột hiển thị — KHÔNG đụng tested/tỷ lệ/biểu đồ).
+  const aggAll = useMemo(() => agg.map((r) => ({ ...r, dangTestAll: dangTestAllMap.get(r.assignee) ?? 0 })), [agg, dangTestAllMap]);
+
   const ranked = useMemo(() => {
-    const arr = [...agg];
+    const arr = [...aggAll];
     if (!sort) {
       // Ranking: 1) % thành công  2) tuổi thọ TB  3) tổng content
       arr.sort((a, b) => b.rateSuccess - a.rateSuccess || b.avgLife - a.avgLife || b.total - a.total);
@@ -229,7 +266,7 @@ export function AssigneesPage({ embedded = false, filter }: {
         : String(a[k]).localeCompare(String(b[k])) * s));
     }
     return arr;
-  }, [agg, sort]);
+  }, [aggAll, sort]);
 
   const overall = useMemo(() => {
     const total = agg.reduce((s, r) => s + r.total, 0);
@@ -252,7 +289,7 @@ export function AssigneesPage({ embedded = false, filter }: {
     { key: 'assignee', header: 'Nhân viên Ads', render: (r) => <b>{r.assignee}</b> },
     { key: 'total', header: 'Tổng', align: 'right', sortable: true },
     { key: 'tested', header: 'Đã test', align: 'right', sortable: true },
-    { key: 'dangTest', header: 'Đang test', align: 'right' },
+    { key: 'dangTestAll', header: 'Đang test', align: 'right', render: (r) => r.dangTestAll },
     { key: 'duyTri', header: 'Duy trì', align: 'right', render: (r) => <span className="text-success">{r.duyTri}</span> },
     { key: 'daChayTat', header: 'Chạy-Tắt', align: 'right' },
     { key: 'daTestKoChay', header: 'Test-ko chạy', align: 'right', render: (r) => <span className="text-muted">{r.daTestKoChay}</span> },
@@ -261,7 +298,6 @@ export function AssigneesPage({ embedded = false, filter }: {
     { key: 'rateTested', header: '% Đã test', align: 'right', sortable: true, render: (r) => pct(r.rateTested) },
     { key: 'rateSuccess', header: '% Thành công', align: 'right', sortable: true, render: (r) => <b className="text-success">{pct(r.rateSuccess)}</b> },
     { key: 'avgLife', header: 'Tuổi thọ TB', align: 'right', sortable: true, render: (r) => `${r.avgLife}d` },
-    { key: 'duyTri90', header: 'Duy trì >90d', align: 'right', sortable: true },
   ];
 
   if (drill) return (
@@ -324,7 +360,8 @@ export function AssigneesPage({ embedded = false, filter }: {
               </ChartCard>
             </div>
 
-            <SectionHeader title="Bảng xếp hạng (mặc định: % thành công → tuổi thọ → tổng · click một nhân viên để xem content)" />
+            <SectionHeader title="Bảng xếp hạng (mặc định: % thành công → tuổi thọ → tổng · click một nhân viên để xem content)"
+              action={<span className="text-xs text-muted">Cột “Đang test” tính all-time (giống KPI), các cột khác theo kỳ lọc</span>} />
             <DataTable columns={columns} rows={ranked} rowKey={(r) => r.assignee}
               sort={sort ?? undefined} onSort={onSort} onRowClick={(r) => setDrill(r.assignee)} maxHeight={520} />
           </>

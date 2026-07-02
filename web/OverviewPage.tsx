@@ -186,7 +186,7 @@ export function OverviewPage() {
                 tooltip="Tất cả content trạng thái hiện tại 'Chờ chạy' — backlog, KHÔNG giới hạn tháng." />
               <KPICard label="Đang test" value={c.dangTest} tone="info"
                 tooltip="Tất cả content trạng thái hiện tại 'Đang test' — KHÔNG giới hạn tháng (chỉ thống kê)." />
-              <KPICard label="Content test win" value={c.win} tone="good"
+              <KPICard label="Content duy trì" value={c.win} tone="good"
                 tooltip="Upload trong kỳ & đạt 'Duy trì'." />
             </div>
 
