@@ -1,0 +1,96 @@
+{
+  "range": {
+    "from": "2026-06-01",
+    "to": "2026-06-30",
+    "label": "01/06/2026 – 30/06/2026"
+  },
+  "team": {
+    "capped": 304,
+    "tested": 275,
+    "notTest": 11,
+    "win": 20,
+    "choChay": 17,
+    "dangTest": 64
+  },
+  "employees": [
+    {
+      "name": "Hiếu",
+      "metrics": {
+        "capped": 79,
+        "tested": 75,
+        "notTest": 0,
+        "win": 0,
+        "choChay": 4,
+        "dangTest": 22
+      },
+      "assessments": [
+        "Đang triển khai nhiều content đồng thời (Đang test 22).",
+        "Content cấp trong kỳ chưa có Duy trì (0/79)."
+      ],
+      "actions": [
+        "Theo dõi sát kết quả test để sớm đưa ra quyết định.",
+        "Tối ưu nội dung/nhắm mục tiêu để sớm đạt Duy trì."
+      ]
+    },
+    {
+      "name": "KA",
+      "metrics": {
+        "capped": 78,
+        "tested": 73,
+        "notTest": 1,
+        "win": 7,
+        "choChay": 4,
+        "dangTest": 16
+      },
+      "assessments": [
+        "Đang triển khai nhiều content đồng thời (Đang test 16).",
+        "Đạt 7 content Duy trì trong kỳ."
+      ],
+      "actions": [
+        "Theo dõi sát kết quả test để sớm đưa ra quyết định.",
+        "Nhân bản hướng nội dung của 7 content Duy trì."
+      ]
+    },
+    {
+      "name": "Liên",
+      "metrics": {
+        "capped": 77,
+        "tested": 58,
+        "notTest": 10,
+        "win": 4,
+        "choChay": 9,
+        "dangTest": 10
+      },
+      "assessments": [
+        "Khối lượng content chờ triển khai còn nhiều (Chờ chạy 9).",
+        "Đang triển khai nhiều content đồng thời (Đang test 10).",
+        "Đạt 4 content Duy trì trong kỳ."
+      ],
+      "actions": [
+        "Ưu tiên xử lý content chờ chạy trước khi nhận thêm content mới.",
+        "Theo dõi sát kết quả test để sớm đưa ra quyết định.",
+        "Nhân bản hướng nội dung của 4 content Duy trì."
+      ]
+    },
+    {
+      "name": "Ánh",
+      "metrics": {
+        "capped": 70,
+        "tested": 69,
+        "notTest": 0,
+        "win": 9,
+        "choChay": 0,
+        "dangTest": 16
+      },
+      "assessments": [
+        "Đang triển khai nhiều content đồng thời (Đang test 16).",
+        "Đạt 9 content Duy trì trong kỳ."
+      ],
+      "actions": [
+        "Theo dõi sát kết quả test để sớm đưa ra quyết định.",
+        "Nhân bản hướng nội dung của 9 content Duy trì."
+      ]
+    }
+  ],
+  "generatedAt": "2026-07-03T03:42:35.133Z"
+}
