@@ -42,6 +42,7 @@ interface Row {
 interface AggRow {
   assignee: string; total: number; tested: number; dangTest: number; duyTri: number;
   daChayTat: number; daTestKoChay: number; choChay: number; khongDuyet: number;
+  chuaPhanLoai: number; ton: number; // Tồn = Chờ chạy + Chưa phân loại
   rateTested: number; rateSuccess: number; avgLife: number;
   duyTri30: number; duyTri60: number; duyTri90: number; duyTri180: number;
   dangTestAll: number; // 'Đang test' ALL-TIME (giống KPI nghiệp vụ) — gán sau khi có dữ liệu all-time
@@ -54,10 +55,11 @@ function aggregate(rows: Row[]): AggRow[] {
     (map.get(k) ?? map.set(k, []).get(k)!).push(r);
   }
   return [...map.entries()].map(([assignee, rs]) => {
-    let dangTest = 0, duyTri = 0, daChayTat = 0, daTestKoChay = 0, choChay = 0, khongDuyet = 0;
+    let dangTest = 0, duyTri = 0, daChayTat = 0, daTestKoChay = 0, choChay = 0, khongDuyet = 0, chuaPhanLoai = 0;
     let lifeSum = 0, lifeN = 0, duyTri30 = 0, duyTri60 = 0, duyTri90 = 0, duyTri180 = 0;
     for (const r of rs) {
       const s = (r.current_status || '').trim();
+      if (r.status_group === 'CHUA_PHAN_LOAI') chuaPhanLoai++; // rỗng/không nhận diện (khớp nhóm dashboard)
       if (s === 'Đang test') dangTest++;
       else if (s.startsWith('Duy trì')) {
         duyTri++; const md = r.maintainDays ?? 0;
@@ -77,6 +79,7 @@ function aggregate(rows: Row[]): AggRow[] {
     const success = duyTri;                             // Thành công = CHỈ Duy trì (Chưa vít + Đã vít)
     return {
       assignee, total: rs.length, tested, dangTest, duyTri, daChayTat, daTestKoChay, choChay, khongDuyet,
+      chuaPhanLoai, ton: choChay + chuaPhanLoai, // Tồn = Chờ chạy + Chưa phân loại
       rateTested: rs.length ? tested / rs.length : 0,
       rateSuccess: coKetQua ? success / coKetQua : 0,
       avgLife: lifeN ? Math.round(lifeSum / lifeN) : 0,
@@ -289,6 +292,7 @@ export function AssigneesPage({ embedded = false, filter }: {
     { key: 'assignee', header: 'Nhân viên Ads', render: (r) => <b>{r.assignee}</b> },
     { key: 'total', header: 'Tổng', align: 'right', sortable: true },
     { key: 'tested', header: 'Đã test', align: 'right', sortable: true },
+    { key: 'ton', header: 'Tồn', align: 'right', sortable: true, render: (r) => <b>{r.ton}</b> }, // Tồn = Chờ chạy + Chưa phân loại
     { key: 'dangTestAll', header: 'Đang test', align: 'right', render: (r) => r.dangTestAll },
     { key: 'duyTri', header: 'Duy trì', align: 'right', render: (r) => <span className="text-success">{r.duyTri}</span> },
     { key: 'daChayTat', header: 'Chạy-Tắt', align: 'right' },

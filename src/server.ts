@@ -281,12 +281,12 @@ function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
 
   // Alerts (cũng theo bộ lọc thời gian)
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const STALE_DAYS = 10; // "Test quá lâu": quá 10 ngày kể từ Ngày Set Ads (test_date_real)
+  const STALE_DAYS = 5; // "Test quá lâu": quá 5 ngày kể từ Ngày Set Ads (test_date_real)
   const staleBefore = new Date(today); staleBefore.setDate(staleBefore.getDate() - STALE_DAYS);
   const staleIso = staleBefore.toISOString().slice(0, 10);
   const alerts = {
     chuaPhanLoai: countGroup(F, 'CHUA_PHAN_LOAI'),
-    // Đang test + Ngày test (test_date_real) cũ hơn 10 ngày (KHÔNG dùng upload_date).
+    // Đang test + Ngày test (test_date_real) cũ hơn 5 ngày (KHÔNG dùng upload_date).
     testQuaLau: F.filter((r) => r.status_group === 'DANG_TEST' && r.test_date_real && r.test_date_real < staleIso).length,
     chuaTest: F.filter((r) => !(r.test_date ?? '').trim() && !['DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST'].includes(r.status_group)).length,
     thieuNgayTest: F.filter((r) => !(r.test_date ?? '').trim()).length,
@@ -368,7 +368,7 @@ app.get('/api/v3/contents', async (req, res) => {
     const alert = req.query.alert as string | undefined;
     if (alert) {
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const staleBefore = new Date(today); staleBefore.setDate(staleBefore.getDate() - 10); // "Test quá lâu": >10 ngày từ Ngày Set Ads
+      const staleBefore = new Date(today); staleBefore.setDate(staleBefore.getDate() - 5); // "Test quá lâu": >5 ngày từ Ngày Set Ads
       const staleIso = staleBefore.toISOString().slice(0, 10);
       const tested = ['DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST']; // KHONG_TEST: không còn cần test
       list = list.filter((r) => {
