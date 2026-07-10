@@ -12,7 +12,7 @@ function KpiRows({ m }: { m: ReportMetrics }) {
     ['Không test', fmtNum(m.notTest)],
     ['Chờ chạy (Tồn)', fmtNum(m.choChay)],
     ['Đang test', fmtNum(m.dangTest)],
-    ['Content test win', fmtNum(m.win)],
+    ['Content duy trì', fmtNum(m.win)],
   ];
   return (
     <div className="max-w-[380px]">
@@ -28,7 +28,7 @@ function KpiRows({ m }: { m: ReportMetrics }) {
 
 /** Bảng "Theo từng nhân viên" — 7 cột, hàng nhân viên (động) + dòng Tổng. Đơn giản, in PDF tốt. */
 function EmployeeTable({ employees, team }: { employees: WeeklyReportData['employees']; team: ReportMetrics }) {
-  const cols = ['Nhân viên', 'Đã cấp', 'Không test', 'Chờ chạy', 'Đang test', 'Content test win'];
+  const cols = ['Nhân viên', 'Đã cấp', 'Không test', 'Chờ chạy', 'Đang test', 'Content duy trì'];
   const vals = (m: ReportMetrics) => [fmtNum(m.capped), fmtNum(m.notTest), fmtNum(m.choChay), fmtNum(m.dangTest), fmtNum(m.win)];
   const num = 'border border-line px-2 py-1 text-right tabular-nums text-fg';
   return (
@@ -65,14 +65,14 @@ function SectionHead({ children }: { children: React.ReactNode }) {
 }
 
 export function ReportDocument({
-  data, narrative, preview, exportedAt, onAssessment, onAction,
+  data, narrative, preview, exportedAt, onAssessment, onTeamActions,
 }: {
   data: WeeklyReportData;
   narrative: ReportNarrative;
   preview: boolean;
   exportedAt: string;
   onAssessment: (name: string, items: string[]) => void;
-  onAction: (name: string, items: string[]) => void;
+  onTeamActions: (items: string[]) => void;
 }) {
   return (
     <table id="report-doc" className="report-table mx-auto w-full max-w-[820px] border-collapse">
@@ -105,17 +105,15 @@ export function ReportDocument({
             <SectionII
               employees={data.employees}
               assessments={narrative.assessments}
-              actions={narrative.actions}
               preview={preview}
               onAssessment={onAssessment}
-              onAction={onAction}
             />
           </section>
 
           {/* III. KẾ HOẠCH TUẦN TỚI */}
           <section className="report-section">
             <SectionHead>III. Kế hoạch tuần tới</SectionHead>
-            <SectionIII employees={data.employees} actions={narrative.actions} />
+            <SectionIII teamActions={narrative.teamActions} preview={preview} onTeamActions={onTeamActions} />
           </section>
         </td></tr>
       </tbody>

@@ -10,23 +10,20 @@ export function buildPlainText(data: WeeklyReportData, n: ReportNarrative): stri
   L.push(`BÁO CÁO TUẦN — ${data.range.label}`);
   L.push('');
   L.push('I. TIẾN ĐỘ CONTENT');
-  L.push(`  Tổng quan team: Đã cấp ${fmtNum(t.capped)} · Không test ${fmtNum(t.notTest)} · Chờ chạy ${fmtNum(t.choChay)} · Đang test ${fmtNum(t.dangTest)} · Content test win ${fmtNum(t.win)}`);
+  L.push(`  Tổng quan team: Đã cấp ${fmtNum(t.capped)} · Không test ${fmtNum(t.notTest)} · Chờ chạy ${fmtNum(t.choChay)} · Đang test ${fmtNum(t.dangTest)} · Content duy trì ${fmtNum(t.win)}`);
   for (const e of data.employees) {
     const m = e.metrics;
-    L.push(`  • ${e.name}: cấp ${fmtNum(m.capped)}, không test ${fmtNum(m.notTest)}, chờ chạy ${fmtNum(m.choChay)}, đang test ${fmtNum(m.dangTest)}, win ${fmtNum(m.win)}`);
+    L.push(`  • ${e.name}: cấp ${fmtNum(m.capped)}, không test ${fmtNum(m.notTest)}, chờ chạy ${fmtNum(m.choChay)}, đang test ${fmtNum(m.dangTest)}, duy trì ${fmtNum(m.win)}`);
   }
   L.push('');
-  L.push('II. ĐÁNH GIÁ');
+  L.push('II. ĐÁNH GIÁ (theo từng nhân viên)');
   for (const e of data.employees) {
     L.push(`  ${e.name}:`);
     for (const it of n.assessments[e.name] ?? []) L.push(`    - ${it}`);
   }
   L.push('');
-  L.push('III. HÀNH ĐỘNG TUẦN TỚI');
-  for (const e of data.employees) {
-    L.push(`  ${e.name}:`);
-    for (const task of n.actions[e.name] ?? []) L.push(`    - ${task}`);
-  }
+  L.push('III. KẾ HOẠCH TUẦN TỚI (cả team)');
+  for (const task of (n.teamActions ?? []).filter((t) => t.trim())) L.push(`  - ${task}`);
   return L.join('\n');
 }
 

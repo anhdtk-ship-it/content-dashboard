@@ -4,7 +4,7 @@
  *   A. PHÁT SINH TRONG THÁNG (cohort theo upload_date trong kỳ [from,to]):
  *      - Đã cấp = content upload trong kỳ.
  *      - Không test = upload trong kỳ & trạng thái "Không test" (không cộng dồn tháng sau).
- *      - Content test win = upload trong kỳ & đạt "Duy trì" (rule win không đổi).
+ *      - Content duy trì = upload trong kỳ & đạt "Duy trì" (định nghĩa: content chuyển sang trạng thái Duy trì).
  *   B. TRẠNG THÁI HIỆN TẠI (ALL — không giới hạn tháng, backlog thực tế):
  *      - Chờ chạy (Tồn) = trạng thái hiện tại "Chờ chạy".
  *      - Đang test = trạng thái hiện tại "Đang test".

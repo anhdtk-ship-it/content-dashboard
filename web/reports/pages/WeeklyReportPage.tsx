@@ -6,7 +6,7 @@ import { ReportFilters } from '../components/ReportFilters';
 import { ExportBar } from '../components/ExportBar';
 import { ReportDocument } from '../components/ReportDocument';
 import { useWeeklyReport } from '../hooks/useWeeklyReport';
-import { evaluateEmployee } from '../services/ruleEngine';
+import { evaluateEmployee, generateTeamPlan } from '../services/ruleEngine';
 import type { ReportNarrative, WeeklyReportData } from '../types/report';
 
 function todayLabel(): string {
@@ -20,19 +20,18 @@ export function WeeklyReportPage() {
   const [preview, setPreview] = useState(true);
   const exportedAt = useMemo(todayLabel, []);
 
-  const [narrative, setNarrative] = useState<ReportNarrative>({ assessments: {}, actions: {} });
+  const [narrative, setNarrative] = useState<ReportNarrative>({ assessments: {}, teamActions: [] });
   useEffect(() => {
     if (!data) return;
     const assessments: Record<string, string[]> = {};
-    const actions: Record<string, string[]> = {};
-    for (const e of data.employees) { const ev = evaluateEmployee(e); assessments[e.name] = ev.assessments; actions[e.name] = ev.actions; }
-    setNarrative({ assessments, actions });
+    for (const e of data.employees) assessments[e.name] = evaluateEmployee(e); // II — theo từng nhân viên
+    setNarrative({ assessments, teamActions: generateTeamPlan(data) });        // III — kế hoạch cả team
   }, [data]);
 
   const onAssessment = (name: string, items: string[]) =>
     setNarrative((n) => ({ ...n, assessments: { ...n.assessments, [name]: items } }));
-  const onAction = (name: string, items: string[]) =>
-    setNarrative((n) => ({ ...n, actions: { ...n.actions, [name]: items } }));
+  const onTeamActions = (items: string[]) =>
+    setNarrative((n) => ({ ...n, teamActions: items }));
 
   // Xuất PDF = in báo cáo. Ép Xem trước (bullet, không input) rồi gọi print.
   const handlePrint = () => { setPreview(true); setTimeout(() => window.print(), 200); };
@@ -59,7 +58,7 @@ export function WeeklyReportPage() {
           ) : data ? (
             <ReportDocument
               data={data} narrative={narrative} preview={preview} exportedAt={exportedAt}
-              onAssessment={onAssessment} onAction={onAction}
+              onAssessment={onAssessment} onTeamActions={onTeamActions}
             />
           ) : null}
       </PageContainer>

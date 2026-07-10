@@ -13,7 +13,7 @@ export interface ReportMetrics {
   // A. Phát sinh trong tháng (cohort theo upload trong kỳ):
   capped: number;   // Đã cấp = content UPLOAD trong kỳ (KHÔNG cumulative)
   notTest: number;  // Không test = upload trong kỳ & trạng thái "Không test" (không cộng dồn tháng sau)
-  win: number;      // Content test win = upload trong kỳ & đạt "Duy trì" (rule win KHÔNG đổi)
+  win: number;      // Content duy trì = upload trong kỳ & đạt "Duy trì" (định nghĩa: content chuyển sang trạng thái Duy trì)
   // B. Trạng thái hiện tại (ALL, KHÔNG giới hạn tháng — backlog thực tế):
   choChay: number;  // Chờ chạy (Tồn) = trạng thái hiện tại "Chờ chạy"
   dangTest: number; // Đang test = trạng thái hiện tại "Đang test"
@@ -24,12 +24,6 @@ export interface EmployeeReport {
   metrics: ReportMetrics;
 }
 
-/** Kết quả Rule Engine cho 1 nhân viên (độc lập, theo KPI của chính họ). */
-export interface EmployeeEvaluation {
-  assessments: string[];   // II. Đánh giá (≤2) — mỗi ý gắn KPI cụ thể
-  actions: string[];       // III. Hành động tuần tới (≤2) — hành động rõ ràng
-}
-
 /** Dữ liệu báo cáo tuần (phần tự sinh từ Dashboard). */
 export interface WeeklyReportData {
   range: DateRange;
@@ -38,10 +32,10 @@ export interface WeeklyReportData {
   generatedAt: string;
 }
 
-/** Phần soạn thảo (II + III) — Rule Engine sinh mặc định, nhập tay được. Key = tên nhân viên. */
+/** Phần soạn thảo — Rule Engine sinh mặc định, nhập tay được. */
 export interface ReportNarrative {
-  assessments: Record<string, string[]>; // II. Đánh giá (≤2)
-  actions: Record<string, string[]>;      // III. Hành động tuần tới (≤2)
+  assessments: Record<string, string[]>; // II. Đánh giá — theo TỪNG nhân viên (key = tên)
+  teamActions: string[];                  // III. Kế hoạch tuần tới — CẢ TEAM (không chia nhân viên)
 }
 
 /* ---------- Interface XUẤT BÁO CÁO (PHASE 8: chỉ thiết kế, chưa implement đầy đủ) ---------- */
