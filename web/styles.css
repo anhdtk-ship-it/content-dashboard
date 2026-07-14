@@ -31,6 +31,11 @@ html, body { background: var(--bg); }
  * phải body) để tooltip portal ra document.body vẫn định vị đúng. */
 #root { zoom: 1.1; }
 
+/* Bù zoom 1.1: khung app (con trực tiếp của #root — AppShell, đã overflow-hidden)
+ * cao 100vh/1.1 → sau khi ×1.1 vừa ĐÚNG viewport, KHÔNG tràn body.
+ * → chỉ còn 1 thanh cuộn (vùng nội dung `main`), bỏ thanh cuộn thừa của body. */
+#root > div { height: calc(100vh / 1.1) !important; }
+
 /* ============================================================
  * PRINT / PDF — Weekly Report (PHASE 9)
  * PDF = bản in của CHÍNH Weekly Report (#report-doc). KHÔNG template riêng.
