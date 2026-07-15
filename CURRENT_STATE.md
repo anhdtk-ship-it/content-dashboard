@@ -1,7 +1,15 @@
 # CURRENT_STATE — Content Operations Dashboard (Seryn) + Ads Monitor
 
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
-> Cập nhật: 2026-07-01 — **Phase 12 (Auto-Sync Content qua Webhook)**.
+> Cập nhật: **Authentication BẬT LẠI (Supabase Auth Google @seryn.vn)** — huỷ mô hình Share Link.
+
+## Authentication / Authorization (ĐẢO NGƯỢC §9 cũ "không auth")
+- **Cơ chế:** Supabase Auth (Google). Chỉ email **@seryn.vn** (`AUTH_ALLOWED_DOMAIN`). Sau đăng nhập: kiểm tra bảng `users` + `is_active`; sai → **403 "Bạn không có quyền truy cập hệ thống."**. role LƯU nhưng CHƯA phân quyền.
+- **File mới:** `sql/008_users.sql` (bảng users + RLS) · `src/auth/authMiddleware.ts` (`requireAuth`) · `src/auth/routes.ts` (`/api/auth/me`) · `web/auth/{supabaseClient,authFetch,LoginPage,AuthGate}.ts(x)`.
+- **File sửa (chỉ THÊM):** `src/server.ts` (mount `/api/auth` + `requireAuth` trên `/api/v3` & `/ads-monitor`) · `web/main.tsx` (bọc App trong AuthGate + fetch interceptor) · `.env.example`.
+- **Public (không auth):** `/health`, `/api/config`, `/api/content-sync` (secret riêng), static SPA. **Bảo vệ:** `/api/v3/*`, `/ads-monitor`.
+- ✅ **KHÔNG đổi** Dashboard/Business Rule/Ads Monitor/Weekly Report — chỉ bọc auth quanh chúng. Verified: API dữ liệu không token → 401.
+- ⚠️ **Vận hành cần:** bật Google provider + OAuth creds (Supabase/Google Cloud) + redirect URL; `SUPABASE_ANON_KEY` trên Railway; chạy `sql/008`; thêm user đầu tiên.
 
 ## Phase 12 — Auto-Sync Dashboard Content (Webhook + Debounce)
 - **Mục tiêu:** Content không cần Sync tay. Google Sheet đổi → Apps Script bắn webhook → Debounce Queue → ContentSyncService → Supabase → Dashboard (poll 30s) + Weekly Report.

@@ -5,6 +5,8 @@ import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import adsMonitorRouter from './ads-monitor/routes';
 import { createContentSyncRouter } from './content-sync/routes';
+import { requireAuth } from './auth/authMiddleware';
+import authRouter from './auth/routes';
 
 const PORT = Number(process.env.PORT ?? 4000);
 const url = process.env.SUPABASE_URL?.trim();
@@ -336,6 +338,12 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.get('/api/config', (_req, res) => res.json({ url, anonKey: anonKey ?? null }));
 
+// AUTH (chỉ BỔ SUNG) — /api/auth/me + bảo vệ các API dữ liệu Dashboard/Ads.
+// Public: /health, /api/config (client cần anon key để đăng nhập), /api/content-sync (secret riêng), static SPA.
+// Bảo vệ: /api/v3/* và /ads-monitor (đăng ký requireAuth TRƯỚC handler bên dưới).
+app.use('/api/auth', authRouter);
+app.use('/api/v3', requireAuth);
+
 function parseFilters(q: any): Filters {
   return {
     market: q.market || 'ALL',
@@ -647,6 +655,7 @@ app.get('/api/v3/lifecycle-table', async (req, res) => {
 app.use('/api/content-sync', createContentSyncRouter({ onSynced: invalidateContentsCache }));
 
 // Ads Monitor — API nội bộ độc lập (PHASE 3, mock). Đăng ký TRƯỚC SPA fallback.
+app.use('/ads-monitor', requireAuth);   // AUTH: bảo vệ (chỉ thêm middleware, KHÔNG đổi router Ads)
 app.use('/ads-monitor', adsMonitorRouter);
 
 // SPA fallback — trả về web/dist/index.html cho mọi route không phải /api/*

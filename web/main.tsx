@@ -16,6 +16,11 @@ import { UsagePage } from './UsagePage';
 import { AnalyticsPage } from './AnalyticsPage';
 import { AdsMonitorPage } from './ads-monitor/pages/AdsMonitorPage';
 import { WeeklyReportPage } from './reports/pages/WeeklyReportPage';
+import { AuthGate } from './auth/AuthGate';
+import { installAuthFetch } from './auth/authFetch';
+
+// AUTH: gắn Bearer token vào request API (chạy TRƯỚC khi render). Chỉ bổ sung, không sửa page.
+installAuthFetch();
 
 /* ---------- menu & routes (1 nguồn duy nhất) ----------
  * Menu (V5) đã gộp: chỉ hiện Tổng Quan + 2 trang gộp. Các route cũ
@@ -130,6 +135,8 @@ function App() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthGate>
+      <App />
+    </AuthGate>
   </StrictMode>
 );
