@@ -1,13 +1,14 @@
-/* Weekly Report — trang chính (PHASE 9). PDF = bản IN của chính báo cáo (ReportDocument) qua window.print().
- * Chrome (filter/nút/tiêu đề web) bọc .no-print → tự ẩn khi in. Module ĐỘC LẬP; Business Rule riêng. */
+/* Weekly Report — trang chính. PDF (bản in nhanh) = in chính báo cáo qua window.print().
+ * Bản PDF chuyên nghiệp (reportlab) dùng CÙNG dữ liệu qua `src/shared/weeklyMetrics.ts`.
+ * Chrome (filter/nút/tiêu đề web) bọc .no-print → tự ẩn khi in. */
 import { useEffect, useMemo, useState } from 'react';
 import { PageContainer, SectionHeader, LoadingSkeleton, EmptyState } from '../../../src/components/ui';
 import { ReportFilters } from '../components/ReportFilters';
 import { ExportBar } from '../components/ExportBar';
 import { ReportDocument } from '../components/ReportDocument';
 import { useWeeklyReport } from '../hooks/useWeeklyReport';
-import { evaluateEmployee, generateTeamPlan } from '../services/ruleEngine';
-import type { ReportNarrative, WeeklyReportData } from '../types/report';
+import { buildNarrative, allEmployeeNames } from '../services/ruleEngine';
+import type { MarketKey, ReportNarrative, WeeklyReportData } from '../types/report';
 
 function todayLabel(): string {
   const d = new Date();
@@ -15,28 +16,28 @@ function todayLabel(): string {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
+const EMPTY_NARRATIVE: ReportNarrative = { reviews: {}, plans: { noi_dia: [], quoc_te: [] } };
+
 export function WeeklyReportPage() {
   const { range, data, loading, error, setFrom, setTo, thisWeek } = useWeeklyReport();
   const [preview, setPreview] = useState(true);
   const exportedAt = useMemo(todayLabel, []);
 
-  const [narrative, setNarrative] = useState<ReportNarrative>({ assessments: {}, teamActions: [] });
-  useEffect(() => {
-    if (!data) return;
-    const assessments: Record<string, string[]> = {};
-    for (const e of data.employees) assessments[e.name] = evaluateEmployee(e); // II — theo từng nhân viên
-    setNarrative({ assessments, teamActions: generateTeamPlan(data) });        // III — kế hoạch cả team
-  }, [data]);
+  const [narrative, setNarrative] = useState<ReportNarrative>(EMPTY_NARRATIVE);
+  useEffect(() => { if (data) setNarrative(buildNarrative(data)); }, [data]);
 
-  const onAssessment = (name: string, items: string[]) =>
-    setNarrative((n) => ({ ...n, assessments: { ...n.assessments, [name]: items } }));
-  const onTeamActions = (items: string[]) =>
-    setNarrative((n) => ({ ...n, teamActions: items }));
+  const employeeNames = useMemo(() => (data ? allEmployeeNames(data) : []), [data]);
 
-  // Xuất PDF = in báo cáo. Ép Xem trước (bullet, không input) rồi gọi print.
+  const onReview = (key: string, items: string[]) =>
+    setNarrative((n) => ({ ...n, reviews: { ...n.reviews, [key]: items } }));
+  const onPlan = (market: MarketKey, items: string[]) =>
+    setNarrative((n) => ({ ...n, plans: { ...n.plans, [market]: items } }));
+
+  // Xuất PDF nhanh = in báo cáo. Ép Xem trước (bullet, không input) rồi gọi print.
   const handlePrint = () => { setPreview(true); setTimeout(() => window.print(), 200); };
 
-  const exportData: WeeklyReportData = data ?? { range, team: {} as any, employees: [], generatedAt: '' };
+  const exportData: WeeklyReportData = data ?? { range, markets: [], generatedAt: '' };
+  const hasData = !!data && data.markets.some((m) => m.employees.length > 0);
 
   return (
     <div className="text-fg">
@@ -53,14 +54,14 @@ export function WeeklyReportPage() {
         {error ? <EmptyState icon="⚠️" message={`Lỗi tải dữ liệu: ${error}`} />
           : loading && !data ? (
             <div className="space-y-4"><LoadingSkeleton variant="kpi" count={6} /><LoadingSkeleton variant="block" /></div>
-          ) : data && data.employees.length === 0 ? (
+          ) : !hasData ? (
             <EmptyState message="Không có dữ liệu content trong khoảng thời gian đã chọn" />
-          ) : data ? (
+          ) : (
             <ReportDocument
-              data={data} narrative={narrative} preview={preview} exportedAt={exportedAt}
-              onAssessment={onAssessment} onTeamActions={onTeamActions}
+              data={data!} narrative={narrative} preview={preview} exportedAt={exportedAt}
+              employeeNames={employeeNames} onReview={onReview} onPlan={onPlan}
             />
-          ) : null}
+          )}
       </PageContainer>
     </div>
   );

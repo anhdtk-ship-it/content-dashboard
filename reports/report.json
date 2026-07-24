@@ -1,96 +1,193 @@
 {
   "range": {
-    "from": "2026-06-01",
-    "to": "2026-06-30",
-    "label": "01/06/2026 – 30/06/2026"
+    "from": "2026-07-14",
+    "to": "2026-07-20",
+    "label": "14/07/2026 – 20/07/2026"
   },
-  "team": {
-    "capped": 304,
-    "tested": 275,
-    "notTest": 11,
-    "win": 20,
-    "choChay": 17,
-    "dangTest": 64
-  },
-  "employees": [
+  "markets": [
     {
-      "name": "Hiếu",
-      "metrics": {
-        "capped": 79,
-        "tested": 75,
-        "notTest": 0,
-        "win": 0,
-        "choChay": 4,
-        "dangTest": 22
+      "market": "noi_dia",
+      "label": "Nội địa",
+      "team": {
+        "capped": 68,
+        "tested": 49,
+        "ton": 19,
+        "rateTest": 0.7205882352941176,
+        "duyTriThang": 10,
+        "rateDuyTri": 0.20408163265306123,
+        "dangDuyTri": 28
       },
-      "assessments": [
-        "Đang triển khai nhiều content đồng thời (Đang test 22).",
-        "Content cấp trong kỳ chưa có Duy trì (0/79)."
-      ],
-      "actions": [
-        "Theo dõi sát kết quả test để sớm đưa ra quyết định.",
-        "Tối ưu nội dung/nhắm mục tiêu để sớm đạt Duy trì."
+      "employees": [
+        {
+          "name": "Hiếu",
+          "kpi": {
+            "capped": 22,
+            "tested": 17,
+            "ton": 5,
+            "rateTest": 0.7727272727272727,
+            "duyTriThang": 0,
+            "rateDuyTri": 0,
+            "dangDuyTri": 2
+          }
+        },
+        {
+          "name": "KA",
+          "kpi": {
+            "capped": 12,
+            "tested": 12,
+            "ton": 0,
+            "rateTest": 1,
+            "duyTriThang": 5,
+            "rateDuyTri": 0.4166666666666667,
+            "dangDuyTri": 10
+          }
+        },
+        {
+          "name": "Liên",
+          "kpi": {
+            "capped": 12,
+            "tested": 5,
+            "ton": 7,
+            "rateTest": 0.4166666666666667,
+            "duyTriThang": 2,
+            "rateDuyTri": 0.4,
+            "dangDuyTri": 6
+          }
+        },
+        {
+          "name": "Ánh",
+          "kpi": {
+            "capped": 22,
+            "tested": 15,
+            "ton": 7,
+            "rateTest": 0.6818181818181818,
+            "duyTriThang": 3,
+            "rateDuyTri": 0.2,
+            "dangDuyTri": 10
+          }
+        }
       ]
     },
     {
-      "name": "KA",
-      "metrics": {
-        "capped": 78,
-        "tested": 73,
-        "notTest": 1,
-        "win": 7,
-        "choChay": 4,
-        "dangTest": 16
+      "market": "quoc_te",
+      "label": "Quốc tế",
+      "team": {
+        "capped": 48,
+        "tested": 37,
+        "ton": 11,
+        "rateTest": 0.7708333333333334,
+        "duyTriThang": 1,
+        "rateDuyTri": 0.02702702702702703,
+        "dangDuyTri": 23
       },
-      "assessments": [
-        "Đang triển khai nhiều content đồng thời (Đang test 16).",
-        "Đạt 7 content Duy trì trong kỳ."
-      ],
-      "actions": [
-        "Theo dõi sát kết quả test để sớm đưa ra quyết định.",
-        "Nhân bản hướng nội dung của 7 content Duy trì."
-      ]
-    },
-    {
-      "name": "Liên",
-      "metrics": {
-        "capped": 77,
-        "tested": 58,
-        "notTest": 10,
-        "win": 4,
-        "choChay": 9,
-        "dangTest": 10
-      },
-      "assessments": [
-        "Khối lượng content chờ triển khai còn nhiều (Chờ chạy 9).",
-        "Đang triển khai nhiều content đồng thời (Đang test 10).",
-        "Đạt 4 content Duy trì trong kỳ."
-      ],
-      "actions": [
-        "Ưu tiên xử lý content chờ chạy trước khi nhận thêm content mới.",
-        "Theo dõi sát kết quả test để sớm đưa ra quyết định.",
-        "Nhân bản hướng nội dung của 4 content Duy trì."
-      ]
-    },
-    {
-      "name": "Ánh",
-      "metrics": {
-        "capped": 70,
-        "tested": 69,
-        "notTest": 0,
-        "win": 9,
-        "choChay": 0,
-        "dangTest": 16
-      },
-      "assessments": [
-        "Đang triển khai nhiều content đồng thời (Đang test 16).",
-        "Đạt 9 content Duy trì trong kỳ."
-      ],
-      "actions": [
-        "Theo dõi sát kết quả test để sớm đưa ra quyết định.",
-        "Nhân bản hướng nội dung của 9 content Duy trì."
+      "employees": [
+        {
+          "name": "Hiếu",
+          "kpi": {
+            "capped": 12,
+            "tested": 8,
+            "ton": 4,
+            "rateTest": 0.6666666666666666,
+            "duyTriThang": 0,
+            "rateDuyTri": 0,
+            "dangDuyTri": 2
+          }
+        },
+        {
+          "name": "KA",
+          "kpi": {
+            "capped": 12,
+            "tested": 8,
+            "ton": 4,
+            "rateTest": 0.6666666666666666,
+            "duyTriThang": 1,
+            "rateDuyTri": 0.125,
+            "dangDuyTri": 5
+          }
+        },
+        {
+          "name": "Liên",
+          "kpi": {
+            "capped": 12,
+            "tested": 12,
+            "ton": 0,
+            "rateTest": 1,
+            "duyTriThang": 0,
+            "rateDuyTri": 0,
+            "dangDuyTri": 1
+          }
+        },
+        {
+          "name": "Ánh",
+          "kpi": {
+            "capped": 12,
+            "tested": 9,
+            "ton": 3,
+            "rateTest": 0.75,
+            "duyTriThang": 0,
+            "rateDuyTri": 0,
+            "dangDuyTri": 15
+          }
+        }
       ]
     }
   ],
-  "generatedAt": "2026-07-03T03:42:35.133Z"
+  "generatedAt": "2026-07-24T03:26:06.384Z",
+  "narrative": {
+    "reviews": {
+      "Hiếu|noi_dia": [
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 5 chưa đưa vào Ads).",
+        "⚠ Chưa có Content đạt Duy trì trong kỳ (0/17 đã test)."
+      ],
+      "KA|noi_dia": [
+        "✓ Khả năng lựa chọn Content hiệu quả (5 Duy trì / 12 đã test = 41.7%).",
+        "✓ Đang quản lý ổn định 10 Content hiệu quả."
+      ],
+      "Liên|noi_dia": [
+        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 5/12 = 41.7%).",
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 7 chưa đưa vào Ads).",
+        "✓ Khả năng lựa chọn Content hiệu quả (2 Duy trì / 5 đã test = 40%).",
+        "✓ Đang quản lý ổn định 6 Content hiệu quả."
+      ],
+      "Ánh|noi_dia": [
+        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 15/22 = 68.2%).",
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 7 chưa đưa vào Ads).",
+        "✓ Khả năng lựa chọn Content hiệu quả (3 Duy trì / 15 đã test = 20%).",
+        "✓ Đang quản lý ổn định 10 Content hiệu quả."
+      ],
+      "Hiếu|quoc_te": [
+        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 8/12 = 66.7%).",
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 4 chưa đưa vào Ads).",
+        "⚠ Chưa có Content đạt Duy trì trong kỳ (0/8 đã test)."
+      ],
+      "KA|quoc_te": [
+        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 8/12 = 66.7%).",
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 4 chưa đưa vào Ads).",
+        "✓ Khả năng lựa chọn Content hiệu quả (1 Duy trì / 8 đã test = 12.5%).",
+        "✓ Đang quản lý ổn định 5 Content hiệu quả."
+      ],
+      "Liên|quoc_te": [
+        "⚠ Chưa có Content đạt Duy trì trong kỳ (0/12 đã test)."
+      ],
+      "Ánh|quoc_te": [
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 3 chưa đưa vào Ads).",
+        "⚠ Chưa có Content đạt Duy trì trong kỳ (0/9 đã test).",
+        "✓ Đang quản lý ổn định 15 Content hiệu quả."
+      ]
+    },
+    "plans": {
+      "noi_dia": [
+        "Xử lý dứt điểm 19 Content tồn chưa đưa vào Ads.",
+        "Nhân rộng hướng nội dung của 10 Content đạt Duy trì.",
+        "Hỗ trợ Hiếu, Liên, Ánh giải phóng Content tồn."
+      ],
+      "quoc_te": [
+        "Xử lý dứt điểm 11 Content tồn chưa đưa vào Ads.",
+        "Rà soát tiêu chí chọn Content để nâng tỷ lệ Duy trì (hiện 2.7%).",
+        "Nhân rộng hướng nội dung của 1 Content đạt Duy trì.",
+        "Hỗ trợ Hiếu, KA, Ánh giải phóng Content tồn."
+      ]
+    }
+  },
+  "exportedAt": "24/07/2026"
 }
