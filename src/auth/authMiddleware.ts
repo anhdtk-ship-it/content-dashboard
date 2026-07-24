@@ -39,18 +39,29 @@ async function resolveUser(token: string): Promise<{ status: number; user?: Auth
   if (error || !data?.user) return { status: 401, error: 'Phiên đăng nhập không hợp lệ.', reason: 'invalid_token' };
   const email = (data.user.email || '').trim().toLowerCase();
   if (!email) return { status: 403, error: DENY_MESSAGE, reason: 'no_email' };
+  const meta = (data.user.user_metadata ?? {}) as Record<string, any>;
+  const jwtName: string | null = meta.full_name || meta.name || null;
 
-  // 2) Domain @seryn.vn.
+  // 2) Domain @seryn.vn — ĐIỀU KIỆN DUY NHẤT để được vào (theo yêu cầu: mọi @seryn.vn đăng nhập được).
   if (!email.endsWith('@' + ALLOWED_DOMAIN)) return { status: 403, error: DENY_MESSAGE, reason: `domain(want=${ALLOWED_DOMAIN})` };
 
-  // 3) + 4) Có trong bảng users & is_active.
+  // 3) Tra bảng users — CHỈ để (a) chặn người bị khoá is_active=false, (b) lấy role đã gán.
   const { data: u, error: uErr } = await admin
     .from('users').select('email, full_name, role, is_active').eq('email', email).maybeSingle();
   if (uErr) return { status: 500, error: uErr.message, reason: 'users_query_error' };
-  if (!u) return { status: 403, error: DENY_MESSAGE, reason: 'not_in_users' };
-  if (!u.is_active) return { status: 403, error: DENY_MESSAGE, reason: 'inactive' };
 
-  const user: AuthUser = { email, full_name: u.full_name ?? null, role: u.role ?? 'viewer' };
+  let user: AuthUser;
+  if (u) {
+    if (!u.is_active) return { status: 403, error: DENY_MESSAGE, reason: 'inactive' }; // admin khoá riêng người này
+    user = { email, full_name: u.full_name ?? jwtName, role: u.role ?? 'viewer' };
+  } else {
+    // Auto-provision: @seryn.vn lần đầu đăng nhập → thêm vào bảng để quản lý role sau. Lỗi ghi KHÔNG chặn đăng nhập.
+    try {
+      await admin.from('users').insert({ email, full_name: jwtName, role: 'viewer', is_active: true });
+    } catch { /* bỏ qua (vd đua ghi trùng) — vẫn cho vào */ }
+    user = { email, full_name: jwtName, role: 'viewer' };
+  }
+
   cache.set(token, { at: Date.now(), user });
   return { status: 200, user };
 }
