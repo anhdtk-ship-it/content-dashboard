@@ -1,30 +1,30 @@
 {
   "range": {
-    "from": "2026-07-20",
-    "to": "2026-07-26",
-    "label": "20/07/2026 – 26/07/2026"
+    "from": "2026-07-01",
+    "to": "2026-07-31",
+    "label": "01/07/2026 – 31/07/2026"
   },
   "markets": [
     {
       "market": "noi_dia",
       "label": "Nội địa",
       "team": {
-        "capped": 24,
-        "tested": 12,
-        "ton": 12,
-        "rateTest": 0.5,
-        "duyTriThang": 1,
-        "rateDuyTri": 0.08333333333333333,
+        "capped": 132,
+        "tested": 102,
+        "ton": 23,
+        "rateTest": 0.7727272727272727,
+        "duyTriThang": 14,
+        "rateDuyTri": 0.13725490196078433,
         "dangDuyTri": 28
       },
       "employees": [
         {
           "name": "Hiếu",
           "kpi": {
-            "capped": 9,
-            "tested": 3,
-            "ton": 6,
-            "rateTest": 0.3333333333333333,
+            "capped": 41,
+            "tested": 34,
+            "ton": 7,
+            "rateTest": 0.8292682926829268,
             "duyTriThang": 0,
             "rateDuyTri": 0,
             "dangDuyTri": 2
@@ -33,36 +33,36 @@
         {
           "name": "KA",
           "kpi": {
-            "capped": 3,
-            "tested": 3,
+            "capped": 25,
+            "tested": 24,
             "ton": 0,
-            "rateTest": 1,
-            "duyTriThang": 1,
-            "rateDuyTri": 0.3333333333333333,
+            "rateTest": 0.96,
+            "duyTriThang": 7,
+            "rateDuyTri": 0.2916666666666667,
             "dangDuyTri": 10
           }
         },
         {
           "name": "Liên",
           "kpi": {
-            "capped": 3,
-            "tested": 3,
-            "ton": 0,
-            "rateTest": 1,
-            "duyTriThang": 0,
-            "rateDuyTri": 0,
+            "capped": 25,
+            "tested": 12,
+            "ton": 7,
+            "rateTest": 0.48,
+            "duyTriThang": 3,
+            "rateDuyTri": 0.25,
             "dangDuyTri": 6
           }
         },
         {
           "name": "Ánh",
           "kpi": {
-            "capped": 9,
-            "tested": 3,
-            "ton": 6,
-            "rateTest": 0.3333333333333333,
-            "duyTriThang": 0,
-            "rateDuyTri": 0,
+            "capped": 41,
+            "tested": 32,
+            "ton": 9,
+            "rateTest": 0.7804878048780488,
+            "duyTriThang": 4,
+            "rateDuyTri": 0.125,
             "dangDuyTri": 10
           }
         }
@@ -72,22 +72,22 @@
       "market": "quoc_te",
       "label": "Quốc tế",
       "team": {
-        "capped": 12,
-        "tested": 3,
-        "ton": 9,
-        "rateTest": 0.25,
-        "duyTriThang": 0,
-        "rateDuyTri": 0,
+        "capped": 100,
+        "tested": 88,
+        "ton": 11,
+        "rateTest": 0.88,
+        "duyTriThang": 8,
+        "rateDuyTri": 0.09090909090909091,
         "dangDuyTri": 23
       },
       "employees": [
         {
           "name": "Hiếu",
           "kpi": {
-            "capped": 3,
-            "tested": 0,
-            "ton": 3,
-            "rateTest": 0,
+            "capped": 25,
+            "tested": 21,
+            "ton": 4,
+            "rateTest": 0.84,
             "duyTriThang": 0,
             "rateDuyTri": 0,
             "dangDuyTri": 2
@@ -96,91 +96,91 @@
         {
           "name": "KA",
           "kpi": {
-            "capped": 3,
-            "tested": 0,
-            "ton": 3,
-            "rateTest": 0,
-            "duyTriThang": 0,
-            "rateDuyTri": 0,
+            "capped": 25,
+            "tested": 20,
+            "ton": 4,
+            "rateTest": 0.8,
+            "duyTriThang": 1,
+            "rateDuyTri": 0.05,
             "dangDuyTri": 5
           }
         },
         {
           "name": "Liên",
           "kpi": {
-            "capped": 3,
-            "tested": 3,
+            "capped": 25,
+            "tested": 25,
             "ton": 0,
             "rateTest": 1,
-            "duyTriThang": 0,
-            "rateDuyTri": 0,
+            "duyTriThang": 1,
+            "rateDuyTri": 0.04,
             "dangDuyTri": 1
           }
         },
         {
           "name": "Ánh",
           "kpi": {
-            "capped": 3,
-            "tested": 0,
+            "capped": 25,
+            "tested": 22,
             "ton": 3,
-            "rateTest": 0,
-            "duyTriThang": 0,
-            "rateDuyTri": 0,
+            "rateTest": 0.88,
+            "duyTriThang": 6,
+            "rateDuyTri": 0.2727272727272727,
             "dangDuyTri": 15
           }
         }
       ]
     }
   ],
-  "generatedAt": "2026-07-24T03:34:15.790Z",
+  "generatedAt": "2026-07-24T03:48:12.455Z",
   "narrative": {
     "reviews": {
       "Hiếu|noi_dia": [
-        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 3/9 = 33.3%).",
-        "⚠ Cần ưu tiên xử lý Content tồn (còn 6 chưa đưa vào Ads)."
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 7 chưa đưa vào Ads).",
+        "⚠ Chưa có Content đạt Duy trì trong kỳ (0/34 đã test)."
       ],
       "KA|noi_dia": [
-        "✓ Khả năng lựa chọn Content hiệu quả (1 Duy trì / 3 đã test = 33.3%).",
+        "✓ Khả năng lựa chọn Content hiệu quả (7 Duy trì / 24 đã test = 29.2%).",
         "✓ Đang quản lý ổn định 10 Content hiệu quả."
       ],
       "Liên|noi_dia": [
+        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 12/25 = 48%).",
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 7 chưa đưa vào Ads).",
+        "✓ Khả năng lựa chọn Content hiệu quả (3 Duy trì / 12 đã test = 25%).",
         "✓ Đang quản lý ổn định 6 Content hiệu quả."
       ],
       "Ánh|noi_dia": [
-        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 3/9 = 33.3%).",
-        "⚠ Cần ưu tiên xử lý Content tồn (còn 6 chưa đưa vào Ads).",
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 9 chưa đưa vào Ads).",
+        "✓ Khả năng lựa chọn Content hiệu quả (4 Duy trì / 32 đã test = 12.5%).",
         "✓ Đang quản lý ổn định 10 Content hiệu quả."
       ],
       "Hiếu|quoc_te": [
-        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 0/3 = 0%).",
-        "⚠ Cần ưu tiên xử lý Content tồn (còn 3 chưa đưa vào Ads)."
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 4 chưa đưa vào Ads).",
+        "⚠ Chưa có Content đạt Duy trì trong kỳ (0/21 đã test)."
       ],
       "KA|quoc_te": [
-        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 0/3 = 0%).",
-        "⚠ Cần ưu tiên xử lý Content tồn (còn 3 chưa đưa vào Ads).",
+        "⚠ Cần ưu tiên xử lý Content tồn (còn 4 chưa đưa vào Ads).",
         "✓ Đang quản lý ổn định 5 Content hiệu quả."
       ],
       "Liên|quoc_te": [
-        "✓ Tiến độ ổn định, tiếp tục duy trì (đã cấp 3, test 100%, Duy trì 0)."
+        "✓ Tiến độ ổn định, tiếp tục duy trì (đã cấp 25, test 100%, Duy trì 1)."
       ],
       "Ánh|quoc_te": [
-        "⚠ Cần tăng tốc độ đưa Content vào Ads (mới test 0/3 = 0%).",
         "⚠ Cần ưu tiên xử lý Content tồn (còn 3 chưa đưa vào Ads).",
+        "✓ Khả năng lựa chọn Content hiệu quả (6 Duy trì / 22 đã test = 27.3%).",
         "✓ Đang quản lý ổn định 15 Content hiệu quả."
       ]
     },
     "plans": {
       "noi_dia": [
-        "Xử lý dứt điểm 12 Content tồn chưa đưa vào Ads.",
-        "Nâng tỷ lệ test lên trên 70% (hiện 50%).",
-        "Rà soát tiêu chí chọn Content để nâng tỷ lệ Duy trì (hiện 8.3%).",
-        "Nhân rộng hướng nội dung của 1 Content đạt Duy trì.",
-        "Hỗ trợ Hiếu, Ánh giải phóng Content tồn."
+        "Xử lý dứt điểm 23 Content tồn chưa đưa vào Ads.",
+        "Nhân rộng hướng nội dung của 14 Content đạt Duy trì.",
+        "Hỗ trợ Hiếu, Liên, Ánh giải phóng Content tồn."
       ],
       "quoc_te": [
-        "Xử lý dứt điểm 9 Content tồn chưa đưa vào Ads.",
-        "Nâng tỷ lệ test lên trên 70% (hiện 25%).",
-        "Rà soát tiêu chí chọn Content để nâng tỷ lệ Duy trì (hiện 0%).",
+        "Xử lý dứt điểm 11 Content tồn chưa đưa vào Ads.",
+        "Rà soát tiêu chí chọn Content để nâng tỷ lệ Duy trì (hiện 9.1%).",
+        "Nhân rộng hướng nội dung của 8 Content đạt Duy trì.",
         "Hỗ trợ Hiếu, KA, Ánh giải phóng Content tồn."
       ]
     }
