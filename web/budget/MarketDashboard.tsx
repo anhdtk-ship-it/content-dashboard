@@ -34,8 +34,8 @@ function GroupChart({ groups, onPick }: { groups: GroupStat[]; onPick: (g: Group
  * Mỗi nhân viên = 1 cụm 4 cột (Cũ<5tr / Cũ>5tr / Tươi<5tr / Tươi>5tr).
  * Chiều cao cột = NGÂN SÁCH; nhãn trên đầu ghi CẢ ngân sách (đậm) và số content. */
 function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell: (name: string, g: GroupKey) => void }) {
-  const H = 200;   // chiều cao vùng vẽ cột (px)
-  const LBL = 26;  // chừa chỗ cho nhãn 2 dòng (ngân sách + content) trên đầu cột
+  const H = 230;   // chiều cao vùng vẽ cột (px)
+  const LBL = 32;  // chừa chỗ cho nhãn 2 dòng (ngân sách + content) trên đầu cột
   // Thang đo chung theo ngân sách: cột lớn nhất trên MỌI nhân viên & MỌI nhóm.
   const max = Math.max(...employees.flatMap((e) => GROUPS.map((g) => e.budgets[g.key])), 1);
   const list = [...employees].sort((a, b) => b.totalBudget - a.totalBudget);
@@ -43,11 +43,11 @@ function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-[11px] text-muted">Cột cao = ngân sách · nhãn mỗi cột: <b className="text-fg">ngân sách</b> / số content</span>
+        <span className="text-[12px] text-muted">Cột cao = ngân sách · nhãn mỗi cột: <b className="text-fg">ngân sách</b> / số content</span>
         <div className="ml-auto flex flex-wrap gap-x-3 gap-y-1">
           {GROUPS.map((g) => (
-            <span key={g.key} className="inline-flex items-center gap-1 text-[11px] text-muted">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: g.color }} />{g.short}
+            <span key={g.key} className="inline-flex items-center gap-1 text-[12px] text-muted">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ background: g.color }} />{g.short}
             </span>
           ))}
         </div>
@@ -57,9 +57,9 @@ function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell
             đông nhân viên thì min-width giữ cột đủ rộng và tự cuộn ngang. */}
         <div className="flex" style={{ minWidth: '100%' }}>
           {list.map((e) => (
-            <div key={e.name} className="flex flex-col items-center" style={{ flex: '1 1 0', minWidth: 108 }}>
+            <div key={e.name} className="flex flex-col items-center" style={{ flex: '1 1 0', minWidth: 168 }}>
               {/* cụm 4 cột đứng cạnh nhau, canh giữa trong phần của nhân viên */}
-              <div className="flex w-full items-end justify-center gap-2 border-b border-line" style={{ height: H }}>
+              <div className="flex w-full items-end justify-center gap-3 border-b border-line" style={{ height: H }}>
                 {GROUPS.map((g) => {
                   const budget = e.budgets[g.key];
                   const content = e.counts[g.key];
@@ -67,20 +67,20 @@ function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell
                   return (
                     <button key={g.key} onClick={() => content > 0 && onCell(e.name, g.key)}
                       title={`${e.name} · ${g.short}\nNgân sách: ${fmtVND(budget)}\nContent: ${fmtNum(content)}`}
-                      className="flex h-full flex-col items-center justify-end outline-none" style={{ width: 22 }}>
-                      <span className="mb-0.5 flex flex-col items-center leading-none" style={{ height: LBL - 4 }}>
+                      className="flex h-full flex-col items-center justify-end outline-none" style={{ width: 34 }}>
+                      <span className="mb-0.5 flex flex-col items-center leading-tight" style={{ height: LBL - 4 }}>
                         {budget > 0 ? (<>
-                          <b className="text-[9px] tabular-nums text-fg">{fmtVNDShort(budget)}</b>
-                          <span className="text-[9px] tabular-nums text-muted">{fmtNum(content)} ct</span>
+                          <b className="text-[11px] tabular-nums text-fg">{fmtVNDShort(budget)}</b>
+                          <span className="text-[10px] tabular-nums text-muted">{fmtNum(content)} ct</span>
                         </>) : null}
                       </span>
-                      <div className="w-full rounded-t-[3px] transition hover:brightness-110"
+                      <div className="w-full rounded-t-[4px] transition hover:brightness-110"
                         style={{ height: `${h}px`, background: g.color }} />
                     </button>
                   );
                 })}
               </div>
-              <span className="mt-1 block max-w-full truncate px-1 text-[11px] font-medium text-fg" title={e.name}>{e.name}</span>
+              <span className="mt-1.5 block max-w-full truncate px-1 text-[13px] font-semibold text-fg" title={e.name}>{e.name}</span>
             </div>
           ))}
         </div>
