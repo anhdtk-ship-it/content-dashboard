@@ -22,13 +22,16 @@ const DEFAULT_TABS = ['S_Video', 'S_Banner']; // CHỈ đọc 2 tab này (bỏ T
 
 // Header ứng viên (khớp không phân biệt hoa/thường, gộp khoảng trắng).
 const HEADER_CANDIDATES: Record<string, string[]> = {
-  title:  ['Tên Content', 'Tên content', 'Tên', 'Content', 'Nội dung', 'Tiêu đề'],
-  upload: ['Ngày Up Trello', 'Ngày up Trello', 'Ngày cấp', 'Ngày up', 'Ngày lên', 'Ngày post'],
-  test:   ['Ngày test', 'Ngày Test', 'Ngày set ads'],
-  status: ['Trạng thái', 'Trạng thái ads', 'Status', 'Tình trạng'],
-  // tuỳ chọn — nếu Sheet có sẵn khoá thì ưu tiên dùng
-  id:     ['Content ID', 'ID content', 'ID', 'Mã content', 'Mã'],
-  trello: ['Trello', 'Link Trello', 'Trello Card', 'Card ID', 'Link'],
+  // TRẠNG THÁI CHÍNH = cột "TT Team" (đang chạy/chờ chạy/không chạy).
+  status:  ['TT Team', 'TT team', 'TT_Team', 'TT-Team', 'Trạng thái team', 'Trạng thái Team'],
+  // "tình trạng content" — content chưa có trạng thái ở cột này → CHƯA PHÂN LOẠI.
+  content: ['Tình trạng content', 'Tình trạng Content', 'Trạng thái content', 'Tình trạng nội dung', 'Tình trạng'],
+  upload:  ['Ngày Up Trello', 'Ngày up Trello', 'Ngày cấp', 'Ngày up', 'Ngày lên', 'Ngày post'],
+  test:    ['Ngày test', 'Ngày Test', 'Ngày set ads'],
+  title:   ['Tên Content', 'Tên content', 'Tên', 'Nội dung', 'Tiêu đề'],
+  // khoá định danh — ưu tiên nếu Sheet có sẵn
+  id:      ['ID content 1', 'ID content 2', 'Content ID', 'ID content', 'Mã content', 'ID', 'Mã'],
+  trello:  ['Link trello', 'Link Trello', 'Trello', 'Trello Card', 'Card ID'],
 };
 
 /** content_format từ TÊN TAB: bỏ tiền tố "S_"/"S " (quy ước đặt tên Sheet) → 'S_Video'→'Video', 'S_Banner'→'Banner'. */
@@ -44,11 +47,11 @@ function colIndex(header: string[], field: string): number {
   const wanted = HEADER_CANDIDATES[field].map(norm);
   return header.findIndex((c) => wanted.includes(norm(c)));
 }
-/** Hàng header = hàng đầu tiên (trong 15 hàng đầu) tìm được cột "Tên Content" HOẶC "Trạng thái". */
+/** Hàng header = hàng đầu tiên (trong 15 hàng đầu) tìm được cột "Ngày up" HOẶC "TT Team" HOẶC "tình trạng content". */
 function findHeaderRow(rows: string[][]): number {
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
     const h = rows[i] ?? [];
-    if (colIndex(h, 'title') >= 0 || colIndex(h, 'status') >= 0) return i;
+    if (colIndex(h, 'upload') >= 0 || colIndex(h, 'status') >= 0 || colIndex(h, 'content') >= 0) return i;
   }
   return -1;
 }
@@ -80,25 +83,30 @@ export function transformTab(tabName: string, values: string[][]): ZaloContent[]
   const idx = {
     title: colIndex(header, 'title'), upload: colIndex(header, 'upload'),
     test: colIndex(header, 'test'), status: colIndex(header, 'status'),
-    id: colIndex(header, 'id'), trello: colIndex(header, 'trello'),
+    content: colIndex(header, 'content'), id: colIndex(header, 'id'), trello: colIndex(header, 'trello'),
   };
   const out: ZaloContent[] = [];
   for (const row of values.slice(hIdx + 1)) {
     if (isEmptyRow(row)) continue;
-    const title = cell(row, idx.title);
-    const status = cell(row, idx.status);
-    // Bỏ dòng rỗng hoàn toàn (không tên & không trạng thái) — tránh rác.
-    if (!title && !status) continue;
+    const ttTeam = cell(row, idx.status);           // "TT Team" (đang chạy/chờ chạy/không chạy)
+    const contentStatus = cell(row, idx.content);   // "tình trạng content"
+    const idRaw = cell(row, idx.id);
+    const trelloRaw = cell(row, idx.trello);
     const upload_date = cell(row, idx.upload);
     const test_date = cell(row, idx.test);
+    // Bỏ dòng không có nguồn định danh & không có nội dung.
+    if (!idRaw && !trelloRaw && !upload_date && !ttTeam && !contentStatus) continue;
+    // Trạng thái: nếu "tình trạng content" TRỐNG → content chưa có trạng thái → CHƯA PHÂN LOẠI (''),
+    // ngược lại lấy nhóm theo "TT Team".
+    const current_status = contentStatus === '' ? '' : ttTeam;
     const upload_date_real = parseDdmmToReal(upload_date);
-    const content_code = stableKey(format, title, upload_date_real, cell(row, idx.id), cell(row, idx.trello));
+    const content_code = stableKey(format, '', upload_date_real, idRaw, trelloRaw);
     out.push({
       content_code,
-      title,
-      assignee_name: '', // Zalo không có người phụ trách
+      title: idRaw || cell(row, idx.title), // hiển thị: ID content (Sheet không có cột Tên Content)
+      assignee_name: '',
       content_format: format || null,
-      current_status: status,
+      current_status,
       upload_date,
       upload_date_real,
       test_date,
@@ -112,8 +120,8 @@ export function transformTab(tabName: string, values: string[][]): ZaloContent[]
 export interface TabDiag {
   tab: string;
   headerRowIndex: number;              // -1 nếu không tìm thấy hàng header
-  headers: string[];                   // vài cột đầu của hàng header
-  cols: { title: number; upload: number; test: number; status: number }; // -1 = không map được
+  headers: string[];                   // TOÀN BỘ header (để soi tên cột thật)
+  cols: { status: number; content: number; upload: number; test: number; id: number; trello: number }; // -1 = không map được
   rows: number;                        // số dòng content đọc được từ tab này
 }
 
@@ -158,8 +166,12 @@ export class ZaloSyncProvider {
       const header = hIdx >= 0 ? values[hIdx] : [];
       const rows = transformTab(tab, values);
       perTab.push({
-        tab, headerRowIndex: hIdx, headers: header.slice(0, 12).map((c) => (c ?? '').toString().trim()),
-        cols: { title: colIndex(header, 'title'), upload: colIndex(header, 'upload'), test: colIndex(header, 'test'), status: colIndex(header, 'status') },
+        tab, headerRowIndex: hIdx, headers: header.slice(0, 40).map((c) => (c ?? '').toString().trim()),
+        cols: {
+          status: colIndex(header, 'status'), content: colIndex(header, 'content'),
+          upload: colIndex(header, 'upload'), test: colIndex(header, 'test'),
+          id: colIndex(header, 'id'), trello: colIndex(header, 'trello'),
+        },
         rows: rows.length,
       });
       console.log(`[ContentSyncZalo] Sheet "${tab}": header@${hIdx} · ${rows.length} dòng`);
