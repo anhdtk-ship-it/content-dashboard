@@ -30,30 +30,20 @@ function GroupChart({ groups, onPick }: { groups: GroupStat[]; onPick: (g: Group
   );
 }
 
-/* ---------- Biểu đồ cột NHÓM cạnh nhau theo nhân viên (Ngân sách ↔ Số content) ----------
- * Mỗi nhân viên = 1 cụm 4 cột đứng riêng biệt (Cũ<5tr / Cũ>5tr / Tươi<5tr / Tươi>5tr), số trên đầu. */
+/* ---------- Biểu đồ cột NHÓM theo nhân viên — GỘP ngân sách + content trên 1 biểu đồ ----------
+ * Mỗi nhân viên = 1 cụm 4 cột (Cũ<5tr / Cũ>5tr / Tươi<5tr / Tươi>5tr).
+ * Chiều cao cột = NGÂN SÁCH; nhãn trên đầu ghi CẢ ngân sách (đậm) và số content. */
 function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell: (name: string, g: GroupKey) => void }) {
-  const [metric, setMetric] = useState<'budget' | 'content'>('budget');
-  const valOf = (e: EmployeeRow, k: GroupKey) => (metric === 'budget' ? e.budgets[k] : e.counts[k]);
-  const totalOf = (e: EmployeeRow) => (metric === 'budget' ? e.totalBudget : e.totalContent);
-  const fmtVal = (n: number) => (metric === 'budget' ? fmtVNDShort(n) : fmtNum(n));
-  const H = 190;   // chiều cao vùng vẽ cột (px)
-  const LBL = 16;  // chừa chỗ cho số trên đầu cột
-  // Thang đo chung: giá trị cột lớn nhất trên MỌI nhân viên & MỌI nhóm.
-  const max = Math.max(...employees.flatMap((e) => GROUPS.map((g) => valOf(e, g.key))), 1);
-  const list = [...employees].sort((a, b) => totalOf(b) - totalOf(a));
+  const H = 200;   // chiều cao vùng vẽ cột (px)
+  const LBL = 26;  // chừa chỗ cho nhãn 2 dòng (ngân sách + content) trên đầu cột
+  // Thang đo chung theo ngân sách: cột lớn nhất trên MỌI nhân viên & MỌI nhóm.
+  const max = Math.max(...employees.flatMap((e) => GROUPS.map((g) => e.budgets[g.key])), 1);
+  const list = [...employees].sort((a, b) => b.totalBudget - a.totalBudget);
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <div className="inline-flex overflow-hidden rounded-control border border-line text-[12px]">
-          {(['budget', 'content'] as const).map((m) => (
-            <button key={m} onClick={() => setMetric(m)}
-              className={`px-3 py-1 font-semibold transition ${metric === m ? 'bg-accent text-white' : 'text-muted hover:bg-surface hover:text-fg'}`}>
-              {m === 'budget' ? 'Ngân sách' : 'Số content'}
-            </button>
-          ))}
-        </div>
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-[11px] text-muted">Cột cao = ngân sách · nhãn mỗi cột: <b className="text-fg">ngân sách</b> / số content</span>
         <div className="ml-auto flex flex-wrap gap-x-3 gap-y-1">
           {GROUPS.map((g) => (
             <span key={g.key} className="inline-flex items-center gap-1 text-[11px] text-muted">
@@ -67,18 +57,22 @@ function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell
             đông nhân viên thì min-width giữ cột đủ rộng và tự cuộn ngang. */}
         <div className="flex" style={{ minWidth: '100%' }}>
           {list.map((e) => (
-            <div key={e.name} className="flex flex-col items-center" style={{ flex: '1 1 0', minWidth: 96 }}>
+            <div key={e.name} className="flex flex-col items-center" style={{ flex: '1 1 0', minWidth: 108 }}>
               {/* cụm 4 cột đứng cạnh nhau, canh giữa trong phần của nhân viên */}
               <div className="flex w-full items-end justify-center gap-2 border-b border-line" style={{ height: H }}>
                 {GROUPS.map((g) => {
-                  const v = valOf(e, g.key);
-                  const h = v > 0 ? Math.max((v / max) * (H - LBL), 2) : 0;
+                  const budget = e.budgets[g.key];
+                  const content = e.counts[g.key];
+                  const h = budget > 0 ? Math.max((budget / max) * (H - LBL), 2) : 0;
                   return (
-                    <button key={g.key} onClick={() => v > 0 && onCell(e.name, g.key)}
-                      title={`${e.name} · ${g.short}\nContent: ${fmtNum(e.counts[g.key])}\nNgân sách: ${fmtVND(e.budgets[g.key])}`}
-                      className="flex h-full flex-col items-center justify-end outline-none" style={{ width: 20 }}>
-                      <span className="mb-0.5 text-[9px] leading-none tabular-nums text-fg" style={{ height: LBL - 4 }}>
-                        {v > 0 ? fmtVal(v) : ''}
+                    <button key={g.key} onClick={() => content > 0 && onCell(e.name, g.key)}
+                      title={`${e.name} · ${g.short}\nNgân sách: ${fmtVND(budget)}\nContent: ${fmtNum(content)}`}
+                      className="flex h-full flex-col items-center justify-end outline-none" style={{ width: 22 }}>
+                      <span className="mb-0.5 flex flex-col items-center leading-none" style={{ height: LBL - 4 }}>
+                        {budget > 0 ? (<>
+                          <b className="text-[9px] tabular-nums text-fg">{fmtVNDShort(budget)}</b>
+                          <span className="text-[9px] tabular-nums text-muted">{fmtNum(content)} ct</span>
+                        </>) : null}
                       </span>
                       <div className="w-full rounded-t-[3px] transition hover:brightness-110"
                         style={{ height: `${h}px`, background: g.color }} />
@@ -86,7 +80,7 @@ function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell
                   );
                 })}
               </div>
-              <span className="mt-1 block max-w-full truncate px-1 text-[11px] text-muted" title={e.name}>{e.name}</span>
+              <span className="mt-1 block max-w-full truncate px-1 text-[11px] font-medium text-fg" title={e.name}>{e.name}</span>
             </div>
           ))}
         </div>
