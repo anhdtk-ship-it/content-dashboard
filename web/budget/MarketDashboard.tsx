@@ -17,7 +17,7 @@ function GroupChart({ groups, onPick }: { groups: GroupStat[]; onPick: (g: Group
     <div className="flex items-end justify-around gap-3" style={{ height: 220 }}>
       {groups.map((g) => (
         <button key={g.key} onClick={() => onPick(g)}
-          title={`${g.label}\nContent: ${fmtNum(g.content)}\nBudget: ${fmtVND(g.budget)}\nAverage: ${fmtVND(g.avg)}\n%Budget: ${pct(g.pctBudget)}`}
+          title={`${g.label}\ncontent: ${fmtNum(g.content)}\nNgân sách: ${fmtVND(g.budget)}\nTrung bình: ${fmtVND(g.avg)}\n% ngân sách: ${pct(g.pctBudget)}`}
           className="group flex h-full flex-1 flex-col items-center justify-end gap-1 outline-none">
           <span className="text-[11px] font-semibold tabular-nums text-fg">{fmtVNDShort(g.budget)}</span>
           <div className="w-full max-w-[64px] rounded-t-md transition group-hover:brightness-110"
@@ -61,9 +61,9 @@ function EmployeeTable({ employees, onCell }: { employees: EmployeeRow[]; onCell
             <tr>
               <th className={`${th} text-left`} onClick={() => toggle('name')}>Nhân viên{arrow('name')}</th>
               {EMP_COLS.map((c) => <th key={c.key} className={`${th} text-right`} onClick={() => toggle(c.key)}>{c.label}{arrow(c.key)}</th>)}
-              <th className={`${th} text-right`} onClick={() => toggle('totalContent')}>Tổng CT{arrow('totalContent')}</th>
-              <th className={`${th} text-right`} onClick={() => toggle('totalBudget')}>Tổng Budget{arrow('totalBudget')}</th>
-              <th className={`${th} text-right`} onClick={() => toggle('avg')}>Avg/CT{arrow('avg')}</th>
+              <th className={`${th} text-right`} onClick={() => toggle('totalContent')}>Tổng content{arrow('totalContent')}</th>
+              <th className={`${th} text-right`} onClick={() => toggle('totalBudget')}>Tổng ngân sách{arrow('totalBudget')}</th>
+              <th className={`${th} text-right`} onClick={() => toggle('avg')}>Ngân sách TB{arrow('avg')}</th>
             </tr>
           </thead>
           <tbody>
@@ -98,11 +98,11 @@ export function MarketDashboard({ a, onDrill }: { a: MarketAnalysis; onDrill: Dr
 
   const groupCols: Column<GroupStat>[] = [
     { key: 'label', header: 'Nhóm', render: (r) => <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: r.color }} /><b className="text-fg">{r.label}</b></span> },
-    { key: 'content', header: 'Số Content', align: 'right', render: (r) => fmtNum(r.content) },
+    { key: 'content', header: 'Số content', align: 'right', render: (r) => fmtNum(r.content) },
     { key: 'pctContent', header: '%', align: 'right', render: (r) => <span className="text-muted">{pct(r.pctContent)}</span> },
     { key: 'budget', header: 'Ngân sách', align: 'right', render: (r) => fmtVND(r.budget) },
     { key: 'pctBudget', header: '%', align: 'right', render: (r) => <span className="text-muted">{pct(r.pctBudget)}</span> },
-    { key: 'avg', header: 'Avg / Content', align: 'right', render: (r) => fmtVND(r.avg) },
+    { key: 'avg', header: 'Ngân sách TB / content', align: 'right', render: (r) => fmtVND(r.avg) },
   ];
 
   return (
@@ -113,17 +113,17 @@ export function MarketDashboard({ a, onDrill }: { a: MarketAnalysis; onDrill: Dr
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
         <KPICard label="Tổng ngân sách" value={fmtVNDShort(a.kpi.totalBudget)} tone="accent" sub={fmtVND(a.kpi.totalBudget)} />
         <KPICard label="Tổng content" value={fmtNum(a.kpi.totalContent)} tone="info" />
-        <KPICard label="Avg NS/content" value={fmtVNDShort(a.kpi.avgBudget)} tone="good" />
+        <KPICard label="Ngân sách TB / content" value={fmtVNDShort(a.kpi.avgBudget)} tone="good" />
         <KPICard label="Content cũ" value={fmtNum(a.kpi.contentCu)} tone="warn" />
         <KPICard label="Content tươi" value={fmtNum(a.kpi.contentTuoi)} tone="good" />
       </div>
 
-      {/* Chỉ số mới */}
+      {/* Chỉ số phân tích */}
       <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <KPICard label="Fresh Budget Ratio" value={pct(a.indices.freshBudgetRatio)} tone="good" tooltip="Ngân sách content Tươi / Tổng ngân sách" />
-        <KPICard label="Old Budget Ratio" value={pct(a.indices.oldBudgetRatio)} tone="orange" tooltip="Ngân sách content Cũ / Tổng ngân sách" />
-        <KPICard label="Avg Budget/Content" value={fmtVNDShort(a.indices.avgBudget)} tone="default" />
-        <KPICard label="Budget Distribution Index" value={pct(a.indices.distributionIndex)} tone="info" tooltip="Tỷ trọng ngân sách rơi vào content ≥ ngưỡng 5tr" />
+        <KPICard label="Tỷ lệ ngân sách content tươi" value={pct(a.indices.freshBudgetRatio)} tone="good" tooltip="Ngân sách content tươi ÷ Tổng ngân sách" />
+        <KPICard label="Tỷ lệ ngân sách content cũ" value={pct(a.indices.oldBudgetRatio)} tone="orange" tooltip="Ngân sách content cũ ÷ Tổng ngân sách" />
+        <KPICard label="Ngân sách trung bình / content" value={fmtVNDShort(a.indices.avgBudget)} tone="default" />
+        <KPICard label="Chỉ số phân bổ ngân sách" value={pct(a.indices.distributionIndex)} tone="info" tooltip="Tỷ trọng ngân sách rơi vào content ≥ ngưỡng 5 triệu" />
       </div>
 
       {/* Biểu đồ + Phân bổ */}

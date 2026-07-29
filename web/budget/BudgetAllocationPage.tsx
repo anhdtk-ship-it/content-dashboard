@@ -4,7 +4,7 @@
  * Tách hoàn toàn Nội Địa | Quốc Tế trên cùng 1 trang. Responsive.
  * ========================================================== */
 import { useEffect, useMemo, useState } from 'react';
-import { PageContainer, SectionHeader, LoadingSkeleton, EmptyState, ActionButton } from '../../src/components/ui';
+import { PageContainer, LoadingSkeleton, EmptyState, ActionButton } from '../../src/components/ui';
 import { fetchAdsForMonth, currentMonth, type AdsRow } from './budgetApi';
 import { buildMarketAnalysis, type EnrichedRow } from './selectors';
 import { BUDGET_THRESHOLD } from './config';
@@ -20,6 +20,7 @@ export function BudgetAllocationPage() {
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [drill, setDrill] = useState<DrillState>(null);
+  const [market, setMarket] = useState<'TQ' | 'NN'>('TQ'); // tab thị trường đang xem
 
   useEffect(() => {
     let alive = true;
@@ -41,7 +42,7 @@ export function BudgetAllocationPage() {
   return (
     <div className="text-fg">
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-line bg-bg/95 px-4 py-2.5 backdrop-blur">
-        <span className="text-[13px] font-semibold text-fg">💰 Phân bổ ngân sách (Budget Allocation)</span>
+        <span className="text-[13px] font-semibold text-fg">💰 Phân bổ ngân sách</span>
         <label className="flex items-center gap-1.5 text-[12px] text-muted">Tháng
           <input type="month" value={month} onChange={(e) => setMonth(e.target.value || currentMonth())}
             className="rounded-control border border-line bg-surface px-2 py-[5px] text-[13px] text-fg" />
@@ -58,11 +59,24 @@ export function BudgetAllocationPage() {
           <EmptyState icon="💰" message={`Không có Ads chi tiêu (>0đ) trong tháng ${month.split('-').reverse().join('/')}. Chọn tháng khác.`} />
         ) : (
           <>
-            <SectionHeader title="Nội Địa vs Quốc Tế" action={<span className="text-xs text-muted">Chỉ tính Amount Spent &gt; 0 · mọi trạng thái</span>} />
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              {noiDia && <MarketDashboard a={noiDia} onDrill={onDrill} />}
-              {quocTe && <MarketDashboard a={quocTe} onDrill={onDrill} />}
+            {/* 2 trang riêng: Nội Địa | Quốc Tế (tab), xem từng thị trường một */}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {([['TQ', 'Nội Địa', noiDia], ['NN', 'Quốc Tế', quocTe]] as const).map(([code, label, an]) => (
+                <button key={code} onClick={() => setMarket(code)}
+                  className={`rounded-control border px-4 py-1.5 text-[13px] font-semibold transition ${
+                    market === code ? 'border-accent bg-accent/10 text-accent' : 'border-line text-muted hover:bg-surface hover:text-fg'
+                  }`}>
+                  {label}{an ? ` · ${an.kpi.totalContent} content` : ''}
+                </button>
+              ))}
+              <span className="ml-auto text-xs text-muted">Chỉ tính chi tiêu &gt; 0 · mọi trạng thái</span>
             </div>
+            {(() => {
+              const active = market === 'TQ' ? noiDia : quocTe;
+              return active && active.kpi.totalContent > 0
+                ? <MarketDashboard a={active} onDrill={onDrill} />
+                : <EmptyState message={`Không có Ads chi tiêu > 0 cho ${market === 'TQ' ? 'Nội Địa' : 'Quốc Tế'} trong tháng ${month.split('-').reverse().join('/')}.`} />;
+            })()}
           </>
         )}
       </PageContainer>

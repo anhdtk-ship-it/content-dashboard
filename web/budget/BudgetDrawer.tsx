@@ -7,9 +7,9 @@ export function BudgetDrawer({ title, rows, onClose }: { title: string; rows: En
   const sorted = [...rows].sort((a, b) => b.amount_spent - a.amount_spent);
   const total = sorted.reduce((s, r) => s + r.amount_spent, 0);
   const columns: Column<EnrichedRow>[] = [
-    { key: 'content', header: 'Tên Content', render: (r) => <span className="text-[12px]">{r.content || '—'}</span> },
-    { key: 'page_code', header: 'Ads (Trang)', render: (r) => <span className="font-mono text-[11px] text-muted">{r.page_code || '—'}</span> },
-    { key: 'amount_spent', header: 'Amount Spent', align: 'right', render: (r) => <b className="tabular-nums">{fmtVND(r.amount_spent)}</b> },
+    { key: 'content', header: 'Tên content', render: (r) => <span className="text-[12px]">{r.content || '—'}</span> },
+    { key: 'page_code', header: 'Trang', render: (r) => <span className="font-mono text-[11px] text-muted">{r.page_code || '—'}</span> },
+    { key: 'amount_spent', header: 'Chi tiêu', align: 'right', render: (r) => <b className="tabular-nums">{fmtVND(r.amount_spent)}</b> },
     { key: 'capDate', header: 'Ngày cấp', align: 'right', render: (r) => (r.capDate ? r.capDate.split('-').reverse().join('/') : '—') },
     { key: 'status', header: 'Trạng thái' },
     { key: 'location', header: 'Thị trường', render: (r) => MARKET_LABEL[r.location] ?? r.location ?? '—' },
