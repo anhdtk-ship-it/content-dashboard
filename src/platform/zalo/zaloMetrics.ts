@@ -32,11 +32,13 @@ export interface FormatKpi {
   format: string;      // '' = chưa có định dạng
   label: string;
   capped: number;      // Đã cấp (upload trong tháng)
-  khongTest: number;
-  ton: number;
-  dangTest: number;
-  duyTri: number;
-  tested: number;      // Đã test (Đang test + Duy trì)
+  khongTest: number;   // Không chạy
+  khongDuyet: number;  // Không được duyệt
+  ton: number;         // Chờ chạy
+  dangTest: number;    // Đang test (nếu Sheet có)
+  duyTri: number;      // Đang chạy
+  daDung: number;      // Đã chạy-Tắt + Đã test-Tắt
+  tested: number;      // Đã test = Đang chạy + Đã chạy-Tắt + Đã test-Tắt (+ Đang test)
   rateTest: number;    // Đã test / Đã cấp
   rateDuyTri: number;  // Duy trì / Đã test
 }
@@ -103,19 +105,21 @@ const labelOf = (format: string) => format || UNSPECIFIED_FORMAT_LABEL;
 
 /** KPI cho 1 tập content (đã lọc theo định dạng + kỳ). Export để Weekly dùng chung → không lệch. */
 export function kpiOf(format: string, rows: ZaloContent[]): FormatKpi {
-  let khongTest = 0, ton = 0, dangTest = 0, duyTri = 0;
+  let khongTest = 0, khongDuyet = 0, ton = 0, dangTest = 0, duyTri = 0, daDung = 0;
   for (const r of rows) {
     switch (G(r.current_status)) {
       case 'KHONG_TEST': khongTest++; break;
+      case 'KHONG_DUYET': khongDuyet++; break;
       case 'TON': ton++; break;
       case 'DANG_TEST': dangTest++; break;
       case 'DUY_TRI': duyTri++; break;
+      case 'DA_DUNG': daDung++; break;
     }
   }
-  const tested = dangTest + duyTri;
+  const tested = duyTri + daDung + dangTest; // = số bản ghi isTested()
   return {
     format, label: labelOf(format), capped: rows.length,
-    khongTest, ton, dangTest, duyTri, tested,
+    khongTest, khongDuyet, ton, dangTest, duyTri, daDung, tested,
     rateTest: rate(tested, rows.length), rateDuyTri: rate(duyTri, tested),
   };
 }
@@ -186,7 +190,7 @@ export function buildZaloSummary(
       format: f, label: labelOf(f),
       chuaPhanLoai: rs.filter((r) => G(r.current_status) === 'CHUA_PHAN_LOAI').length,
       chuaTest: rs.filter((r) => G(r.current_status) === 'TON').length, // chờ chạy = chưa đưa vào test
-      testQuaLau: rs.filter((r) => G(r.current_status) === 'DANG_TEST' && !!r.test_date_real && r.test_date_real < staleBefore).length,
+      testQuaLau: rs.filter((r) => G(r.current_status) === 'DUY_TRI' && !!r.test_date_real && r.test_date_real < staleBefore).length,
       thieuNgayTest: rs.filter((r) => zaloStatusRule.isTested(r.current_status) && !r.test_date_real).length,
     };
   });

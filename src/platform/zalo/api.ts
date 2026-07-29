@@ -70,9 +70,10 @@ export function createZaloRouter(deps: { onSynced?: () => void } = {}): ZaloApi 
         list = list.filter((r) => {
           const g = zaloStatusRule.statusGroup(r.current_status);
           switch (alert) {
+            case 'tested': return zaloStatusRule.isTested(r.current_status);
             case 'chuaPhanLoai': return g === 'CHUA_PHAN_LOAI';
             case 'chuaTest': return g === 'TON';
-            case 'testQuaLau': return g === 'DANG_TEST' && !!r.test_date_real && r.test_date_real < staleBefore;
+            case 'testQuaLau': return g === 'DUY_TRI' && !!r.test_date_real && r.test_date_real < staleBefore;
             case 'thieuNgayTest': return zaloStatusRule.isTested(r.current_status) && !r.test_date_real;
             case 'thieuDinhDang': return !(r.content_format ?? '').trim();
             case 'thieuBatBuoc': return !(r.title ?? '').trim(); // thiếu Tên Content (bắt buộc)

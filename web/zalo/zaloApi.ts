@@ -2,8 +2,8 @@
 
 export interface FormatKpi {
   format: string; label: string;
-  capped: number; khongTest: number; ton: number; dangTest: number; duyTri: number;
-  tested: number; rateTest: number; rateDuyTri: number;
+  capped: number; khongTest: number; khongDuyet: number; ton: number; dangTest: number;
+  duyTri: number; daDung: number; tested: number; rateTest: number; rateDuyTri: number;
 }
 export interface FormatProgress {
   format: string; label: string;

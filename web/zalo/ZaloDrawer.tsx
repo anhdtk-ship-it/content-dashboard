@@ -5,7 +5,8 @@ import { zaloApi, type ZaloContentItem } from './zaloApi';
 
 const STATUS_COLOR: Record<string, string> = {
   TON: '#fb923c', DANG_TEST: 'var(--warn)', DUY_TRI: 'var(--success)',
-  KHONG_TEST: '#a1a1aa', CHUA_PHAN_LOAI: 'var(--violet)',
+  DA_DUNG: 'var(--slate)', KHONG_TEST: '#a1a1aa', KHONG_DUYET: 'var(--danger)',
+  CHUA_PHAN_LOAI: 'var(--violet)',
 };
 
 export function ZaloDrawer({ title, params, onClose }: {

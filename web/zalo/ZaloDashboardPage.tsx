@@ -32,12 +32,13 @@ function FormatBlock({ month, k, onDrill }: { month: string; k: FormatKpi; onDri
         <h3 className="text-sm font-bold text-fg">🎬 {k.label}</h3>
         <span className="text-[11px] text-muted">Tỷ lệ test {pct(k.rateTest)} · Tỷ lệ duy trì {pct(k.rateDuyTri)}</span>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <KPICard label="Đã cấp" value={num(k.capped)} tone="accent" onClick={() => onDrill({ title: `${k.label} · Đã cấp`, params: base })} />
-        <KPICard label="Không test" value={num(k.khongTest)} tone="orange" onClick={() => onDrill({ title: `${k.label} · Không test`, params: { ...base, status: 'KHONG_TEST' } })} />
-        <KPICard label="Tồn" value={num(k.ton)} tone="warn" onClick={() => onDrill({ title: `${k.label} · Tồn`, params: { ...base, status: 'TON' } })} />
-        <KPICard label="Đang test" value={num(k.dangTest)} tone="info" onClick={() => onDrill({ title: `${k.label} · Đang test`, params: { ...base, status: 'DANG_TEST' } })} />
-        <KPICard label="Duy trì" value={num(k.duyTri)} tone="good" onClick={() => onDrill({ title: `${k.label} · Duy trì`, params: { ...base, status: 'DUY_TRI' } })} />
+        <KPICard label="Đã test" value={num(k.tested)} tone="info" tooltip="Đang chạy + Đã chạy-Tắt + Đã test-Tắt" onClick={() => onDrill({ title: `${k.label} · Đã test`, params: { ...base, alert: 'tested' } })} />
+        <KPICard label="Duy trì" value={num(k.duyTri)} tone="good" tooltip="Trạng thái 'Đang chạy'" onClick={() => onDrill({ title: `${k.label} · Duy trì`, params: { ...base, status: 'DUY_TRI' } })} />
+        <KPICard label="Tồn" value={num(k.ton)} tone="warn" tooltip="Trạng thái 'Chờ chạy'" onClick={() => onDrill({ title: `${k.label} · Tồn`, params: { ...base, status: 'TON' } })} />
+        <KPICard label="Không test" value={num(k.khongTest)} tone="orange" tooltip="Trạng thái 'Không chạy'" onClick={() => onDrill({ title: `${k.label} · Không test`, params: { ...base, status: 'KHONG_TEST' } })} />
+        <KPICard label="Không được duyệt" value={num(k.khongDuyet)} tone="danger" onClick={() => onDrill({ title: `${k.label} · Không được duyệt`, params: { ...base, status: 'KHONG_DUYET' } })} />
       </div>
     </div>
   );

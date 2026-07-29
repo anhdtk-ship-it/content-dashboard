@@ -18,36 +18,42 @@ import type { Platform, StatusRule } from '../types';
 /** Khoá nhóm trạng thái Zalo. */
 export const ZALO_GROUPS = {
   KHONG_TEST: 'KHONG_TEST',
+  KHONG_DUYET: 'KHONG_DUYET',
   TON: 'TON',
   DANG_TEST: 'DANG_TEST',
   DUY_TRI: 'DUY_TRI',
+  DA_DUNG: 'DA_DUNG',
   CHUA_PHAN_LOAI: 'CHUA_PHAN_LOAI',
 } as const;
 
 const GROUP_LABEL: Record<string, string> = {
   KHONG_TEST: 'Không test',
+  KHONG_DUYET: 'Không được duyệt',
   TON: 'Tồn',
   DANG_TEST: 'Đang test',
   DUY_TRI: 'Duy trì',
+  DA_DUNG: 'Đã dừng',
   CHUA_PHAN_LOAI: 'Chưa phân loại',
 };
 
-// Thứ tự hiển thị theo luồng nghiệp vụ: Tồn → Đang test → Duy trì → Không test → Chưa phân loại.
-const GROUP_ORDER = ['TON', 'DANG_TEST', 'DUY_TRI', 'KHONG_TEST', 'CHUA_PHAN_LOAI'];
+const GROUP_ORDER = ['TON', 'DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST', 'KHONG_DUYET', 'CHUA_PHAN_LOAI'];
 
 // Trạng thái thô hợp lệ trên Sheet Zalo (cột "TT Team").
-const ALL_STATUSES = ['đang chạy', 'chờ chạy', 'không chạy'];
+const ALL_STATUSES = ['đang chạy', 'chờ chạy', 'không chạy', 'đã chạy - tắt', 'đã test - tắt', 'không được duyệt'];
 
 /** Chuẩn hoá 1 trạng thái thô ("TT Team") → khoá nhóm. So khớp không phân biệt hoa/thường/khoảng trắng. */
 function toGroup(s: string | null | undefined): string {
   const v = (s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
   if (v === '') return 'CHUA_PHAN_LOAI';
-  // Bộ trạng thái THẬT của Zalo:
-  if (v === 'đang chạy') return 'DUY_TRI';
+  // Bộ trạng thái THẬT của Zalo (cột TT Team):
+  if (v.startsWith('đã chạy')) return 'DA_DUNG';       // "đã chạy - tắt"
+  if (v.startsWith('đã test')) return 'DA_DUNG';       // "đã test - tắt"
+  if (v.startsWith('đang chạy')) return 'DUY_TRI';     // "đang chạy", "đang chạy a/b"
   if (v === 'chờ chạy') return 'TON';
   if (v === 'không chạy') return 'KHONG_TEST';
-  // Tương thích nhãn cũ (nếu Sheet dùng):
-  if (v === 'duy trì' || v.startsWith('duy trì')) return 'DUY_TRI';
+  if (v === 'không được duyệt') return 'KHONG_DUYET';
+  // Tương thích nhãn cũ:
+  if (v.startsWith('duy trì')) return 'DUY_TRI';
   if (v === 'tồn') return 'TON';
   if (v === 'không test') return 'KHONG_TEST';
   if (v === 'đang test') return 'DANG_TEST';
@@ -61,11 +67,11 @@ export const zaloStatusRule: StatusRule = {
   groupLabel(g) { return GROUP_LABEL[g] ?? g; },
   groupOrder() { return [...GROUP_ORDER]; },
 
-  /** Đã đưa vào test = Đang test hoặc Duy trì. */
-  isTested(s) { const g = toGroup(s); return g === 'DANG_TEST' || g === 'DUY_TRI'; },
+  /** Đã test = Đang chạy (Duy trì) + Đã chạy-Tắt + Đã test-Tắt (DA_DUNG) + Đang test. */
+  isTested(s) { const g = toGroup(s); return g === 'DUY_TRI' || g === 'DA_DUNG' || g === 'DANG_TEST'; },
 
-  /** Đã chốt không chạy = Không test (Tồn KHÔNG tính — vẫn là việc cần xử lý). */
-  isClosed(s) { return toGroup(s) === 'KHONG_TEST'; },
+  /** Đã chốt không chạy (KHÔNG tính Tồn) = Không chạy + Không được duyệt. */
+  isClosed(s) { const g = toGroup(s); return g === 'KHONG_TEST' || g === 'KHONG_DUYET'; },
 
   allStatuses() { return [...ALL_STATUSES]; },
 };

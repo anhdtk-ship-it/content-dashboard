@@ -49,12 +49,12 @@ async function main() {
     );
     // 1) Nội bộ: capped = tổng các nhóm.
     const attn = attnByFmt.get(b.format)!;
-    const sumGroups = b.khongTest + b.ton + b.dangTest + b.duyTri + attn.chuaPhanLoai;
+    const sumGroups = b.khongTest + b.khongDuyet + b.ton + b.dangTest + b.duyTri + b.daDung + attn.chuaPhanLoai;
     if (sumGroups !== b.capped) { fails++; console.log(`   ✗ [${b.label}] capped(${b.capped}) ≠ tổng nhóm(${sumGroups})`); }
     // 2) Parity Dashboard vs Weekly (cùng kỳ).
     const w = wkByFmt.get(b.format);
     if (!w) { fails++; console.log(`   ✗ [${b.label}] thiếu ở Weekly`); continue; }
-    for (const key of ['capped', 'tested', 'ton', 'dangTest', 'duyTri', 'khongTest'] as const) {
+    for (const key of ['capped', 'tested', 'ton', 'dangTest', 'duyTri', 'daDung', 'khongTest', 'khongDuyet'] as const) {
       if ((b as any)[key] !== (w as any)[key]) { fails++; console.log(`   ✗ [${b.label}] ${key}: Dashboard=${(b as any)[key]} ≠ Weekly=${(w as any)[key]}`); }
     }
   }
