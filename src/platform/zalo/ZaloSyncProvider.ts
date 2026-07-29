@@ -46,10 +46,15 @@ const isEmptyRow = (row: string[]) => !row || row.every((c) => (c ?? '').toStrin
 export function detectCols(values: string[][]): { cols: Record<string, number>; dataStart: number } {
   const HEAD = Math.min(values.length, 6);
   let deepest = -1;
+  const matches = (field: string, x: unknown): boolean => {
+    const nx = norm(x);
+    // 'ID content 1' là khoá DUY NHẤT (khớp tên Form) — match cả khi header có chú thích thêm ("= ID MQC…").
+    if (field === 'id' && nx.startsWith('id content 1')) return true;
+    return HEADER_CANDIDATES[field].map(norm).includes(nx);
+  };
   const find = (field: string): number => {
-    const wanted = HEADER_CANDIDATES[field].map(norm);
     for (let r = 0; r < HEAD; r++) {
-      const c = (values[r] ?? []).findIndex((x) => wanted.includes(norm(x)));
+      const c = (values[r] ?? []).findIndex((x) => matches(field, x));
       if (c >= 0) { if (r > deepest) deepest = r; return c; }
     }
     return -1;
