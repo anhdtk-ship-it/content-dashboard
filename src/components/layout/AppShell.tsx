@@ -38,7 +38,7 @@ export function AppShell({ sidebar, header, children, className = '' }: AppShell
 
       {/* sidebar: drawer mobile / static desktop (collapse) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 max-lg:w-[240px] transform border-r border-line bg-[#0a101d] transition-all duration-200 lg:static lg:z-auto lg:translate-x-0 ${widthLg} ${
+        className={`fixed inset-y-0 left-0 z-50 max-lg:w-[240px] transform border-r border-[#c3c9d2] bg-[#e5e7eb] transition-all duration-200 lg:static lg:z-auto lg:translate-x-0 ${widthLg} ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

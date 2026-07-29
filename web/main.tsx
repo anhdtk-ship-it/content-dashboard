@@ -108,12 +108,12 @@ function App() {
       sidebar={({ collapsed, onToggleCollapse }) => (
         <Sidebar
           collapsed={collapsed}
-          brand={<div className="px-1 text-[15px] font-bold text-fg">⚡ Ops Dashboard</div>}
+          brand={<div className="px-1 text-[15px] font-bold text-[#0b1220]">⚡ Ops Dashboard</div>}
           groups={navGroups}
           footer={
             <button
               onClick={onToggleCollapse}
-              className="hidden w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[12px] text-muted outline-none hover:bg-surface hover:text-fg focus-visible:ring-2 focus-visible:ring-accent lg:flex"
+              className="hidden w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[12px] font-semibold text-[#374151] outline-none hover:bg-[#d8dce2] hover:text-[#0b1220] focus-visible:ring-2 focus-visible:ring-accent lg:flex"
               title={collapsed ? 'Mở rộng' : 'Thu gọn'}
             >
               {collapsed ? '»' : '« Thu gọn'}

@@ -42,10 +42,10 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
     if (it.disabled) {
       return (
         <div key={j} title="Sắp có" aria-disabled="true"
-          className={`${ITEM_BASE} cursor-not-allowed text-muted/40 ${collapsed ? 'justify-center px-0' : ''}`}>
+          className={`${ITEM_BASE} cursor-not-allowed text-[#9aa1ac] ${collapsed ? 'justify-center px-0' : ''}`}>
           <span className="w-4 shrink-0 text-center">{it.icon}</span>
           {!collapsed && <span className="flex-1 truncate">{it.label}</span>}
-          {!collapsed && <span className="text-[9px] font-medium uppercase tracking-wide text-muted/40">sắp có</span>}
+          {!collapsed && <span className="text-[9px] font-medium uppercase tracking-wide text-[#9aa1ac]">sắp có</span>}
         </div>
       );
     }
@@ -53,7 +53,7 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
       <a key={j} href={it.href} onClick={it.onClick} title={collapsed ? it.label : undefined}
         aria-current={it.active ? 'page' : undefined}
         className={`${ITEM_BASE} ${collapsed ? 'justify-center px-0' : ''} ${
-          it.active ? 'bg-surface2 font-semibold text-fg' : 'text-fg/75 hover:bg-surface hover:text-fg'
+          it.active ? 'bg-white font-bold text-[#0b1220] shadow-sm' : 'text-[#111827] font-semibold hover:bg-[#d8dce2]'
         }`}>
         <span className="w-4 shrink-0 text-center">{it.icon}</span>
         {!collapsed && <span className="flex-1 truncate">{it.label}</span>}
@@ -67,7 +67,7 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
   return (
     <div className={`flex h-full flex-col ${className}`}>
       <div className="px-3 py-3">
-        {collapsed ? <div className="text-center text-lg font-bold text-fg">⚡</div> : brand}
+        {collapsed ? <div className="text-center text-lg font-bold text-[#111827]">⚡</div> : brand}
       </div>
       <nav className="flex-1 overflow-y-auto px-2 pb-3">
         {groups.map((g, i) => {
@@ -76,7 +76,7 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
             return (
               <div key={i} className="mb-2">
                 {g.label && !collapsed && (
-                  <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted/70">{g.label}</div>
+                  <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#4b5563]">{g.label}</div>
                 )}
                 {g.items.map(renderItem)}
               </div>
@@ -89,7 +89,7 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
             const groupActive = g.items.some((it) => it.active);
             return (
               <a key={i} href={first?.href} title={g.label}
-                className={`${ITEM_BASE} justify-center px-0 ${groupActive ? 'bg-surface2 text-fg' : 'text-fg/75 hover:bg-surface hover:text-fg'}`}>
+                className={`${ITEM_BASE} justify-center px-0 ${groupActive ? 'bg-white text-[#0b1220] shadow-sm' : 'text-[#111827] hover:bg-[#d8dce2]'}`}>
                 <span className="w-4 shrink-0 text-center">{g.icon}</span>
               </a>
             );
@@ -103,14 +103,14 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
               <button type="button" onClick={() => setExpanded(isOpen ? null : (g.key ?? null))}
                 aria-expanded={isOpen}
                 className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[15.5px] font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent ${
-                  groupActive ? 'bg-surface2 text-fg' : 'text-fg/90 hover:bg-surface hover:text-fg'
+                  groupActive ? 'bg-white text-[#0b1220] shadow-sm' : 'text-[#0b1220] hover:bg-[#d8dce2]'
                 }`}>
                 <span className="w-4 shrink-0 text-center text-[17px]">{g.icon}</span>
                 <span className="flex-1 truncate text-left">{g.label}</span>
-                <span className={`text-[11px] text-fg/60 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                <span className={`text-[11px] text-[#4b5563] transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
               </button>
               {isOpen && (
-                <div className="mb-1 ml-[18px] border-l border-line pl-2">
+                <div className="mb-1 ml-[18px] border-l border-[#b8bfc9] pl-2">
                   {g.items.map(renderItem)}
                 </div>
               )}
@@ -118,7 +118,7 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
           );
         })}
       </nav>
-      {footer && <div className="border-t border-line p-2">{footer}</div>}
+      {footer && <div className="border-t border-[#c3c9d2] p-2">{footer}</div>}
     </div>
   );
 }
