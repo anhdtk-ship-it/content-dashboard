@@ -70,12 +70,14 @@ function classify(row: AdsRow, month: string, threshold: number): { capDate: str
   return { capDate, isFresh, group };
 }
 
-/** Dựng toàn bộ phân tích cho 1 THỊ TRƯỜNG. `all` = Ads của tháng (cả 2 thị trường). */
-export function buildMarketAnalysis(all: AdsRow[], market: MarketCode, month: string, threshold: number): MarketAnalysis {
+/** Dựng toàn bộ phân tích cho 1 THỊ TRƯỜNG. `all` = Ads của tháng (cả 2 thị trường).
+ *  `excludeOwners` = danh sách nhân viên Ads bị loại khỏi thị trường này (VD Nội Địa loại 'Br'). */
+export function buildMarketAnalysis(all: AdsRow[], market: MarketCode, month: string, threshold: number, excludeOwners: string[] = []): MarketAnalysis {
   const marketLabel = MARKETS.find((m) => m.code === market)!.label;
-  // Rule: đúng thị trường + Amount Spent > 0.
+  const excl = new Set(excludeOwners.map((s) => s.trim().toLowerCase()).filter(Boolean));
+  // Rule: đúng thị trường + Amount Spent > 0 + không thuộc nhân viên bị loại.
   const rows: EnrichedRow[] = all
-    .filter((r) => r.location === market && r.amount_spent > 0)
+    .filter((r) => r.location === market && r.amount_spent > 0 && !excl.has((r.ads_owner || '').trim().toLowerCase()))
     .map((r) => ({ ...r, ...classify(r, month, threshold) }));
 
   const totalBudget = rows.reduce((s, r) => s + r.amount_spent, 0);

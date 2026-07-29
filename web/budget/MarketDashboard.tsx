@@ -30,6 +30,59 @@ function GroupChart({ groups, onPick }: { groups: GroupStat[]; onPick: (g: Group
   );
 }
 
+/* ---------- Biểu đồ cột chồng theo nhân viên (Ngân sách ↔ Số content) ---------- */
+function EmployeeChart({ employees }: { employees: EmployeeRow[] }) {
+  const [metric, setMetric] = useState<'budget' | 'content'>('budget');
+  const valOf = (e: EmployeeRow, k: GroupKey) => (metric === 'budget' ? e.budgets[k] : e.counts[k]);
+  const totalOf = (e: EmployeeRow) => (metric === 'budget' ? e.totalBudget : e.totalContent);
+  const fmtVal = (n: number) => (metric === 'budget' ? fmtVNDShort(n) : fmtNum(n));
+  const H = 200; // chiều cao vùng cột (px)
+  const max = Math.max(...employees.map(totalOf), 1);
+  const list = [...employees].sort((a, b) => totalOf(b) - totalOf(a));
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="inline-flex overflow-hidden rounded-control border border-line text-[12px]">
+          {(['budget', 'content'] as const).map((m) => (
+            <button key={m} onClick={() => setMetric(m)}
+              className={`px-3 py-1 font-semibold transition ${metric === m ? 'bg-accent text-white' : 'text-muted hover:bg-surface hover:text-fg'}`}>
+              {m === 'budget' ? 'Ngân sách' : 'Số content'}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex flex-wrap gap-x-3 gap-y-1">
+          {GROUPS.map((g) => (
+            <span key={g.key} className="inline-flex items-center gap-1 text-[11px] text-muted">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: g.color }} />{g.short}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="flex items-end gap-4 pb-1" style={{ minHeight: H + 40 }}>
+          {list.map((e) => (
+            <div key={e.name} className="flex flex-col items-center gap-1" style={{ width: 58, flex: '0 0 auto' }}>
+              <span className="text-[10px] font-semibold tabular-nums text-fg">{fmtVal(totalOf(e))}</span>
+              <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-md" style={{ height: H }}>
+                {GROUPS.map((g) => {
+                  const v = valOf(e, g.key);
+                  if (v <= 0) return null;
+                  return (
+                    <div key={g.key} style={{ height: `${(v / max) * H}px`, background: g.color }}
+                      title={`${e.name} · ${g.short}\nContent: ${fmtNum(e.counts[g.key])}\nNgân sách: ${fmtVND(e.budgets[g.key])}`} />
+                  );
+                })}
+              </div>
+              <span className="max-w-[58px] truncate text-[10px] text-muted" title={e.name}>{e.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Bảng theo nhân viên (sort + filter + click ô) ---------- */
 const EMP_COLS: { key: GroupKey; label: string }[] = GROUPS.map((g) => ({ key: g.key, label: g.short }));
 type SortKey = 'name' | GroupKey | 'totalContent' | 'totalBudget' | 'avg';
@@ -60,7 +113,7 @@ function EmployeeTable({ employees, onCell }: { employees: EmployeeRow[]; onCell
           <thead>
             <tr>
               <th className={`${th} text-left`} onClick={() => toggle('name')}>Nhân viên{arrow('name')}</th>
-              {EMP_COLS.map((c) => <th key={c.key} className={`${th} text-right`} onClick={() => toggle(c.key)}>{c.label}{arrow(c.key)}</th>)}
+              {EMP_COLS.map((c) => <th key={c.key} className={`${th} text-right`} title="Số content · ngân sách" onClick={() => toggle(c.key)}>{c.label}{arrow(c.key)}</th>)}
               <th className={`${th} text-right`} onClick={() => toggle('totalContent')}>Tổng content{arrow('totalContent')}</th>
               <th className={`${th} text-right`} onClick={() => toggle('totalBudget')}>Tổng ngân sách{arrow('totalBudget')}</th>
               <th className={`${th} text-right`} onClick={() => toggle('avg')}>Ngân sách TB{arrow('avg')}</th>
@@ -74,7 +127,9 @@ function EmployeeTable({ employees, onCell }: { employees: EmployeeRow[]; onCell
                   {EMP_COLS.map((c) => (
                     <td key={c.key} className="px-2 py-1.5 text-right tabular-nums">
                       {e.counts[c.key] > 0
-                        ? <button onClick={() => onCell(e.name, c.key)} className="text-accent hover:underline">{e.counts[c.key]}</button>
+                        ? <button onClick={() => onCell(e.name, c.key)} className="text-accent hover:underline" title={`${e.name} · ${c.label}`}>
+                            {e.counts[c.key]} <span className="text-muted">· {fmtVNDShort(e.budgets[c.key])}</span>
+                          </button>
                         : <span className="text-muted">0</span>}
                     </td>
                   ))}
@@ -155,9 +210,15 @@ export function MarketDashboard({ a, onDrill }: { a: MarketAnalysis; onDrill: Dr
           onRowClick={(r) => { const g = a.groups.find((x) => x.key === r.key && x.label === r.label); if (g) drillGroup(g.key, g.label); }} maxHeight={9999} />
       </div>
 
-      {/* Bảng theo nhân viên */}
+      {/* Phân tích theo nhân viên — biểu đồ cột chồng + bảng chi tiết */}
       <div className="mt-4">
-        <SectionHeader title="Phân tích theo nhân viên Ads" action={<span className="text-xs text-muted">bấm số để xem content của nhóm</span>} />
+        <SectionHeader title="Phân tích theo nhân viên Ads" action={<span className="text-xs text-muted">mỗi cột = 1 nhân viên · chia theo nhóm</span>} />
+        <div className="rounded-card border border-line bg-surface p-3">
+          <EmployeeChart employees={a.employees} />
+        </div>
+      </div>
+      <div className="mt-3">
+        <SectionHeader title="Bảng chi tiết theo nhân viên" action={<span className="text-xs text-muted">mỗi ô: số content · ngân sách — bấm để xem content</span>} />
         <EmployeeTable employees={a.employees} onCell={drillCell} />
       </div>
     </div>

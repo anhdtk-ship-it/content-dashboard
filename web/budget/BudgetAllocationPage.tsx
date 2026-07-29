@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PageContainer, LoadingSkeleton, EmptyState, ActionButton } from '../../src/components/ui';
 import { fetchAdsForMonth, currentMonth, type AdsRow } from './budgetApi';
 import { buildMarketAnalysis, type EnrichedRow } from './selectors';
-import { BUDGET_THRESHOLD } from './config';
+import { BUDGET_THRESHOLD, NOIDIA_EXCLUDE_OWNERS } from './config';
 import { MarketDashboard } from './MarketDashboard';
 import { BudgetDrawer } from './BudgetDrawer';
 
@@ -33,7 +33,7 @@ export function BudgetAllocationPage() {
   }, [month, reload]);
 
   // Memoize: chỉ tính lại khi rows/month đổi — không query lại, không làm chậm.
-  const noiDia = useMemo(() => (rows ? buildMarketAnalysis(rows, 'TQ', month, BUDGET_THRESHOLD) : null), [rows, month]);
+  const noiDia = useMemo(() => (rows ? buildMarketAnalysis(rows, 'TQ', month, BUDGET_THRESHOLD, NOIDIA_EXCLUDE_OWNERS) : null), [rows, month]);
   const quocTe = useMemo(() => (rows ? buildMarketAnalysis(rows, 'NN', month, BUDGET_THRESHOLD) : null), [rows, month]);
 
   const onDrill = (title: string, r: EnrichedRow[]) => setDrill({ title, rows: r });
@@ -69,7 +69,10 @@ export function BudgetAllocationPage() {
                   {label}{an ? ` · ${an.kpi.totalContent} content` : ''}
                 </button>
               ))}
-              <span className="ml-auto text-xs text-muted">Chỉ tính chi tiêu &gt; 0 · mọi trạng thái</span>
+              <span className="ml-auto text-xs text-muted">
+                Chỉ tính chi tiêu &gt; 0 · mọi trạng thái
+                {market === 'TQ' && NOIDIA_EXCLUDE_OWNERS.length > 0 ? ` · Nội Địa không tính NV: ${NOIDIA_EXCLUDE_OWNERS.join(', ')}` : ''}
+              </span>
             </div>
             {(() => {
               const active = market === 'TQ' ? noiDia : quocTe;

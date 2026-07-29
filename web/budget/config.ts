@@ -7,3 +7,7 @@
  *   >= BUDGET_THRESHOLD → "Trên 5 triệu"  (= đúng ngưỡng cũng tính "Trên")
  * ========================================================== */
 export const BUDGET_THRESHOLD = 5_000_000;
+
+/* Nội Địa: KHÔNG tính content của các nhân viên Ads dưới đây (so khớp không phân biệt hoa/thường).
+ * Sửa DUY NHẤT tại đây — không hardcode trong selectors. Rỗng [] = tính tất cả. */
+export const NOIDIA_EXCLUDE_OWNERS: string[] = ['Br'];
