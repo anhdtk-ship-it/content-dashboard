@@ -31,6 +31,11 @@ const HEADER_CANDIDATES: Record<string, string[]> = {
   trello: ['Trello', 'Link Trello', 'Trello Card', 'Card ID', 'Link'],
 };
 
+/** content_format từ TÊN TAB: bỏ tiền tố "S_"/"S " (quy ước đặt tên Sheet) → 'S_Video'→'Video', 'S_Banner'→'Banner'. */
+export function formatFromTab(tabName: string): string {
+  return (tabName ?? '').toString().trim().replace(/^s[_\s]+/i, '').trim();
+}
+
 const norm = (s: unknown) => (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
 const cell = (row: string[], idx: number) => (idx < 0 ? '' : (row[idx] ?? '').toString().trim());
 const isEmptyRow = (row: string[]) => !row || row.every((c) => (c ?? '').toString().trim() === '');
@@ -68,7 +73,7 @@ export function stableKey(format: string, title: string, uploadReal: string | nu
 
 /** THUẦN — dựng ZaloContent[] từ 1 tab (đã biết tên = định dạng). Export để unit-test. */
 export function transformTab(tabName: string, values: string[][]): ZaloContent[] {
-  const format = tabName.trim();
+  const format = formatFromTab(tabName); // 'S_Video' → 'Video', 'S_Banner' → 'Banner'
   const hIdx = findHeaderRow(values);
   if (hIdx === -1) return [];
   const header = values[hIdx];

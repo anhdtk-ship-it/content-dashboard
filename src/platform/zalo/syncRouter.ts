@@ -11,7 +11,7 @@ import { runZaloSync } from './ZaloSyncService';
 
 const nowIso = () => new Date().toISOString();
 /** Đánh dấu phiên bản router — đổi mỗi lần deploy để xác nhận build mới đã live. */
-const ZALO_SYNC_VERSION = 'zalo-04.2-tabsdiag';
+const ZALO_SYNC_VERSION = 'zalo-04.3-fmtnorm';
 
 export function createZaloSyncRouter(deps: { onSynced?: () => void } = {}): express.Router {
   const router = express.Router();
