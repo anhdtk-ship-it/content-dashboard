@@ -30,14 +30,17 @@ function GroupChart({ groups, onPick }: { groups: GroupStat[]; onPick: (g: Group
   );
 }
 
-/* ---------- Biểu đồ cột chồng theo nhân viên (Ngân sách ↔ Số content) ---------- */
-function EmployeeChart({ employees }: { employees: EmployeeRow[] }) {
+/* ---------- Biểu đồ cột NHÓM cạnh nhau theo nhân viên (Ngân sách ↔ Số content) ----------
+ * Mỗi nhân viên = 1 cụm 4 cột đứng riêng biệt (Cũ<5tr / Cũ>5tr / Tươi<5tr / Tươi>5tr), số trên đầu. */
+function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell: (name: string, g: GroupKey) => void }) {
   const [metric, setMetric] = useState<'budget' | 'content'>('budget');
   const valOf = (e: EmployeeRow, k: GroupKey) => (metric === 'budget' ? e.budgets[k] : e.counts[k]);
   const totalOf = (e: EmployeeRow) => (metric === 'budget' ? e.totalBudget : e.totalContent);
   const fmtVal = (n: number) => (metric === 'budget' ? fmtVNDShort(n) : fmtNum(n));
-  const H = 200; // chiều cao vùng cột (px)
-  const max = Math.max(...employees.map(totalOf), 1);
+  const H = 190;   // chiều cao vùng vẽ cột (px)
+  const LBL = 16;  // chừa chỗ cho số trên đầu cột
+  // Thang đo chung: giá trị cột lớn nhất trên MỌI nhân viên & MỌI nhóm.
+  const max = Math.max(...employees.flatMap((e) => GROUPS.map((g) => valOf(e, g.key))), 1);
   const list = [...employees].sort((a, b) => totalOf(b) - totalOf(a));
 
   return (
@@ -60,21 +63,35 @@ function EmployeeChart({ employees }: { employees: EmployeeRow[] }) {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <div className="flex items-end gap-4 pb-1" style={{ minHeight: H + 40 }}>
+        <div className="flex items-end gap-6 border-b border-line pb-0" style={{ minHeight: H + 6 }}>
           {list.map((e) => (
-            <div key={e.name} className="flex flex-col items-center gap-1" style={{ width: 58, flex: '0 0 auto' }}>
-              <span className="text-[10px] font-semibold tabular-nums text-fg">{fmtVal(totalOf(e))}</span>
-              <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-md" style={{ height: H }}>
+            <div key={e.name} className="flex flex-col items-center" style={{ flex: '0 0 auto' }}>
+              {/* cụm 4 cột đứng cạnh nhau */}
+              <div className="flex items-end gap-[3px]" style={{ height: H }}>
                 {GROUPS.map((g) => {
                   const v = valOf(e, g.key);
-                  if (v <= 0) return null;
+                  const h = v > 0 ? Math.max((v / max) * (H - LBL), 2) : 0;
                   return (
-                    <div key={g.key} style={{ height: `${(v / max) * H}px`, background: g.color }}
-                      title={`${e.name} · ${g.short}\nContent: ${fmtNum(e.counts[g.key])}\nNgân sách: ${fmtVND(e.budgets[g.key])}`} />
+                    <button key={g.key} onClick={() => v > 0 && onCell(e.name, g.key)}
+                      title={`${e.name} · ${g.short}\nContent: ${fmtNum(e.counts[g.key])}\nNgân sách: ${fmtVND(e.budgets[g.key])}`}
+                      className="flex h-full flex-col items-center justify-end outline-none" style={{ width: 18 }}>
+                      <span className="mb-0.5 text-[9px] leading-none tabular-nums text-fg" style={{ height: LBL - 4 }}>
+                        {v > 0 ? fmtVal(v) : ''}
+                      </span>
+                      <div className="w-full rounded-t-[3px] transition hover:brightness-110"
+                        style={{ height: `${h}px`, background: g.color }} />
+                    </button>
                   );
                 })}
               </div>
-              <span className="max-w-[58px] truncate text-[10px] text-muted" title={e.name}>{e.name}</span>
+            </div>
+          ))}
+        </div>
+        {/* tên nhân viên dưới trục */}
+        <div className="flex gap-6">
+          {list.map((e) => (
+            <div key={e.name} className="text-center" style={{ width: 18 * 4 + 3 * 3, flex: '0 0 auto' }}>
+              <span className="mt-1 block truncate text-[11px] text-muted" title={e.name}>{e.name}</span>
             </div>
           ))}
         </div>
@@ -214,7 +231,7 @@ export function MarketDashboard({ a, onDrill }: { a: MarketAnalysis; onDrill: Dr
       <div className="mt-4">
         <SectionHeader title="Phân tích theo nhân viên Ads" action={<span className="text-xs text-muted">mỗi cột = 1 nhân viên · chia theo nhóm</span>} />
         <div className="rounded-card border border-line bg-surface p-3">
-          <EmployeeChart employees={a.employees} />
+          <EmployeeChart employees={a.employees} onCell={drillCell} />
         </div>
       </div>
       <div className="mt-3">
