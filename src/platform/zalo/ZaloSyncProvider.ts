@@ -18,7 +18,7 @@ import { createGoogleAuth } from '../../google-auth';
 import { parseDdmmToReal } from '../../date-util';
 import type { ZaloContent } from './ZaloContent';
 
-const DEFAULT_TABS = ['Video', 'Banner'];
+const DEFAULT_TABS = ['S_Video', 'S_Banner']; // CHỈ đọc 2 tab này (bỏ Tổng hợp/Draft…)
 
 // Header ứng viên (khớp không phân biệt hoa/thường, gộp khoảng trắng).
 const HEADER_CANDIDATES: Record<string, string[]> = {
@@ -133,21 +133,14 @@ export class ZaloSyncProvider {
     const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
     const allTitles = (meta.data.sheets ?? []).map((s) => s.properties?.title ?? '').filter(Boolean);
 
-    // Chọn tab: nếu ĐẶT env ZALO_SHEET_TABS → chỉ đọc các tab đó; nếu KHÔNG → đọc TẤT CẢ tab
-    // (Sheet Zalo chỉ gồm tab content; transformTab tự bỏ tab không có header content).
-    const wanted = (process.env.ZALO_SHEET_TABS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-    let tabs: string[];
-    if (wanted.length) {
-      tabs = wanted
-        .map((w) => allTitles.find((t) => t.trim().toLowerCase() === w.toLowerCase()))
-        .filter((t): t is string => !!t);
-      if (tabs.length === 0) {
-        throw new Error(`Không thấy tab [${wanted.join(', ')}] — tab hiện có trong Sheet: [${allTitles.join(', ')}]. Sửa env ZALO_SHEET_TABS cho khớp.`);
-      }
-    } else {
-      tabs = allTitles;
+    // CHỈ đọc S_Video + S_Banner (mặc định) — KHÔNG đọc Tổng hợp/Draft… Cho phép ghi đè bằng ZALO_SHEET_TABS.
+    const wanted = (process.env.ZALO_SHEET_TABS ?? DEFAULT_TABS.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
+    const tabs = wanted
+      .map((w) => allTitles.find((t) => t.trim().toLowerCase() === w.toLowerCase()))
+      .filter((t): t is string => !!t);
+    if (tabs.length === 0) {
+      throw new Error(`Không thấy tab [${wanted.join(', ')}] — tab hiện có trong Sheet: [${allTitles.join(', ')}]. Sửa env ZALO_SHEET_TABS cho khớp.`);
     }
-    if (tabs.length === 0) throw new Error(`Google Sheet Zalo không có tab nào để đọc. Tab hiện có: [${allTitles.join(', ')}].`);
     console.log(`[ContentSyncZalo] Tab trong Sheet: [${allTitles.join(' | ')}] → đọc: [${tabs.join(' | ')}]`);
 
     const res = await sheets.spreadsheets.values.batchGet({
