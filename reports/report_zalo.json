@@ -1,0 +1,137 @@
+{
+  "range": {
+    "from": "2026-07-01",
+    "to": "2026-07-31",
+    "label": "01/07/2026 – 31/07/2026"
+  },
+  "formats": [
+    "Banner",
+    "Story",
+    "Video",
+    ""
+  ],
+  "byFormat": [
+    {
+      "format": "Banner",
+      "label": "Banner",
+      "capped": 7,
+      "khongTest": 1,
+      "ton": 3,
+      "dangTest": 1,
+      "duyTri": 2,
+      "tested": 3,
+      "rateTest": 0.42857142857142855,
+      "rateDuyTri": 0.6666666666666666
+    },
+    {
+      "format": "Story",
+      "label": "Story",
+      "capped": 2,
+      "khongTest": 0,
+      "ton": 0,
+      "dangTest": 1,
+      "duyTri": 1,
+      "tested": 2,
+      "rateTest": 1,
+      "rateDuyTri": 0.5
+    },
+    {
+      "format": "Video",
+      "label": "Video",
+      "capped": 13,
+      "khongTest": 1,
+      "ton": 3,
+      "dangTest": 5,
+      "duyTri": 3,
+      "tested": 8,
+      "rateTest": 0.6153846153846154,
+      "rateDuyTri": 0.375
+    },
+    {
+      "format": "",
+      "label": "Chưa có định dạng",
+      "capped": 1,
+      "khongTest": 0,
+      "ton": 0,
+      "dangTest": 1,
+      "duyTri": 0,
+      "tested": 1,
+      "rateTest": 1,
+      "rateDuyTri": 0
+    }
+  ],
+  "team": {
+    "format": "ALL",
+    "label": "ALL",
+    "capped": 23,
+    "khongTest": 2,
+    "ton": 6,
+    "dangTest": 8,
+    "duyTri": 6,
+    "tested": 14,
+    "rateTest": 0.6086956521739131,
+    "rateDuyTri": 0.42857142857142855
+  },
+  "attention": [
+    {
+      "format": "Banner",
+      "label": "Banner",
+      "chuaPhanLoai": 0,
+      "chuaTest": 3,
+      "testQuaLau": 1,
+      "thieuNgayTest": 0
+    },
+    {
+      "format": "Story",
+      "label": "Story",
+      "chuaPhanLoai": 0,
+      "chuaTest": 0,
+      "testQuaLau": 0,
+      "thieuNgayTest": 0
+    },
+    {
+      "format": "Video",
+      "label": "Video",
+      "chuaPhanLoai": 1,
+      "chuaTest": 3,
+      "testQuaLau": 3,
+      "thieuNgayTest": 1
+    },
+    {
+      "format": "",
+      "label": "Chưa có định dạng",
+      "chuaPhanLoai": 0,
+      "chuaTest": 0,
+      "testQuaLau": 1,
+      "thieuNgayTest": 0
+    }
+  ],
+  "generatedAt": "2026-07-28T09:08:04.224Z",
+  "narrative": {
+    "reviews": {
+      "Banner": [
+        "⚠ Tăng tốc đưa Content vào test (mới 3/7 = 42.9%).",
+        "⚠ Ưu tiên xử lý 3 Content tồn (chờ chạy).",
+        "✓ Chọn Content hiệu quả tốt (2 Duy trì / 3 đã test = 66.7%)."
+      ],
+      "Story": [
+        "✓ Chọn Content hiệu quả tốt (1 Duy trì / 2 đã test = 50%)."
+      ],
+      "Video": [
+        "⚠ Tăng tốc đưa Content vào test (mới 8/13 = 61.5%).",
+        "⚠ Ưu tiên xử lý 3 Content tồn (chờ chạy).",
+        "✓ Chọn Content hiệu quả tốt (3 Duy trì / 8 đã test = 37.5%)."
+      ],
+      "": [
+        "✓ Tiến độ ổn định (đã cấp 1, test 100%, Duy trì 0)."
+      ]
+    },
+    "plans": [
+      "Xử lý dứt điểm 6 Content tồn (chờ chạy).",
+      "Nâng tỷ lệ test lên trên 70% (hiện 60.9%).",
+      "Tập trung định dạng Banner (tỷ lệ test thấp nhất 42.9%).",
+      "Nhân rộng hướng nội dung định dạng Banner (2 Duy trì)."
+    ]
+  },
+  "exportedAt": "28/07/2026"
+}

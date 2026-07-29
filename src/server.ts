@@ -7,6 +7,8 @@ import adsMonitorRouter from './ads-monitor/routes';
 import { createContentSyncRouter } from './content-sync/routes';
 import { requireAuth } from './auth/authMiddleware';
 import authRouter from './auth/routes';
+import { createZaloRouter } from './platform/zalo/api';
+import { createZaloSyncRouter } from './platform/zalo/syncRouter';
 
 const PORT = Number(process.env.PORT ?? 4000);
 const url = process.env.SUPABASE_URL?.trim();
@@ -657,6 +659,17 @@ app.use('/api/content-sync', createContentSyncRouter({ onSynced: invalidateConte
 // Ads Monitor — API nội bộ độc lập (PHASE 3, mock). Đăng ký TRƯỚC SPA fallback.
 app.use('/ads-monitor', requireAuth);   // AUTH: bảo vệ (chỉ thêm middleware, KHÔNG đổi router Ads)
 app.use('/ads-monitor', adsMonitorRouter);
+
+/* ============================================================
+ * MODULE ZALO (đa nền tảng) — CHỈ THÊM MỚI, ĐỘC LẬP với API Facebook ở trên.
+ * KHÔNG sửa route/logic Facebook. Đăng ký TRƯỚC SPA fallback.
+ * ========================================================== */
+const zaloApi = createZaloRouter();
+// Webhook auto-sync Zalo (secret riêng ZALO_SYNC_SECRET) — public như /api/content-sync, KHÔNG qua requireAuth.
+app.use('/api/zalo-sync', createZaloSyncRouter({ onSynced: () => zaloApi.invalidate() }));
+// API dữ liệu Zalo — bảo vệ bằng requireAuth (giống /api/v3, /ads-monitor).
+app.use('/api/zalo', requireAuth);
+app.use('/api/zalo', zaloApi.router);
 
 // SPA fallback — trả về web/dist/index.html cho mọi route không phải /api/*
 app.get('/{*splat}', (_req, res) => {

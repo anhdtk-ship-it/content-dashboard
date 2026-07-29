@@ -16,6 +16,8 @@ import { UsagePage } from './UsagePage';
 import { AnalyticsPage } from './AnalyticsPage';
 import { AdsMonitorPage } from './ads-monitor/pages/AdsMonitorPage';
 import { WeeklyReportPage } from './reports/pages/WeeklyReportPage';
+import { ZaloDashboardPage } from './zalo/ZaloDashboardPage';
+import { ZaloWeeklyPage } from './zalo/ZaloWeeklyPage';
 import { AuthGate } from './auth/AuthGate';
 import { installAuthFetch } from './auth/authFetch';
 
@@ -40,6 +42,11 @@ const NAV: { label: string; items: { icon: string; label: string; href: string; 
   { label: '📝 Reports', items: [
     { icon: '📝', label: 'Weekly Report', href: '#/weekly-report', key: 'weekly-report' },
   ] },
+  // Module mới (ZALO-01) — nền tảng Zalo, ĐỘC LẬP với Facebook. Chỉ THÊM MỚI.
+  { label: '💬 Zalo', items: [
+    { icon: '📊', label: 'Tổng Quan Zalo', href: '#/zalo', key: 'zalo' },
+    { icon: '📝', label: 'Weekly Zalo', href: '#/zalo-weekly', key: 'zalo-weekly' },
+  ] },
 ];
 
 function Stub({ title }: { title: string }) {
@@ -63,6 +70,9 @@ const PAGES: Record<string, { title: string; el: ReactNode }> = {
   'ads-monitor': { title: 'Ads Monitor', el: <AdsMonitorPage /> },
   // Module mới (PHASE 8)
   'weekly-report': { title: 'Báo cáo tuần', el: <WeeklyReportPage /> },
+  // Module mới (ZALO-01)
+  zalo: { title: 'Zalo — Tổng Quan', el: <ZaloDashboardPage /> },
+  'zalo-weekly': { title: 'Zalo — Báo cáo tuần', el: <ZaloWeeklyPage /> },
 };
 
 const routeKey = (h: string) => (h || '').replace(/^#\//, '').split('?')[0] || 'overview';

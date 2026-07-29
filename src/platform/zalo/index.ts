@@ -1,4 +1,4 @@
-/* PHASE 13 — PlatformModule cho Zalo. */
+/* PlatformModule cho Zalo. */
 import type { PlatformModule } from '../types';
 import { zaloStatusRule } from './ZaloStatusRule';
 
@@ -6,9 +6,10 @@ export const zaloModule: PlatformModule = {
   platform: 'zalo',
   label: 'Zalo',
   statusRule: zaloStatusRule,
-  hasContentFormat: true,        // Zalo dùng content_format (Video/Banner)
-  sheetEnvKey: 'ZALO_SHEET_ID',  // Google Sheet RIÊNG của Zalo (đặt env khi triển khai)
+  hasContentFormat: true,        // Zalo dùng content_format (Video/Banner/… — tự do)
+  sheetEnvKey: 'ZALO_SHEET_ID',  // Google Sheet RIÊNG của Zalo
 };
 
-export { zaloStatusRule };
-export { ZALO_CONTENT_FORMATS, parseContentFormat } from './contentFormat';
+export { zaloStatusRule, isDuyTri, ZALO_GROUPS } from './ZaloStatusRule';
+export { parseContentFormat, UNSPECIFIED_FORMAT_LABEL } from './contentFormat';
+export type { ZaloContent, ZaloContentRow } from './ZaloContent';

@@ -385,4 +385,30 @@ Tái dùng `WeeklyReportService` + `ruleEngine` + `ReportDocument` + print CSS; 
 
 ---
 
+## 13. Module ZALO (ZALO-01) — Đa nền tảng, ĐỘC LẬP Facebook
+
+Facebook = **Stable Version** (không đụng). Zalo là module thêm mới hoàn toàn; kiến trúc `platform` sẵn cho nền tảng kế (TikTok…) chỉ bằng cách thêm 1 Platform. Chi tiết vận hành: [`ZALO_SETUP.md`](ZALO_SETUP.md).
+
+### 13.1 Schema (`sql/010_zalo.sql`, thay thế `009`)
+3 bảng đa nền tảng keyed by cột `platform` (KHÔNG đụng bảng FB `contents`): `platform_contents` (có `content_format` TỰ DO — không ràng buộc Video/Banner), `platform_settings` (`target:<Định dạng>`, `test_warning_days` — Leader sửa không cần code), `platform_sync_logs`. RLS khoá, chỉ service_role.
+
+### 13.2 Business Rule Zalo (`src/platform/zalo/ZaloStatusRule.ts`) — RIÊNG, KHÔNG chung FB
+Trạng thái: **Tồn** (chờ chạy) · **Đang test** · **Duy trì** · **Không test** (rỗng = Chưa phân loại). `isTested`=Đang test|Duy trì; `isClosed`=Không test. Zalo KHÔNG có market — chia theo **định dạng** (động, không hardcode).
+
+### 13.3 Dashboard (menu 💬 Zalo) — theo THÁNG, chia theo định dạng
+§V Khối định dạng (Đã cấp·Không test·Tồn·Đang test·Duy trì) · §VI Tiến độ (Actual/Target·%·so cùng kỳ tháng trước·so lịch·forecast) · §VII Cần xử lý (ẩn khi 0, ưu tiên Đỏ/Cam/Vàng) · §VIII So sánh định dạng (bảng, tự thêm định dạng mới) · §IX Data Quality. Số liệu PURE dùng chung API/Web/PDF: `zaloMetrics.ts` + `zaloWeeklyMetrics.ts` (không lệch).
+
+### 13.4 API / Sync / PDF
+- API `/api/zalo/*` (requireAuth): `summary`·`contents`·`weekly`·`sync-status`·`settings`(GET/PUT). Mount ADDITIVE trong `server.ts`, KHÔNG đổi `/api/v3` của FB.
+- Sync: đọc Sheet RIÊNG theo **tên header** (env `ZALO_SHEET_ID`) → `platform_contents`. CLI `npm run zalo:sync`; webhook `/api/zalo-sync` (secret `ZALO_SYNC_SECRET`, queue riêng) + `apps-script/ContentSyncZalo.gs`.
+- Weekly Zalo (menu Weekly Zalo) + PDF A4 dọc, KHÔNG QR: `reports/build_zalo_weekly_data.ts` → `reports/zalo_report_pdf.py`.
+
+### 13.5 Thêm nền tảng mới (TikTok…)
+Tạo `src/platform/<nền-tảng>/` (StatusRule + module), đăng ký `registry.ts`, mount `/api/<nền-tảng>` trong `server.ts` (1 dòng) — dùng lại bảng `platform_*`, KHÔNG đổi schema/logic có sẵn.
+
+### 13.6 ZALO-04 — nối Google Sheet thật (2 tab)
+Google Sheet Zalo có ĐÚNG 2 tab `Video`/`Banner`; `content_format` = **tên tab** (không có cột định dạng/thị trường/người phụ trách). Backend đọc đồng thời 2 tab → merge → sync (`ZaloContentSyncService` + `ZaloSyncProvider.transformTab`). Mapping: Tên Content→`title` (cột thêm ở `sql/011_zalo_title.sql`), Ngày Up Trello→"đã cấp", Ngày test, Trạng thái. **Khoá định danh ổn định**: Content ID → Trello card id → hash(format|title|ngày up) — KHÔNG dùng số dòng → chống trùng khi re-sync. Settings thêm `warning_threshold`; Leader chỉnh Target/ngưỡng ngay trong Dashboard (`ZaloSettingsPanel`). Data Quality: "thiếu dữ liệu bắt buộc" (thiếu tên) + "trùng" theo TÊN. Auto-sync webhook `/api/zalo-sync` debounce 60s + `apps-script/ContentSyncZalo.gs`.
+
+---
+
 > **Quy tắc vàng:** PR/commit nào đổi schema, API, sync, dashboard, phân quyền → **cập nhật PROJECT_SPEC.md trong cùng thay đổi đó**.

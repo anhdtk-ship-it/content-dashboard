@@ -11,8 +11,10 @@
 
 export type Platform = 'facebook' | 'zalo';
 
-/** Định dạng content — CHỈ Zalo dùng. Facebook KHÔNG có trường này. */
-export type ContentFormat = 'Video' | 'Banner';
+/** Định dạng content — CHỈ các nền tảng có content_format dùng (VD Zalo). Facebook KHÔNG có.
+ *  KIỂU TỰ DO (string): KHÔNG hardcode 'Video'/'Banner' → thêm định dạng mới (VD 'TikTok Ads',
+ *  'Story') chỉ cần có dữ liệu/cấu hình, Dashboard tự hiển thị, không phải sửa code. */
+export type ContentFormat = string;
 
 /** Màu/nhãn hiển thị 1 nhóm trạng thái (tuỳ chọn — nền tảng có thể tự định nghĩa). */
 export interface StatusStyle {

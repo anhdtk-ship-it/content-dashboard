@@ -4,7 +4,7 @@ import { getAccessToken } from './supabaseClient';
  * (/api/v3, /ads-monitor, /api/auth) — KHÔNG phải sửa từng trang Dashboard.
  * Bỏ qua /api/config (public, tránh đệ quy khi khởi tạo Supabase client). */
 
-const PROTECTED = ['/api/v3', '/ads-monitor', '/api/auth'];
+const PROTECTED = ['/api/v3', '/ads-monitor', '/api/auth', '/api/zalo'];
 
 function urlOf(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input;

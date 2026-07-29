@@ -1,3 +1,6 @@
+-- ⛔ ĐÃ THAY THẾ BỞI sql/010_zalo.sql — KHÔNG CHẠY FILE NÀY.
+--    (010 dùng bảng đa nền tảng platform_contents, không ràng buộc Video/Banner → mở rộng được.)
+--
 -- Migration 009 (PHASE 13 — SCAFFOLD Zalo). Bảng RIÊNG cho nền tảng Zalo.
 -- ADDITIVE tuyệt đối: KHÔNG đụng bảng contents / ads_monitor / sync_logs / users của Facebook.
 -- Chạy TAY trong Supabase SQL Editor KHI bắt đầu phát triển Zalo (chưa cần chạy ngay).
