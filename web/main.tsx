@@ -24,28 +24,37 @@ import { installAuthFetch } from './auth/authFetch';
 // AUTH: gắn Bearer token vào request API (chạy TRƯỚC khi render). Chỉ bổ sung, không sửa page.
 installAuthFetch();
 
-/* ---------- menu & routes (1 nguồn duy nhất) ----------
- * Menu (V5) đã gộp: chỉ hiện Tổng Quan + 2 trang gộp. Các route cũ
- * (assignees/markets/explorer/lifecycle/sync/users/settings) GIỮ NGUYÊN
- * trong PAGES (không xóa route/code), chỉ ẩn khỏi menu điều hướng. */
-const NAV: { label: string; items: { icon: string; label: string; href: string; key: string }[] }[] = [
-  { label: '📊 Dashboard', items: [
-    { icon: '📋', label: 'Tổng Quan', href: '#/overview', key: 'overview' },
-    { icon: '🌐', label: 'Thị Trường', href: '#/markets', key: 'markets' },
-    { icon: '🔎', label: 'Content & Vòng đời', href: '#/analytics', key: 'analytics' },
-  ] },
-  // Module mới (PHASE 1) — độc lập, chỉ thêm mới, không đụng menu cũ.
-  { label: '📡 Ads Monitor', items: [
-    { icon: '📡', label: 'Ads Monitor', href: '#/ads-monitor', key: 'ads-monitor' },
-  ] },
-  // Module mới (PHASE 8) — Reports (hiện chỉ Weekly Report). Độc lập, chỉ đọc API.
-  { label: '📝 Reports', items: [
+/* ---------- menu theo PLATFORM (CHỈ đổi vị trí menu — KHÔNG đổi route/logic) ----------
+ * Facebook / Zalo là 2 nhóm Expand/Collapse; mỗi mục trỏ tới ROUTE ĐÃ CÓ trong PAGES.
+ * Mục Zalo chưa dựng trang → disabled placeholder (không thêm route). Cấu trúc mở rộng
+ * TikTok/Website/Google Ads về sau chỉ cần thêm 1 object nhóm — không phải sửa lại. */
+type NavItemDef = { icon: string; label: string; href?: string; key?: string; disabled?: boolean };
+type NavGroupDef = { key?: string; label?: string; icon?: string; collapsible?: boolean; items: NavItemDef[] };
+const NAV: NavGroupDef[] = [
+  // 🏠 Dashboard — mục đơn (trang chủ = Tổng Quan hiện tại).
+  { items: [{ icon: '🏠', label: 'Dashboard', href: '#/overview', key: 'home' }] },
+
+  // 📘 Facebook — nhóm platform (trỏ tới các route Facebook ĐANG CÓ, giữ nguyên trang).
+  { key: 'facebook', icon: '📘', label: 'Facebook', collapsible: true, items: [
+    { icon: '📋', label: 'Tổng quan', href: '#/overview', key: 'overview' },
+    { icon: '📈', label: 'Tiến độ Content', href: '#/usage', key: 'usage' },
     { icon: '📝', label: 'Weekly Report', href: '#/weekly-report', key: 'weekly-report' },
+    { icon: '🔎', label: 'Content Explorer', href: '#/explorer', key: 'explorer' },
+    { icon: '♻️', label: 'Vòng đời Content', href: '#/lifecycle', key: 'lifecycle' },
+    { icon: '📡', label: 'Ads Monitor', href: '#/ads-monitor', key: 'ads-monitor' },
+    { icon: '🔄', label: 'Quản lý Sync', href: '#/sync', key: 'sync' },
+    { icon: '⚙️', label: 'Cài đặt', href: '#/settings', key: 'settings' },
   ] },
-  // Module mới (ZALO-01) — nền tảng Zalo, ĐỘC LẬP với Facebook. Chỉ THÊM MỚI.
-  { label: '💬 Zalo', items: [
-    { icon: '📊', label: 'Tổng Quan Zalo', href: '#/zalo', key: 'zalo' },
-    { icon: '📝', label: 'Weekly Zalo', href: '#/zalo-weekly', key: 'zalo-weekly' },
+
+  // 💬 Zalo — nhóm platform (trang đã có: Tổng quan + Weekly; còn lại placeholder "sắp có").
+  { key: 'zalo', icon: '💬', label: 'Zalo', collapsible: true, items: [
+    { icon: '📋', label: 'Tổng quan', href: '#/zalo', key: 'zalo' },
+    { icon: '📈', label: 'Tiến độ Content', disabled: true },
+    { icon: '📝', label: 'Weekly Report', href: '#/zalo-weekly', key: 'zalo-weekly' },
+    { icon: '🔎', label: 'Content Explorer', disabled: true },
+    { icon: '♻️', label: 'Vòng đời Content', disabled: true },
+    { icon: '🔄', label: 'Quản lý Sync', disabled: true },
+    { icon: '⚙️', label: 'Cài đặt', disabled: true },
   ] },
 ];
 
@@ -90,12 +99,15 @@ function App() {
   const key = routeKey(hash);
   const page = PAGES[key] ?? PAGES.overview;
   useEffect(() => { document.title = `${page.title} — Ops Dashboard`; }, [page.title]); // Meta title đồng bộ tên trang
-  const group = NAV.find((g) => g.items.some((it) => it.key === key))?.label ?? '📊 Dashboard';
-  const groupName = group.replace(/^\S+\s/, ''); // bỏ emoji cho breadcrumb
+  // Tên platform (Facebook/Zalo) cho breadcrumb — theo nhóm chứa trang hiện tại.
+  const groupName = NAV.find((g) => g.collapsible && g.items.some((it) => it.key === key))?.label ?? 'Dashboard';
 
   const navGroups = NAV.map((g) => ({
+    key: g.key,
     label: g.label,
-    items: g.items.map((it) => ({ ...it, active: it.key === key })),
+    icon: g.icon,
+    collapsible: g.collapsible,
+    items: g.items.map((it) => ({ ...it, active: !it.disabled && it.key === key })),
   }));
 
   return (
