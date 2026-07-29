@@ -27,7 +27,7 @@ export interface SidebarProps {
 }
 
 const ITEM_BASE =
-  'mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent';
+  'mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-[15px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent';
 
 /** Sidebar điều hướng theo Platform: nhóm Facebook/Zalo/… expand-collapse (accordion),
  *  tự mở nhóm chứa trang đang xem. THUẦN UI — không đụng route/logic/dữ liệu. */
@@ -53,7 +53,7 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
       <a key={j} href={it.href} onClick={it.onClick} title={collapsed ? it.label : undefined}
         aria-current={it.active ? 'page' : undefined}
         className={`${ITEM_BASE} ${collapsed ? 'justify-center px-0' : ''} ${
-          it.active ? 'bg-surface2 text-fg' : 'text-muted hover:bg-surface hover:text-fg'
+          it.active ? 'bg-surface2 font-semibold text-fg' : 'text-fg/75 hover:bg-surface hover:text-fg'
         }`}>
         <span className="w-4 shrink-0 text-center">{it.icon}</span>
         {!collapsed && <span className="flex-1 truncate">{it.label}</span>}
@@ -89,7 +89,7 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
             const groupActive = g.items.some((it) => it.active);
             return (
               <a key={i} href={first?.href} title={g.label}
-                className={`${ITEM_BASE} justify-center px-0 ${groupActive ? 'bg-surface2 text-fg' : 'text-muted hover:bg-surface hover:text-fg'}`}>
+                className={`${ITEM_BASE} justify-center px-0 ${groupActive ? 'bg-surface2 text-fg' : 'text-fg/75 hover:bg-surface hover:text-fg'}`}>
                 <span className="w-4 shrink-0 text-center">{g.icon}</span>
               </a>
             );
@@ -102,12 +102,12 @@ export function Sidebar({ brand, groups, footer, collapsed = false, className = 
             <div key={i} className="mb-1">
               <button type="button" onClick={() => setExpanded(isOpen ? null : (g.key ?? null))}
                 aria-expanded={isOpen}
-                className={`mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13.5px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent ${
-                  groupActive ? 'text-fg' : 'text-muted hover:bg-surface hover:text-fg'
+                className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[15.5px] font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent ${
+                  groupActive ? 'bg-surface2 text-fg' : 'text-fg/90 hover:bg-surface hover:text-fg'
                 }`}>
-                <span className="w-4 shrink-0 text-center">{g.icon}</span>
+                <span className="w-4 shrink-0 text-center text-[17px]">{g.icon}</span>
                 <span className="flex-1 truncate text-left">{g.label}</span>
-                <span className={`text-[9px] text-muted transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                <span className={`text-[11px] text-fg/60 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
               </button>
               {isOpen && (
                 <div className="mb-1 ml-[18px] border-l border-line pl-2">

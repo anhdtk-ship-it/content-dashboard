@@ -42,19 +42,12 @@ const NAV: NavGroupDef[] = [
     { icon: '🔎', label: 'Content Explorer', href: '#/explorer', key: 'explorer' },
     { icon: '♻️', label: 'Vòng đời Content', href: '#/lifecycle', key: 'lifecycle' },
     { icon: '📡', label: 'Ads Monitor', href: '#/ads-monitor', key: 'ads-monitor' },
-    { icon: '🔄', label: 'Quản lý Sync', href: '#/sync', key: 'sync' },
-    { icon: '⚙️', label: 'Cài đặt', href: '#/settings', key: 'settings' },
   ] },
 
-  // 💬 Zalo — nhóm platform (trang đã có: Tổng quan + Weekly; còn lại placeholder "sắp có").
+  // 💬 Zalo — nhóm platform (chỉ hiện trang đã dựng: Tổng quan + Weekly Report).
   { key: 'zalo', icon: '💬', label: 'Zalo', collapsible: true, items: [
     { icon: '📋', label: 'Tổng quan', href: '#/zalo', key: 'zalo' },
-    { icon: '📈', label: 'Tiến độ Content', disabled: true },
     { icon: '📝', label: 'Weekly Report', href: '#/zalo-weekly', key: 'zalo-weekly' },
-    { icon: '🔎', label: 'Content Explorer', disabled: true },
-    { icon: '♻️', label: 'Vòng đời Content', disabled: true },
-    { icon: '🔄', label: 'Quản lý Sync', disabled: true },
-    { icon: '⚙️', label: 'Cài đặt', disabled: true },
   ] },
 ];
 
