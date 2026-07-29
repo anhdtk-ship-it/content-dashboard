@@ -22,6 +22,7 @@ export interface ZaloSyncResult {
   inserted: number; updated: number; unchanged: number; pruned: number; errors: number;
   durationMs: number; startedAt: string; finishedAt: string;
   errorDetails: { stage: string; message: string }[]; logId: number | string | null; atomic: boolean;
+  errorStack?: string; // stack trace đầy đủ khi lỗi (phục vụ chẩn đoán qua /api/zalo-sync/status)
 }
 
 type Logger = (m: string) => void;
@@ -65,11 +66,30 @@ export class ZaloContentSyncService {
 }
 export const zaloContentSyncService = new ZaloContentSyncService();
 
+/** Bọc ngoài: KHÔNG ném lỗi ra Queue — trả ZaloSyncResult 'failed' kèm STACK TRACE đầy đủ
+ *  (Queue là hạ tầng dùng chung với Facebook nên KHÔNG sửa; xử lý lỗi gọn trong module Zalo). */
 export async function runZaloSync(opts: RunZaloOpts = {}): Promise<ZaloSyncResult> {
-  const source = opts.source ?? 'manual';
-  const logger = opts.logger ?? noop;
   const startedAt = new Date();
   const t0 = Date.now();
+  const logger = opts.logger ?? noop;
+  try {
+    return await runZaloSyncCore(opts, startedAt, t0);
+  } catch (e: any) {
+    const stack = e?.stack ?? String(e);
+    logger('❌ FATAL runZaloSync:\n' + stack);
+    return {
+      platform: PLATFORM, status: 'failed',
+      rowsRead: 0, deduped: 0, invalid: 0, inserted: 0, updated: 0, unchanged: 0, pruned: 0, errors: 1,
+      durationMs: Date.now() - t0, startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString(),
+      errorDetails: [{ stage: 'run', message: e?.message ?? String(e) }], logId: null, atomic: false,
+      errorStack: stack,
+    };
+  }
+}
+
+async function runZaloSyncCore(opts: RunZaloOpts, startedAt: Date, t0: number): Promise<ZaloSyncResult> {
+  const source = opts.source ?? 'manual';
+  const logger = opts.logger ?? noop;
   const errorDetails: { stage: string; message: string }[] = [];
   const db: SupabaseClient = createSupa();
 

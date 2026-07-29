@@ -106,8 +106,11 @@ export function transformTab(tabName: string, values: string[][]): ZaloContent[]
 export class ZaloSyncProvider {
   /** Đọc ĐỒNG THỜI Sheet Video + Banner → merge → ZaloContent[]. */
   async fetchRecords(): Promise<ZaloContent[]> {
-    const spreadsheetId = process.env.ZALO_SHEET_ID?.trim();
-    if (!spreadsheetId) throw new Error('Thiếu ZALO_SHEET_ID — đặt id Google Sheet riêng của Zalo trong .env.');
+    // Chấp nhận cả 2 tên env (ZALO_GOOGLE_SHEET_ID ưu tiên — khớp cấu hình trên Railway; ZALO_SHEET_ID để tương thích).
+    const spreadsheetId = (process.env.ZALO_GOOGLE_SHEET_ID || process.env.ZALO_SHEET_ID || '').trim();
+    if (!spreadsheetId) {
+      throw new Error('Thiếu ZALO_GOOGLE_SHEET_ID (hoặc ZALO_SHEET_ID) — đặt id Google Sheet Zalo trong biến môi trường Railway/.env.');
+    }
     const sheets: sheets_v4.Sheets = google.sheets({ version: 'v4', auth: createGoogleAuth() });
 
     const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
@@ -127,7 +130,12 @@ export class ZaloSyncProvider {
     const valueRanges = res.data.valueRanges ?? [];
 
     const records: ZaloContent[] = [];
-    tabs.forEach((tab, i) => records.push(...transformTab(tab, (valueRanges[i]?.values ?? []) as string[][])));
+    tabs.forEach((tab, i) => {
+      const rows = transformTab(tab, (valueRanges[i]?.values ?? []) as string[][]);
+      console.log(`[ContentSyncZalo] Sheet "${tab}": ${rows.length} dòng`);
+      records.push(...rows);
+    });
+    console.log(`[ContentSyncZalo] TỔNG số dòng đọc từ ${tabs.length} Sheet: ${records.length}`);
     return records;
   }
 }

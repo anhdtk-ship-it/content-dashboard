@@ -10,6 +10,8 @@ import { SyncQueue } from '../../content-sync/SyncQueue';
 import { runZaloSync } from './ZaloSyncService';
 
 const nowIso = () => new Date().toISOString();
+/** Đánh dấu phiên bản router — đổi mỗi lần deploy để xác nhận build mới đã live. */
+const ZALO_SYNC_VERSION = 'zalo-04.1-envfix';
 
 export function createZaloSyncRouter(deps: { onSynced?: () => void } = {}): express.Router {
   const router = express.Router();
@@ -49,7 +51,12 @@ export function createZaloSyncRouter(deps: { onSynced?: () => void } = {}): expr
   });
 
   router.get('/status', (_req, res) => {
-    res.json({ ...queue.getState(), config: { debounceMs, maxWaitMs, secretConfigured: !!secret }, generatedAt: nowIso() });
+    res.json({
+      ...queue.getState(),
+      version: ZALO_SYNC_VERSION,
+      config: { debounceMs, maxWaitMs, secretConfigured: !!secret, sheetIdConfigured: !!(process.env.ZALO_GOOGLE_SHEET_ID || process.env.ZALO_SHEET_ID) },
+      generatedAt: nowIso(),
+    });
   });
 
   return router;
