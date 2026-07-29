@@ -22,13 +22,11 @@ const DEFAULT_TABS = ['S_Video', 'S_Banner']; // CHỈ đọc 2 tab này (bỏ T
 
 // Header ứng viên (khớp không phân biệt hoa/thường, gộp khoảng trắng).
 const HEADER_CANDIDATES: Record<string, string[]> = {
-  // TRẠNG THÁI CHÍNH = cột "TT Team" (đang chạy/chờ chạy/không chạy).
-  status:  ['TT Team', 'TT team', 'TT_Team', 'TT-Team', 'Trạng thái team', 'Trạng thái Team'],
-  // "tình trạng content" — content chưa có trạng thái ở cột này → CHƯA PHÂN LOẠI.
-  content: ['Tình trạng content', 'Tình trạng Content', 'Trạng thái content', 'Tình trạng nội dung', 'Tình trạng'],
-  upload:  ['Ngày Up Trello', 'Ngày up Trello', 'Ngày cấp', 'Ngày up', 'Ngày lên', 'Ngày post'],
-  test:    ['Ngày test', 'Ngày Test', 'Ngày set ads'],
-  title:   ['Tên Content', 'Tên content', 'Tên', 'Nội dung', 'Tiêu đề'],
+  // TRẠNG THÁI = cột "TT Team" (S_Video) / "Tình trạng content" (S_Banner) — cùng vị trí, giá trị đang chạy/chờ chạy/không chạy; TRỐNG → chưa phân loại.
+  status:  ['TT Team', 'TT team', 'TT_Team', 'TT-Team', 'Tình trạng content', 'Tình trạng Content', 'Trạng thái team'],
+  upload:  ['Ngày up', 'Ngày Up Trello', 'Ngày up Trello', 'Ngày cấp', 'Ngày lên', 'Ngày post'],
+  test:    ['Ngày Test', 'Ngày test', 'Ngày set ads'],
+  title:   ['Tên Content', 'Tên content'],
   // khoá định danh — ưu tiên nếu Sheet có sẵn
   id:      ['ID content 1', 'ID content 2', 'Content ID', 'ID content', 'Mã content', 'ID', 'Mã'],
   trello:  ['Link trello', 'Link Trello', 'Trello', 'Trello Card', 'Card ID'],
@@ -43,17 +41,24 @@ const norm = (s: unknown) => (s ?? '').toString().trim().toLowerCase().replace(/
 const cell = (row: string[], idx: number) => (idx < 0 ? '' : (row[idx] ?? '').toString().trim());
 const isEmptyRow = (row: string[]) => !row || row.every((c) => (c ?? '').toString().trim() === '');
 
-function colIndex(header: string[], field: string): number {
-  const wanted = HEADER_CANDIDATES[field].map(norm);
-  return header.findIndex((c) => wanted.includes(norm(c)));
-}
-/** Hàng header = hàng đầu tiên (trong 15 hàng đầu) tìm được cột "Ngày up" HOẶC "TT Team" HOẶC "tình trạng content". */
-function findHeaderRow(rows: string[][]): number {
-  for (let i = 0; i < Math.min(rows.length, 15); i++) {
-    const h = rows[i] ?? [];
-    if (colIndex(h, 'upload') >= 0 || colIndex(h, 'status') >= 0 || colIndex(h, 'content') >= 0) return i;
-  }
-  return -1;
+/** Quét vài hàng header đầu (HEADER TRẢI NHIỀU HÀNG) — tìm cột cho từng field từ BẤT KỲ hàng header nào.
+ *  Trả về vị trí cột + hàng bắt đầu dữ liệu (sau hàng header sâu nhất). */
+export function detectCols(values: string[][]): { cols: Record<string, number>; dataStart: number } {
+  const HEAD = Math.min(values.length, 6);
+  let deepest = -1;
+  const find = (field: string): number => {
+    const wanted = HEADER_CANDIDATES[field].map(norm);
+    for (let r = 0; r < HEAD; r++) {
+      const c = (values[r] ?? []).findIndex((x) => wanted.includes(norm(x)));
+      if (c >= 0) { if (r > deepest) deepest = r; return c; }
+    }
+    return -1;
+  };
+  const cols = {
+    status: find('status'), upload: find('upload'), test: find('test'),
+    id: find('id'), trello: find('trello'), title: find('title'),
+  };
+  return { cols, dataStart: deepest + 1 };
 }
 /** Rút Trello card id từ URL/chuỗi (…/c/<id>/… hoặc token cuối). */
 function trelloCardId(v: string): string {
@@ -77,36 +82,26 @@ export function stableKey(format: string, title: string, uploadReal: string | nu
 /** THUẦN — dựng ZaloContent[] từ 1 tab (đã biết tên = định dạng). Export để unit-test. */
 export function transformTab(tabName: string, values: string[][]): ZaloContent[] {
   const format = formatFromTab(tabName); // 'S_Video' → 'Video', 'S_Banner' → 'Banner'
-  const hIdx = findHeaderRow(values);
-  if (hIdx === -1) return [];
-  const header = values[hIdx];
-  const idx = {
-    title: colIndex(header, 'title'), upload: colIndex(header, 'upload'),
-    test: colIndex(header, 'test'), status: colIndex(header, 'status'),
-    content: colIndex(header, 'content'), id: colIndex(header, 'id'), trello: colIndex(header, 'trello'),
-  };
+  const { cols, dataStart } = detectCols(values);
+  // Không nhận ra bảng nếu thiếu cả trạng thái lẫn khoá lẫn ngày up.
+  if (cols.status < 0 && cols.upload < 0 && cols.id < 0 && cols.trello < 0) return [];
   const out: ZaloContent[] = [];
-  for (const row of values.slice(hIdx + 1)) {
+  for (const row of values.slice(dataStart)) {
     if (isEmptyRow(row)) continue;
-    const ttTeam = cell(row, idx.status);           // "TT Team" (đang chạy/chờ chạy/không chạy)
-    const contentStatus = cell(row, idx.content);   // "tình trạng content"
-    const idRaw = cell(row, idx.id);
-    const trelloRaw = cell(row, idx.trello);
-    const upload_date = cell(row, idx.upload);
-    const test_date = cell(row, idx.test);
-    // Bỏ dòng không có nguồn định danh & không có nội dung.
-    if (!idRaw && !trelloRaw && !upload_date && !ttTeam && !contentStatus) continue;
-    // Trạng thái: nếu "tình trạng content" TRỐNG → content chưa có trạng thái → CHƯA PHÂN LOẠI (''),
-    // ngược lại lấy nhóm theo "TT Team".
-    const current_status = contentStatus === '' ? '' : ttTeam;
+    const status = cell(row, cols.status);   // TT Team / Tình trạng content — TRỐNG → chưa phân loại
+    const idRaw = cell(row, cols.id);
+    const trelloRaw = cell(row, cols.trello);
+    const upload_date = cell(row, cols.upload);
+    const test_date = cell(row, cols.test);
+    if (!idRaw && !trelloRaw && !upload_date && !status) continue;
     const upload_date_real = parseDdmmToReal(upload_date);
     const content_code = stableKey(format, '', upload_date_real, idRaw, trelloRaw);
     out.push({
       content_code,
-      title: idRaw || cell(row, idx.title), // hiển thị: ID content (Sheet không có cột Tên Content)
+      title: idRaw || cell(row, cols.title), // hiển thị: ID content (Sheet không có cột Tên Content)
       assignee_name: '',
       content_format: format || null,
-      current_status,
+      current_status: status,
       upload_date,
       upload_date_real,
       test_date,
@@ -162,19 +157,16 @@ export class ZaloSyncProvider {
     const perTab: TabDiag[] = [];
     tabs.forEach((tab, i) => {
       const values = (valueRanges[i]?.values ?? []) as string[][];
-      const hIdx = findHeaderRow(values);
-      const header = hIdx >= 0 ? values[hIdx] : [];
+      const { cols, dataStart } = detectCols(values);
       const rows = transformTab(tab, values);
       perTab.push({
-        tab, headerRowIndex: hIdx, headers: header.slice(0, 40).map((c) => (c ?? '').toString().trim()),
-        cols: {
-          status: colIndex(header, 'status'), content: colIndex(header, 'content'),
-          upload: colIndex(header, 'upload'), test: colIndex(header, 'test'),
-          id: colIndex(header, 'id'), trello: colIndex(header, 'trello'),
-        },
+        tab, headerRowIndex: dataStart - 1,
+        // 5 hàng header đầu (gộp ô không rỗng) để soi cấu trúc header nhiều hàng.
+        headers: values.slice(0, 5).map((r) => (r ?? []).map((c) => (c ?? '').toString().trim()).filter(Boolean).join(' | ')),
+        cols: { status: cols.status, content: -1, upload: cols.upload, test: cols.test, id: cols.id, trello: cols.trello },
         rows: rows.length,
       });
-      console.log(`[ContentSyncZalo] Sheet "${tab}": header@${hIdx} · ${rows.length} dòng`);
+      console.log(`[ContentSyncZalo] Sheet "${tab}": dataStart@${dataStart} · ${rows.length} dòng`);
       records.push(...rows);
     });
     this.lastDiag = { tabsInSheet: allTitles, tabsRead: tabs, perTab };
