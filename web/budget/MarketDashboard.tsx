@@ -3,7 +3,6 @@
  * KPI · Stacked column chart · Bảng phân tích · Phân bổ % · Chỉ số mới · Bảng theo NV.
  * Thuần hiển thị từ MarketAnalysis (đã memoize ở trang). KHÔNG query lại.
  * ========================================================== */
-import { useMemo, useState } from 'react';
 import { KPICard, SectionHeader, DataTable, type Column } from '../../src/components/ui';
 import { fmtNum, fmtVND, fmtVNDShort, pct } from './format';
 import { GROUPS, type GroupKey, type GroupStat, type EmployeeRow, type MarketAnalysis } from './selectors';
@@ -89,68 +88,6 @@ function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell
   );
 }
 
-/* ---------- Bảng theo nhân viên (sort + filter + click ô) ---------- */
-const EMP_COLS: { key: GroupKey; label: string }[] = GROUPS.map((g) => ({ key: g.key, label: g.short }));
-type SortKey = 'name' | GroupKey | 'totalContent' | 'totalBudget' | 'avg';
-
-function EmployeeTable({ employees, onCell }: { employees: EmployeeRow[]; onCell: (name: string, g: GroupKey) => void }) {
-  const [q, setQ] = useState('');
-  const [sort, setSort] = useState<{ k: SortKey; dir: 1 | -1 }>({ k: 'totalBudget', dir: -1 });
-  const rows = useMemo(() => {
-    const f = employees.filter((e) => e.name.toLowerCase().includes(q.trim().toLowerCase()));
-    const val = (e: EmployeeRow): number | string =>
-      sort.k === 'name' ? e.name
-      : sort.k === 'totalContent' ? e.totalContent
-      : sort.k === 'totalBudget' ? e.totalBudget
-      : sort.k === 'avg' ? e.avg
-      : e.counts[sort.k];
-    return [...f].sort((a, b) => { const av = val(a), bv = val(b); if (av === bv) return 0; return (av > bv ? 1 : -1) * sort.dir; });
-  }, [employees, q, sort]);
-  const toggle = (k: SortKey) => setSort((s) => (s.k === k ? { k, dir: (s.dir === 1 ? -1 : 1) } : { k, dir: -1 }));
-  const arrow = (k: SortKey) => (sort.k === k ? (sort.dir === -1 ? ' ▼' : ' ▲') : '');
-  const th = 'cursor-pointer select-none border-b border-line bg-surface px-2 py-2 text-[11px] font-semibold text-muted hover:text-fg';
-
-  return (
-    <div>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Lọc nhân viên…"
-        className="mb-2 w-[200px] rounded-control border border-line bg-surface px-2 py-1.5 text-[13px] text-fg" />
-      <div className="overflow-auto rounded-card border border-line">
-        <table className="w-full border-collapse text-[12px]">
-          <thead>
-            <tr>
-              <th className={`${th} text-left`} onClick={() => toggle('name')}>Nhân viên{arrow('name')}</th>
-              {EMP_COLS.map((c) => <th key={c.key} className={`${th} text-right`} title="Số content · ngân sách" onClick={() => toggle(c.key)}>{c.label}{arrow(c.key)}</th>)}
-              <th className={`${th} text-right`} onClick={() => toggle('totalContent')}>Tổng content{arrow('totalContent')}</th>
-              <th className={`${th} text-right`} onClick={() => toggle('totalBudget')}>Tổng ngân sách{arrow('totalBudget')}</th>
-              <th className={`${th} text-right`} onClick={() => toggle('avg')}>Ngân sách TB{arrow('avg')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? <tr><td colSpan={8} className="px-3 py-6 text-center text-muted">Không có dữ liệu</td></tr>
-              : rows.map((e) => (
-                <tr key={e.name} className="border-b border-line">
-                  <td className="px-2 py-1.5 font-semibold text-fg">{e.name}</td>
-                  {EMP_COLS.map((c) => (
-                    <td key={c.key} className="px-2 py-1.5 text-right tabular-nums">
-                      {e.counts[c.key] > 0
-                        ? <button onClick={() => onCell(e.name, c.key)} className="text-accent hover:underline" title={`${e.name} · ${c.label}`}>
-                            {e.counts[c.key]} <span className="text-muted">· {fmtVNDShort(e.budgets[c.key])}</span>
-                          </button>
-                        : <span className="text-muted">0</span>}
-                    </td>
-                  ))}
-                  <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-fg">{fmtNum(e.totalContent)}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-fg">{fmtVND(e.totalBudget)}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-muted">{fmtVND(e.avg)}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 /* ---------- Dashboard 1 thị trường ---------- */
 export function MarketDashboard({ a, onDrill }: { a: MarketAnalysis; onDrill: Drill }) {
   const drillGroup = (key: GroupKey, label: string) => onDrill(`${a.marketLabel} · ${label}`, a.rows.filter((r) => r.group === key));
@@ -216,16 +153,12 @@ export function MarketDashboard({ a, onDrill }: { a: MarketAnalysis; onDrill: Dr
           onRowClick={(r) => { const g = a.groups.find((x) => x.key === r.key && x.label === r.label); if (g) drillGroup(g.key, g.label); }} maxHeight={9999} />
       </div>
 
-      {/* Phân tích theo nhân viên — biểu đồ cột chồng + bảng chi tiết */}
+      {/* Phân tích theo nhân viên — biểu đồ cột nhóm (ngân sách + content) */}
       <div className="mt-4">
-        <SectionHeader title="Phân tích theo nhân viên Ads" action={<span className="text-xs text-muted">mỗi cột = 1 nhân viên · chia theo nhóm</span>} />
+        <SectionHeader title="Phân tích theo nhân viên Ads" action={<span className="text-xs text-muted">mỗi nhân viên = 1 cụm cột · chia theo nhóm</span>} />
         <div className="rounded-card border border-line bg-surface p-3">
           <EmployeeChart employees={a.employees} onCell={drillCell} />
         </div>
-      </div>
-      <div className="mt-3">
-        <SectionHeader title="Bảng chi tiết theo nhân viên" action={<span className="text-xs text-muted">mỗi ô: số content · ngân sách — bấm để xem content</span>} />
-        <EmployeeTable employees={a.employees} onCell={drillCell} />
       </div>
     </div>
   );
