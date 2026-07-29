@@ -18,6 +18,7 @@ import { AdsMonitorPage } from './ads-monitor/pages/AdsMonitorPage';
 import { WeeklyReportPage } from './reports/pages/WeeklyReportPage';
 import { ZaloDashboardPage } from './zalo/ZaloDashboardPage';
 import { ZaloWeeklyPage } from './zalo/ZaloWeeklyPage';
+import { BudgetAllocationPage } from './budget/BudgetAllocationPage';
 import { AuthGate } from './auth/AuthGate';
 import { installAuthFetch } from './auth/authFetch';
 
@@ -42,6 +43,7 @@ const NAV: NavGroupDef[] = [
     { icon: '🔎', label: 'Content Explorer', href: '#/explorer', key: 'explorer' },
     { icon: '♻️', label: 'Vòng đời Content', href: '#/lifecycle', key: 'lifecycle' },
     { icon: '📡', label: 'Ads Monitor', href: '#/ads-monitor', key: 'ads-monitor' },
+    { icon: '💰', label: 'Phân bổ ngân sách', href: '#/budget-allocation', key: 'budget-allocation' },
   ] },
 
   // 💬 Zalo — nhóm platform (chỉ hiện trang đã dựng: Tổng quan + Weekly Report).
@@ -75,6 +77,8 @@ const PAGES: Record<string, { title: string; el: ReactNode }> = {
   // Module mới (ZALO-01)
   zalo: { title: 'Zalo — Tổng Quan', el: <ZaloDashboardPage /> },
   'zalo-weekly': { title: 'Zalo — Báo cáo tuần', el: <ZaloWeeklyPage /> },
+  // Module mới (FB-ADS-02) — Budget Allocation, CHỈ ĐỌC Ads Monitor.
+  'budget-allocation': { title: 'Phân bổ ngân sách', el: <BudgetAllocationPage /> },
 };
 
 const routeKey = (h: string) => (h || '').replace(/^#\//, '').split('?')[0] || 'overview';
