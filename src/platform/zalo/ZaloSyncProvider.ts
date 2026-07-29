@@ -103,10 +103,22 @@ export function transformTab(tabName: string, values: string[][]): ZaloContent[]
   return out;
 }
 
+/** Chẩn đoán 1 tab (để nhìn thấy tại sao map/đọc lỗi mà không cần mở Sheet). */
+export interface TabDiag {
+  tab: string;
+  headerRowIndex: number;              // -1 nếu không tìm thấy hàng header
+  headers: string[];                   // vài cột đầu của hàng header
+  cols: { title: number; upload: number; test: number; status: number }; // -1 = không map được
+  rows: number;                        // số dòng content đọc được từ tab này
+}
+
 export class ZaloSyncProvider {
-  /** Đọc ĐỒNG THỜI Sheet Video + Banner → merge → ZaloContent[]. */
+  /** Chẩn đoán của lần fetch gần nhất (đọc qua /api/zalo-sync/status). */
+  lastDiag: { tabsInSheet: string[]; tabsRead: string[]; perTab: TabDiag[] } = { tabsInSheet: [], tabsRead: [], perTab: [] };
+
+  /** Đọc ĐỒNG THỜI các Sheet content của Zalo (mặc định: TẤT CẢ tab) → merge → ZaloContent[]. */
   async fetchRecords(): Promise<ZaloContent[]> {
-    // Chấp nhận cả 2 tên env (ZALO_GOOGLE_SHEET_ID ưu tiên — khớp cấu hình trên Railway; ZALO_SHEET_ID để tương thích).
+    // Chấp nhận cả 2 tên env (ZALO_GOOGLE_SHEET_ID ưu tiên — khớp cấu hình Railway; ZALO_SHEET_ID để tương thích).
     const spreadsheetId = (process.env.ZALO_GOOGLE_SHEET_ID || process.env.ZALO_SHEET_ID || '').trim();
     if (!spreadsheetId) {
       throw new Error('Thiếu ZALO_GOOGLE_SHEET_ID (hoặc ZALO_SHEET_ID) — đặt id Google Sheet Zalo trong biến môi trường Railway/.env.');
@@ -115,12 +127,23 @@ export class ZaloSyncProvider {
 
     const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
     const allTitles = (meta.data.sheets ?? []).map((s) => s.properties?.title ?? '').filter(Boolean);
-    const wanted = (process.env.ZALO_SHEET_TABS ?? DEFAULT_TABS.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
-    // Chỉ đọc tab thực sự tồn tại (khớp không phân biệt hoa/thường).
-    const tabs = wanted
-      .map((w) => allTitles.find((t) => t.trim().toLowerCase() === w.toLowerCase()))
-      .filter((t): t is string => !!t);
-    if (tabs.length === 0) throw new Error(`Không thấy Sheet ${wanted.join('/')} trong Google Sheet Zalo.`);
+
+    // Chọn tab: nếu ĐẶT env ZALO_SHEET_TABS → chỉ đọc các tab đó; nếu KHÔNG → đọc TẤT CẢ tab
+    // (Sheet Zalo chỉ gồm tab content; transformTab tự bỏ tab không có header content).
+    const wanted = (process.env.ZALO_SHEET_TABS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    let tabs: string[];
+    if (wanted.length) {
+      tabs = wanted
+        .map((w) => allTitles.find((t) => t.trim().toLowerCase() === w.toLowerCase()))
+        .filter((t): t is string => !!t);
+      if (tabs.length === 0) {
+        throw new Error(`Không thấy tab [${wanted.join(', ')}] — tab hiện có trong Sheet: [${allTitles.join(', ')}]. Sửa env ZALO_SHEET_TABS cho khớp.`);
+      }
+    } else {
+      tabs = allTitles;
+    }
+    if (tabs.length === 0) throw new Error(`Google Sheet Zalo không có tab nào để đọc. Tab hiện có: [${allTitles.join(', ')}].`);
+    console.log(`[ContentSyncZalo] Tab trong Sheet: [${allTitles.join(' | ')}] → đọc: [${tabs.join(' | ')}]`);
 
     const res = await sheets.spreadsheets.values.batchGet({
       spreadsheetId,
@@ -130,12 +153,22 @@ export class ZaloSyncProvider {
     const valueRanges = res.data.valueRanges ?? [];
 
     const records: ZaloContent[] = [];
+    const perTab: TabDiag[] = [];
     tabs.forEach((tab, i) => {
-      const rows = transformTab(tab, (valueRanges[i]?.values ?? []) as string[][]);
-      console.log(`[ContentSyncZalo] Sheet "${tab}": ${rows.length} dòng`);
+      const values = (valueRanges[i]?.values ?? []) as string[][];
+      const hIdx = findHeaderRow(values);
+      const header = hIdx >= 0 ? values[hIdx] : [];
+      const rows = transformTab(tab, values);
+      perTab.push({
+        tab, headerRowIndex: hIdx, headers: header.slice(0, 12).map((c) => (c ?? '').toString().trim()),
+        cols: { title: colIndex(header, 'title'), upload: colIndex(header, 'upload'), test: colIndex(header, 'test'), status: colIndex(header, 'status') },
+        rows: rows.length,
+      });
+      console.log(`[ContentSyncZalo] Sheet "${tab}": header@${hIdx} · ${rows.length} dòng`);
       records.push(...rows);
     });
-    console.log(`[ContentSyncZalo] TỔNG số dòng đọc từ ${tabs.length} Sheet: ${records.length}`);
+    this.lastDiag = { tabsInSheet: allTitles, tabsRead: tabs, perTab };
+    console.log(`[ContentSyncZalo] TỔNG số dòng đọc từ ${tabs.length} tab: ${records.length}`);
     return records;
   }
 }

@@ -23,6 +23,7 @@ export interface ZaloSyncResult {
   durationMs: number; startedAt: string; finishedAt: string;
   errorDetails: { stage: string; message: string }[]; logId: number | string | null; atomic: boolean;
   errorStack?: string; // stack trace đầy đủ khi lỗi (phục vụ chẩn đoán qua /api/zalo-sync/status)
+  diag?: { tabsInSheet: string[]; tabsRead: string[]; perTab: any[] }; // tab + cột map được (chẩn đoán)
 }
 
 type Logger = (m: string) => void;
@@ -94,7 +95,8 @@ async function runZaloSyncCore(opts: RunZaloOpts, startedAt: Date, t0: number): 
   const db: SupabaseClient = createSupa();
 
   // B1) Đọc Sheet Zalo
-  const raw = await new ZaloSyncProvider().fetchRecords();
+  const provider = new ZaloSyncProvider();
+  const raw = await provider.fetchRecords();
   const rowsRead = raw.length;
 
   // B2) Validate + dedupe (last-wins)
@@ -205,6 +207,6 @@ async function runZaloSyncCore(opts: RunZaloOpts, startedAt: Date, t0: number): 
     platform: PLATFORM, status, rowsRead, deduped: records.length, invalid,
     inserted, updated, unchanged, pruned, errors,
     durationMs, startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(),
-    errorDetails, logId, atomic,
+    errorDetails, logId, atomic, diag: provider.lastDiag,
   };
 }
