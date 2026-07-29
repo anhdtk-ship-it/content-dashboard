@@ -1,18 +1,18 @@
 /* ============================================================
  * Dashboard Tổng Quan ZALO (ĐỘC LẬP với Dashboard Facebook).
  * Chia toàn bộ KPI theo TỪNG ĐỊNH DẠNG (động — không hardcode Video/Banner).
- * §V khối định dạng · §VI tiến độ+forecast · §VII cần xử lý · §VIII so sánh · §IX data quality.
+ * §V khối định dạng · §VI tiến độ+forecast · §VII cần xử lý (thẻ giống Facebook) · §VIII so sánh.
  * ========================================================== */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  PageContainer, SectionHeader, KPICard, ChartCard, LoadingSkeleton, EmptyState, ActionButton,
+  PageContainer, SectionHeader, KPICard, LoadingSkeleton, EmptyState, ActionButton,
   DataTable, type Column,
 } from '../../src/components/ui';
 import { ZaloDrawer } from './ZaloDrawer';
 import { ZaloSettingsPanel } from './ZaloSettingsPanel';
 import {
   zaloApi, num, pct, signedPct, SCHEDULE_LABEL,
-  type ZaloSummary, type FormatKpi, type FormatProgress, type FormatAttention, type FormatQuality,
+  type ZaloSummary, type FormatKpi, type FormatProgress, type FormatAttention,
 } from './zaloApi';
 
 const nowMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
@@ -76,58 +76,36 @@ function ProgressCard({ p }: { p: FormatProgress }) {
   );
 }
 
-/* ---------- §VII: cần xử lý (ẩn khi = 0). Ưu tiên: Test quá N ngày → Thiếu ngày test → Chưa phân loại → Chưa test ---------- */
-const ATTN_DEFS: { key: keyof Omit<FormatAttention, 'format' | 'label'>; label: string; color: string; alert: string }[] = [
-  { key: 'testQuaLau', label: 'Test quá lâu', color: '#ef4444', alert: 'testQuaLau' },           // 1 — Đỏ
-  { key: 'thieuNgayTest', label: 'Thiếu ngày test', color: '#f59e0b', alert: 'thieuNgayTest' },  // 2 — Cam
-  { key: 'chuaPhanLoai', label: 'Chưa phân loại', color: '#fb923c', alert: 'chuaPhanLoai' },     // 3 — Cam
-  { key: 'chuaTest', label: 'Chưa test (tồn)', color: '#fbbf24', alert: 'chuaTest' },            // 4 — Vàng
+/* ---------- §VII: Cần xử lý — thẻ giống Dashboard Facebook (tổng tất cả định dạng) ---------- */
+type AttnKey = keyof Omit<FormatAttention, 'format' | 'label'>;
+const ALERTS: { key: AttnKey; label: string; icon: string; color: string; badge?: string; sub?: string }[] = [
+  { key: 'chuaPhanLoai', label: 'Chưa phân loại', icon: '⚠️', color: '#ef4444', badge: 'Khẩn cấp', sub: 'Mức ưu tiên cao nhất' },
+  { key: 'testQuaLau', label: 'Test quá lâu', icon: '⏰', color: '#f87171' },
+  { key: 'thieuNgayTest', label: 'Thiếu ngày test', icon: '📅', color: '#fb923c' },
+  { key: 'chuaTest', label: 'Chưa test', icon: '🧪', color: '#fbbf24' },
 ];
-function AttentionRow({ month, a, warningDays, threshold, onDrill }: { month: string; a: FormatAttention; warningDays: number; threshold: number; onDrill: (d: DrillState) => void }) {
-  const items = ATTN_DEFS.map((d) => ({ ...d, value: a[d.key] })).filter((d) => d.value > 0);
-  if (items.length === 0) return null;
-  return (
-    <div className="mb-2">
-      <div className="mb-1 text-[12px] font-semibold text-fg">{a.label}</div>
-      <div className="flex flex-wrap gap-2">
-        {items.map((d) => {
-          const urgent = d.value >= threshold;
-          return (
-            <button key={d.key} onClick={() => onDrill({ title: `${a.label} · ${d.label}`, params: { month, format: a.format || '__NONE__', alert: d.alert } })}
-              className="flex items-center gap-2 rounded-card px-3 py-1.5 text-[12px] outline-none transition hover:brightness-110"
-              style={{ border: `${urgent ? 2 : 1}px solid ${d.color}`, background: `${d.color}${urgent ? '22' : '14'}` }}
-              title={urgent ? `Vượt ngưỡng cảnh báo (${threshold})` : undefined}>
-              <span className="text-muted">{d.label}{d.key === 'testQuaLau' ? ` (>${warningDays}d)` : ''}</span>
-              <b className="tabular-nums" style={{ color: d.color }}>{d.value}</b>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
-/* ---------- §IX: data quality (ẩn khi = 0) ---------- */
-const QUAL_DEFS: { key: keyof Omit<FormatQuality, 'format' | 'label'>; label: string; alert?: string }[] = [
-  { key: 'thieuTrangThai', label: 'Thiếu trạng thái', alert: 'thieuTrangThai' },
-  { key: 'thieuNgayTest', label: 'Thiếu ngày test', alert: 'thieuNgayTest' },
-  { key: 'trung', label: 'Content trùng' },
-  { key: 'thieuBatBuoc', label: 'Thiếu dữ liệu bắt buộc', alert: 'thieuBatBuoc' },
-];
-function QualityRow({ month, qy, onDrill }: { month: string; qy: FormatQuality; onDrill: (d: DrillState) => void }) {
-  const items = QUAL_DEFS.map((d) => ({ ...d, value: qy[d.key] })).filter((d) => d.value > 0);
-  if (items.length === 0) return null;
+/* Thẻ cảnh báo — phong cách GIỐNG Dashboard Facebook (icon + số lớn + badge). */
+function AlertCard({ icon, label, value, color, sub, badge, onClick }: {
+  icon: string; label: string; value: number; color: string; sub?: string; badge?: string; onClick?: () => void;
+}) {
   return (
-    <div className="mb-2">
-      <div className="mb-1 text-[12px] font-semibold text-fg">{qy.label}</div>
-      <div className="flex flex-wrap gap-2">
-        {items.map((d) => (
-          <button key={d.key} disabled={!d.alert}
-            onClick={() => d.alert && onDrill({ title: `${qy.label} · ${d.label}`, params: { month, format: qy.format || '__NONE__', alert: d.alert } })}
-            className={`flex items-center gap-2 rounded-card border border-line bg-surface px-3 py-1.5 text-[12px] ${d.alert ? 'hover:border-accent' : 'cursor-default'}`}>
-            <span className="text-muted">{d.label}</span><b className="tabular-nums text-danger">{d.value}</b>
-          </button>
-        ))}
+    <div role="button" tabIndex={0} onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
+      className="cursor-pointer rounded-card border p-3 outline-none transition hover:-translate-y-0.5 hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent"
+      style={{ borderColor: color, background: `${color}14` }}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-[13px] text-muted">
+          <span className="text-[16px] leading-none">{icon}</span>{label}
+        </span>
+        {badge && (
+          <span className="rounded-pill px-2 py-0.5 text-[10px] font-bold" style={{ background: color, color: '#0b0f17' }}>{badge}</span>
+        )}
+      </div>
+      <div className="mt-1 text-[26px] font-bold tabular-nums" style={{ color }}>{value}</div>
+      <div className="flex items-center justify-between">
+        {sub ? <span className="text-[11px] text-muted">{sub}</span> : <span />}
+        <span className="text-[11px] text-muted opacity-70">Xem →</span>
       </div>
     </div>
   );
@@ -202,23 +180,21 @@ export function ZaloDashboardPage() {
             </div>
 
             <SectionHeader title="Cần xử lý" />
-            <ChartCard title={`Ngưỡng cảnh báo: test quá ${data!.warningDays} ngày`}>
-              {data!.attention.every((a) => a.chuaPhanLoai + a.chuaTest + a.testQuaLau + a.thieuNgayTest === 0)
-                ? <div className="py-4 text-center text-[13px] text-success">✓ Không có việc cần xử lý trong kỳ.</div>
-                : data!.attention.map((a) => <AttentionRow key={a.format || '__none__'} month={month} a={a} warningDays={data!.warningDays} threshold={data!.warningThreshold} onDrill={setDrill} />)}
-            </ChartCard>
+            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {ALERTS.map((a) => {
+                const value = data!.attention.reduce((s, x) => s + x[a.key], 0);
+                const sub = a.key === 'testQuaLau' ? `Quá ${data!.warningDays} ngày` : a.sub;
+                return (
+                  <AlertCard key={a.key} icon={a.icon} label={a.label} color={a.color} badge={a.badge} sub={sub} value={value}
+                    onClick={() => setDrill({ title: `Cần xử lý · ${a.label}`, params: { month, alert: a.key } })} />
+                );
+              })}
+            </div>
 
             <SectionHeader title="So sánh hiệu quả theo định dạng" />
             <div className="mb-4">
               <DataTable columns={cmpCols} rows={[...data!.blocks, { ...data!.totals, label: 'TỔNG' }]} rowKey={(r) => r.format || r.label} maxHeight={9999} />
             </div>
-
-            <SectionHeader title="Kiểm tra chất lượng dữ liệu" />
-            <ChartCard title="Data Quality">
-              {data!.quality.every((q) => q.thieuTrangThai + q.thieuDinhDang + q.thieuNgayTest + q.trung === 0)
-                ? <div className="py-4 text-center text-[13px] text-success">✓ Dữ liệu sạch — không phát hiện vấn đề.</div>
-                : data!.quality.map((q) => <QualityRow key={q.format || '__none__'} month={month} qy={q} onDrill={setDrill} />)}
-            </ChartCard>
           </>
         )}
       </PageContainer>
