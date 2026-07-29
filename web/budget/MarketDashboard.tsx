@@ -63,18 +63,20 @@ function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell
         </div>
       </div>
       <div className="overflow-x-auto">
-        <div className="flex items-end gap-6 border-b border-line pb-0" style={{ minHeight: H + 6 }}>
+        {/* Mỗi nhân viên chiếm phần bằng nhau (flex:1) → trải đều hết chiều ngang;
+            đông nhân viên thì min-width giữ cột đủ rộng và tự cuộn ngang. */}
+        <div className="flex" style={{ minWidth: '100%' }}>
           {list.map((e) => (
-            <div key={e.name} className="flex flex-col items-center" style={{ flex: '0 0 auto' }}>
-              {/* cụm 4 cột đứng cạnh nhau */}
-              <div className="flex items-end gap-[3px]" style={{ height: H }}>
+            <div key={e.name} className="flex flex-col items-center" style={{ flex: '1 1 0', minWidth: 96 }}>
+              {/* cụm 4 cột đứng cạnh nhau, canh giữa trong phần của nhân viên */}
+              <div className="flex w-full items-end justify-center gap-2 border-b border-line" style={{ height: H }}>
                 {GROUPS.map((g) => {
                   const v = valOf(e, g.key);
                   const h = v > 0 ? Math.max((v / max) * (H - LBL), 2) : 0;
                   return (
                     <button key={g.key} onClick={() => v > 0 && onCell(e.name, g.key)}
                       title={`${e.name} · ${g.short}\nContent: ${fmtNum(e.counts[g.key])}\nNgân sách: ${fmtVND(e.budgets[g.key])}`}
-                      className="flex h-full flex-col items-center justify-end outline-none" style={{ width: 18 }}>
+                      className="flex h-full flex-col items-center justify-end outline-none" style={{ width: 20 }}>
                       <span className="mb-0.5 text-[9px] leading-none tabular-nums text-fg" style={{ height: LBL - 4 }}>
                         {v > 0 ? fmtVal(v) : ''}
                       </span>
@@ -84,14 +86,7 @@ function EmployeeChart({ employees, onCell }: { employees: EmployeeRow[]; onCell
                   );
                 })}
               </div>
-            </div>
-          ))}
-        </div>
-        {/* tên nhân viên dưới trục */}
-        <div className="flex gap-6">
-          {list.map((e) => (
-            <div key={e.name} className="text-center" style={{ width: 18 * 4 + 3 * 3, flex: '0 0 auto' }}>
-              <span className="mt-1 block truncate text-[11px] text-muted" title={e.name}>{e.name}</span>
+              <span className="mt-1 block max-w-full truncate px-1 text-[11px] text-muted" title={e.name}>{e.name}</span>
             </div>
           ))}
         </div>
