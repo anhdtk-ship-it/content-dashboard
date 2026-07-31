@@ -190,7 +190,8 @@ export function buildZaloSummary(
       format: f, label: labelOf(f),
       chuaPhanLoai: rs.filter((r) => G(r.current_status) === 'CHUA_PHAN_LOAI').length,
       chuaTest: rs.filter((r) => G(r.current_status) === 'TON').length, // chờ chạy = chưa đưa vào test
-      testQuaLau: rs.filter((r) => G(r.current_status) === 'DUY_TRI' && !!r.test_date_real && r.test_date_real < staleBefore).length,
+      // Test quá lâu = trạng thái "Đang test" (DANG_TEST) & ngày test quá warningDays (mặc định 5 ngày).
+      testQuaLau: rs.filter((r) => G(r.current_status) === 'DANG_TEST' && !!r.test_date_real && r.test_date_real < staleBefore).length,
       thieuNgayTest: rs.filter((r) => zaloStatusRule.isTested(r.current_status) && !r.test_date_real).length,
     };
   });
