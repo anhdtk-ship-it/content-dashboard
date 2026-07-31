@@ -293,7 +293,8 @@ function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
     // Đang test + Ngày test (test_date_real) cũ hơn 5 ngày (KHÔNG dùng upload_date).
     testQuaLau: F.filter((r) => r.status_group === 'DANG_TEST' && r.test_date_real && r.test_date_real < staleIso).length,
     chuaTest: F.filter((r) => !(r.test_date ?? '').trim() && !['DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST'].includes(r.status_group)).length,
-    thieuNgayTest: F.filter((r) => !(r.test_date ?? '').trim()).length,
+    // Thiếu ngày test: bỏ qua content trạng thái "Không test" (không cần test → không tính thiếu).
+    thieuNgayTest: F.filter((r) => !(r.test_date ?? '').trim() && r.status_group !== 'KHONG_TEST').length,
     thieuTrello: F.filter((r) => !(r.trello_link ?? '').trim()).length,
   };
 
@@ -386,7 +387,7 @@ app.get('/api/v3/contents', async (req, res) => {
           case 'chuaPhanLoai': return r.status_group === 'CHUA_PHAN_LOAI';
           case 'testQuaLau': return r.status_group === 'DANG_TEST' && !!r.test_date_real && r.test_date_real < staleIso;
           case 'chuaTest': return !(r.test_date ?? '').trim() && !tested.includes(r.status_group);
-          case 'thieuNgayTest': return !(r.test_date ?? '').trim();
+          case 'thieuNgayTest': return !(r.test_date ?? '').trim() && r.status_group !== 'KHONG_TEST';
           case 'thieuTrello': return !(r.trello_link ?? '').trim();
           // --- alert vòng đời ---
           case 'testOver7': return (r.current_status ?? '').trim() === 'Đang test' && (maintainOrTestAge(r, todayMs) ?? -1) > 7;
