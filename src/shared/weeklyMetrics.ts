@@ -11,10 +11,8 @@
  * ĐỊNH NGHĨA KPI (chốt với chủ dự án):
  *   Đã cấp        = content UPLOAD trong kỳ (theo upload_date_real).
  *   Đã test       = trong "Đã cấp" & trạng thái ∈ {Đang test, Duy trì*, Đã test-ko chạy, Đã chạy-Tắt}.
- *   Tồn           = Đã cấp − Đã test − ĐÃ CHỐT KHÔNG CHẠY  (ĐỊNH NGHĨA RIÊNG của Weekly Report).
- *                   "Đã chốt không chạy" = {Không test, Không được duyệt} — đã quyết định không
- *                   triển khai nên KHÔNG còn là việc tồn đọng cần xử lý.
- *                   ⇒ Đã cấp = Đã test + Tồn + Đã chốt-không-chạy.
+ *   Tồn           = ĐÚNG trạng thái "Chờ chạy" (current_status === 'Chờ chạy'), KHÔNG tính
+ *                   bất kỳ trạng thái nào khác (kể cả trống/chưa phân loại).
  *   Tỷ lệ test    = Đã test / Đã cấp.
  *   Duy trì tháng = trong "Đã cấp" & hiện đang "Duy trì" (giữ nguyên rule `win` cũ —
  *                   hệ thống KHÔNG lưu ngày đổi trạng thái nên dùng proxy này).
@@ -46,7 +44,7 @@ export interface RawContent {
 export interface WeeklyKpi {
   capped: number;       // Đã cấp
   tested: number;       // Đã test
-  ton: number;          // Tồn = capped − tested
+  ton: number;          // Tồn = đúng trạng thái "Chờ chạy"
   rateTest: number;     // Đã test / Đã cấp
   duyTriThang: number;  // Duy trì tháng
   rateDuyTri: number;   // Duy trì tháng / Đã test
@@ -80,8 +78,6 @@ const isDuyTri = (s: string) => s.startsWith('Duy trì');
 /** "Đã test" theo TRẠNG THÁI (chốt) — khớp định nghĩa đang dùng ở Dashboard Content. */
 export const isTested = (s: string) =>
   s === 'Đang test' || isDuyTri(s) || s === 'Đã test-ko chạy' || s === 'Đã chạy-Tắt';
-/** ĐÃ CHỐT KHÔNG CHẠY — không tính vào Tồn (đã quyết định không triển khai). */
-export const isClosed = (s: string) => s === 'Không test' || s === 'Không được duyệt';
 const inPeriod = (r: RawContent, from: string, to: string) =>
   !!r.upload_date_real && r.upload_date_real >= from && r.upload_date_real <= to;
 const rate = (a: number, b: number) => (b > 0 ? a / b : 0);
@@ -94,8 +90,8 @@ export function calcKpi(all: RawContent[], range: DateRange): WeeklyKpi {
   const coh = all.filter((r) => inPeriod(r, range.from, range.to));
   const capped = coh.length;
   const tested = coh.filter((r) => isTested(st(r))).length;
-  // Tồn = chưa test VÀ chưa bị chốt "không chạy" (loại Không test / Không được duyệt).
-  const ton = coh.filter((r) => { const s = st(r); return !isTested(s) && !isClosed(s); }).length;
+  // Tồn = ĐÚNG trạng thái "Chờ chạy", không tính trạng thái nào khác.
+  const ton = coh.filter((r) => st(r) === 'Chờ chạy').length;
   const duyTriThang = coh.filter((r) => isDuyTri(st(r))).length;
   const dangDuyTri = all.filter((r) => isDuyTri(st(r))).length; // ALL-TIME
   return {
