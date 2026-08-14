@@ -1,7 +1,19 @@
 # CURRENT_STATE — Content Operations Dashboard (Seryn) + Ads Monitor
 
 > Ảnh chụp trạng thái mới nhất. Chi tiết đầy đủ: `PROJECT_HANDOFF.md`. Source of truth: `PROJECT_SPEC.md`.
-> Cập nhật: **Authentication BẬT LẠI (Supabase Auth Google @seryn.vn)** — huỷ mô hình Share Link.
+> Cập nhật: **VERCEL MIGRATION (code xong, CHƯA cutover)** — chuyển deploy từ Railway sang Vercel.
+
+## VERCEL MIGRATION — code xong, còn 5 bước thủ công (§11 PROJECT_HANDOFF.md)
+- **Lý do:** Railway auto-deploy không cập nhật bundle sau nhiều lần push (không rõ nguyên nhân từ phía Railway).
+- **Vấn đề kỹ thuật cốt lõi:** Vercel serverless không share RAM giữa các request → debounce webhook cũ (`SyncQueue.ts`, `setTimeout` 60s trong RAM) không hoạt động đúng.
+- **Đã làm (code, đã typecheck+build+test local sạch):**
+  - Tách `src/server.ts` → `src/app.ts` (`createApp()`, toàn bộ route API, không static/SPA/listen) + `src/server.ts` mỏng (local/Railway: app.ts + static + listen) + `api/index.ts` (Vercel: app.ts, không static).
+  - `SyncQueue.ts` (RAM) → **xoá**, thay bằng `src/content-sync/DbSyncQueue.ts` — debounce lưu ở Supabase, bảng **`sync_debounce`** (`sql/012_sync_debounce.sql`, **CHƯA áp dụng**), 3 RPC atomic (`sync_enqueue`/`sync_tick_claim`/`sync_tick_finish`, có tự phục hồi "stuck").
+  - Webhook (`/api/content-sync`, `/api/zalo-sync`) giờ CHỈ ghi tín hiệu debounce, KHÔNG tự chạy Sync.
+  - Route mới **`/api/cron/tick/content`** + **`/api/cron/tick/zalo`** (secret riêng `CRON_SECRET`) — nơi THỰC SỰ chạy Sync, gọi bởi cron ngoài mỗi ~1 phút (Vercel Hobby Cron chỉ 1 lần/ngày, không đủ tần suất).
+  - `vercel.json` (buildCommand/outputDirectory/rewrites/maxDuration) + `CRON_SECRET` thêm vào `.env.example`.
+- **⚠️ CHƯA làm (5 bước thủ công, người dùng thực hiện):** 1) chạy `sql/012` trên Supabase, 2) tạo project Vercel + set env vars, 3) đăng ký 2 cron job ngoài (cron-job.org) gọi tick mỗi phút, 4) thêm domain Vercel vào Supabase Auth Redirect URLs, 5) đổi `WEBHOOK_URL` trong Apps Script (`ContentSync.gs`/`ContentSyncZalo.gs`) sang domain Vercel.
+- **Cho tới khi xong 5 bước trên:** Railway vẫn là bản chạy chính. Nếu Railway tự deploy code mới này TRƯỚC KHI chạy `sql/012` + đăng ký cron ngoài → Auto-Sync trên Railway cũng sẽ đứng im (webhook vẫn 202 nhưng không ai tick để claim chạy Sync) — cần làm 2 bước 1 và 3 sớm nhất có thể, bất kể deploy ở đâu.
 
 ## Authentication / Authorization (ĐẢO NGƯỢC §9 cũ "không auth")
 - **Cơ chế:** Supabase Auth (Google). Chỉ email **@seryn.vn** (`AUTH_ALLOWED_DOMAIN`). Sau đăng nhập: kiểm tra bảng `users` + `is_active`; sai → **403 "Bạn không có quyền truy cập hệ thống."**. role LƯU nhưng CHƯA phân quyền.

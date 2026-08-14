@@ -1,34 +1,29 @@
 /* ============================================================
  * Webhook đồng bộ Zalo (ĐỘC LẬP với /api/content-sync của Facebook).
  * Mount tại /api/zalo-sync.
- *   POST /api/zalo-sync         → nhận tín hiệu "Sheet Zalo đổi" → Debounce Queue RIÊNG.
- *   GET  /api/zalo-sync/status  → trạng thái queue + kết quả sync gần nhất.
+ *   POST /api/zalo-sync         → nhận tín hiệu "Sheet Zalo đổi" → ghi vào sync_debounce.
+ *   GET  /api/zalo-sync/status  → trạng thái debounce + kết quả sync gần nhất.
  * Bảo mật: ZALO_SYNC_SECRET (không cấu hình → khoá 503). Queue riêng, secret riêng.
+ *
+ * VERCEL MIGRATION: việc THỰC SỰ chạy Sync (đọc Sheet, upsert platform_contents) đã
+ * chuyển sang route tick (`content-sync/tickRoutes.ts`, POST /api/cron/tick/zalo),
+ * gọi bởi cron ngoài mỗi ~1 phút — route này chỉ còn ghi tín hiệu debounce.
  * ========================================================== */
 import express from 'express';
-import { SyncQueue } from '../../content-sync/SyncQueue';
-import { runZaloSync } from './ZaloSyncService';
+import { DbSyncQueue } from '../../content-sync/DbSyncQueue';
 
 const nowIso = () => new Date().toISOString();
 /** Đánh dấu phiên bản router — đổi mỗi lần deploy để xác nhận build mới đã live. */
-const ZALO_SYNC_VERSION = 'zalo-04.8-idkey';
+const ZALO_SYNC_VERSION = 'zalo-05-vercel-debounce-db';
 
-export function createZaloSyncRouter(deps: { onSynced?: () => void } = {}): express.Router {
+export function createZaloSyncRouter(): express.Router {
   const router = express.Router();
   const secret = process.env.ZALO_SYNC_SECRET?.trim() || '';
   const debounceMs = Number(process.env.ZALO_SYNC_DEBOUNCE_MS ?? 60_000);
   const maxWaitMs = Number(process.env.ZALO_SYNC_MAX_WAIT_MS ?? 300_000);
   const log = (m: string) => console.log(`[zalo-sync ${nowIso()}] ${m}`);
 
-  const queue = new SyncQueue({
-    debounceMs, maxWaitMs, log,
-    runFn: async () => {
-      const res = await runZaloSync({ source: 'webhook', logger: log });
-      if (res.status !== 'failed') deps.onSynced?.();
-      log(`Kết quả: ${res.status} · mới ${res.inserted} · đổi ${res.updated} · giữ ${res.unchanged} · prune ${res.pruned} · ${res.durationMs}ms`);
-      return res;
-    },
-  });
+  const queue = new DbSyncQueue('zalo');
 
   router.use(express.json({ limit: '64kb' }));
 
@@ -41,22 +36,33 @@ export function createZaloSyncRouter(deps: { onSynced?: () => void } = {}): expr
     return d === 0;
   };
 
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     if (!secret) return res.status(503).json({ error: 'ZALO_SYNC_SECRET chưa cấu hình — webhook đang khoá.' });
     const given = provided(req);
     if (!given || !safeEq(given, secret)) { log('Từ chối: sai/thiếu secret.'); return res.status(401).json({ error: 'unauthorized' }); }
-    const info = queue.enqueue();
-    log(info.busy ? 'Đang sync, xếp hàng chu kỳ mới.' : `Hẹn sync sau ~${Math.round((info.willFireInMs ?? 0) / 1000)}s.`);
-    return res.status(202).json({ accepted: true, ...info, state: queue.getState() });
+    try {
+      await queue.enqueue();
+      log('Đã ghi tín hiệu, chờ tick kế tiếp xử lý.');
+      const state = await queue.getState();
+      return res.status(202).json({ accepted: true, state });
+    } catch (e: any) {
+      log(`Lỗi ghi tín hiệu: ${e?.message ?? e}`);
+      return res.status(500).json({ error: e?.message ?? String(e) });
+    }
   });
 
-  router.get('/status', (_req, res) => {
-    res.json({
-      ...queue.getState(),
-      version: ZALO_SYNC_VERSION,
-      config: { debounceMs, maxWaitMs, secretConfigured: !!secret, sheetIdConfigured: !!(process.env.ZALO_GOOGLE_SHEET_ID || process.env.ZALO_SHEET_ID) },
-      generatedAt: nowIso(),
-    });
+  router.get('/status', async (_req, res) => {
+    try {
+      const state = await queue.getState();
+      res.json({
+        ...state,
+        version: ZALO_SYNC_VERSION,
+        config: { debounceMs, maxWaitMs, secretConfigured: !!secret, sheetIdConfigured: !!(process.env.ZALO_GOOGLE_SHEET_ID || process.env.ZALO_SHEET_ID) },
+        generatedAt: nowIso(),
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message ?? String(e) });
+    }
   });
 
   return router;

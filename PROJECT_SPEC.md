@@ -110,15 +110,15 @@
 ### 3.1 Auto-Sync theo thời gian thực (PHASE 12) — CHỈ Content
 > Chi tiết đầy đủ + đề xuất Google Apps Script: `PHASE_12_AUTO_SYNC.md`.
 
-- **Kiến trúc:** Google Sheet Content → **Apps Script Trigger** → **Webhook** (`POST /api/content-sync`) → **Debounce Queue (60s)** → **ContentSyncService** → Validate → Supabase → Dashboard (poll 30s) → Weekly Report.
+- **Kiến trúc (VERCEL MIGRATION — đã đổi từ debounce-in-RAM sang debounce-qua-Supabase):** Google Sheet Content → **Apps Script Trigger** → **Webhook** (`POST /api/content-sync`, chỉ ghi tín hiệu vào bảng `sync_debounce`) → **Cron Tick** (`POST /api/cron/tick/content`, gọi bởi dịch vụ cron NGOÀI mỗi ~1 phút — vd cron-job.org, vì Vercel Hobby Cron chỉ chạy 1 lần/ngày) → claim quyền chạy qua RPC atomic → **ContentSyncService** → Validate → Supabase → Dashboard (poll 30s) → Weekly Report.
 - **Nguồn logic sync gom về 1 chỗ:** `src/content-sync/ContentSyncService.ts` (`runContentSync()`); `src/sync-all-content.ts` (CLI) và webhook đều gọi hàm này (DRY). Điểm mới: **so sánh signature từng bản ghi → CHỈ upsert bản ghi thay đổi**; upsert 1-câu-lệnh (atomic) khi tập nhỏ (≤5000), lô hoá khi bulk lớn; validate loại bản ghi thiếu khóa; prune giữ nguyên guard.
-- **Webhook** (`src/content-sync/routes.ts`): chỉ báo "Sheet đã đổi" → đưa vào Queue; **KHÔNG** đọc Sheet/ghi DB tại đây; trả 202 ngay. Bảo mật bắt buộc `CONTENT_SYNC_SECRET` (header `x-content-sync-secret`); chưa cấu hình → 503; sai → 401. `GET /api/content-sync/status` xem trạng thái queue.
-- **SyncQueue** (`src/content-sync/SyncQueue.ts`): **Debounce** mỗi tín hiệu reset timer (`CONTENT_SYNC_DEBOUNCE_MS`=60000); **Maximum Wait** buộc chạy trong tối đa `CONTENT_SYNC_MAX_WAIT_MS`=300000 kể từ tín hiệu đầu; **Mutex** chống chạy chồng (đang sync → tín hiệu mới xếp `pending`, xong mở chu kỳ mới).
-- **Cache:** sau sync thành công gọi `invalidateContentsCache()` (server.ts) → poll kế tiếp thấy dữ liệu mới.
-- **Migration:** `sql/007_sync_logs_source.sql` (ALTER `sync_logs` +source/rows_unchanged/rows_pruned/duration_ms — additive, chạy tay). Service tự fallback payload tối thiểu nếu chưa áp dụng.
+- **Webhook** (`src/content-sync/routes.ts`): chỉ báo "Sheet đã đổi" → gọi `DbSyncQueue.enqueue()` (ghi `pending`/`last_signal_at` vào `sync_debounce`); **KHÔNG** đọc Sheet/ghi DB tại đây; trả 202 ngay. Bảo mật bắt buộc `CONTENT_SYNC_SECRET` (header `x-content-sync-secret`); chưa cấu hình → 503; sai → 401. `GET /api/content-sync/status` xem trạng thái debounce.
+- **DbSyncQueue + Cron Tick** (`src/content-sync/DbSyncQueue.ts`, `tickRoutes.ts`, bảng `sync_debounce` — `sql/012_sync_debounce.sql`) — THAY `SyncQueue.ts` cũ (dùng `setTimeout` trong RAM, KHÔNG hoạt động đúng trên serverless vì mỗi request có thể chạy trên instance khác nhau): **Debounce** mỗi tín hiệu cập nhật `last_signal_at` (`CONTENT_SYNC_DEBOUNCE_MS`=60000, so khi tick); **Maximum Wait** buộc chạy trong tối đa `CONTENT_SYNC_MAX_WAIT_MS`=300000 kể từ `first_signal_at`; **Mutex** qua cờ `running` (claim atomic bằng 1 câu `UPDATE...WHERE running=false...RETURNING *`, Postgres tự serialize); tự phục hồi nếu 1 lần claim "stuck" (crash/timeout) quá `p_stuck_ms` (mặc định 9 phút). `pending`/`first_signal_at` được xoá NGAY LÚC CLAIM (không phải lúc chạy xong) — để tín hiệu đến giữa lúc đang chạy tự mở đúng 1 chu kỳ debounce mới, không bị "quên". Route tick RIÊNG cho content/zalo (`CRON_SECRET` riêng, khác secret webhook công khai) để 1 lần sync chậm không kéo timeout của queue khác.
+- **Cache:** sau sync thành công gọi `invalidateContentsCache()` (`src/app.ts`) → poll kế tiếp thấy dữ liệu mới.
+- **Migration:** `sql/007_sync_logs_source.sql` (ALTER `sync_logs` +source/rows_unchanged/rows_pruned/duration_ms — additive, chạy tay). Service tự fallback payload tối thiểu nếu chưa áp dụng. `sql/012_sync_debounce.sql` (bảng `sync_debounce` + 3 RPC) — **BẮT BUỘC chạy trước khi Auto-Sync hoạt động** trên code mới (thiếu bảng → webhook vẫn 202 nhưng Sync không bao giờ tự chạy).
 - **KHÔNG áp dụng cho Ads** (Ads Monitor/Sync/Scheduler/Lifecycle/Business Rule giữ nguyên).
 
-Lệnh: `npm run sync` · `npm run backfill`. Webhook: `POST /api/content-sync` (secret).
+Lệnh: `npm run sync` · `npm run backfill`. Webhook: `POST /api/content-sync` (secret). Cron tick (nội bộ, KHÔNG phải webhook công khai): `POST /api/cron/tick/content` (secret `CRON_SECRET` riêng).
 
 ---
 
@@ -410,7 +410,7 @@ Trạng thái: **Tồn** (chờ chạy) · **Đang test** · **Duy trì** · **K
 
 ### 13.4 API / Sync / PDF
 - API `/api/zalo/*` (requireAuth): `summary`·`contents`·`weekly`·`sync-status`·`settings`(GET/PUT). Mount ADDITIVE trong `server.ts`, KHÔNG đổi `/api/v3` của FB.
-- Sync: đọc Sheet RIÊNG theo **tên header** (env `ZALO_SHEET_ID`) → `platform_contents`. CLI `npm run zalo:sync`; webhook `/api/zalo-sync` (secret `ZALO_SYNC_SECRET`, queue riêng) + `apps-script/ContentSyncZalo.gs`.
+- Sync: đọc Sheet RIÊNG theo **tên header** (env `ZALO_SHEET_ID`) → `platform_contents`. CLI `npm run zalo:sync`; webhook `/api/zalo-sync` (secret `ZALO_SYNC_SECRET`, `queue_key='zalo'` RIÊNG trong bảng `sync_debounce` — xem §3.1) + `apps-script/ContentSyncZalo.gs`. Sync thật chạy qua `POST /api/cron/tick/zalo` (cron ngoài), KHÔNG còn tự debounce trong RAM.
 - Weekly Zalo (menu Weekly Zalo) + PDF A4 dọc, KHÔNG QR: `reports/build_zalo_weekly_data.ts` → `reports/zalo_report_pdf.py`.
 
 ### 13.5 Thêm nền tảng mới (TikTok…)

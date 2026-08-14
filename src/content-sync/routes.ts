@@ -1,14 +1,17 @@
 import express from 'express';
-import { runContentSync } from './ContentSyncService';
-import { SyncQueue } from './SyncQueue';
+import { DbSyncQueue } from './DbSyncQueue';
 
 /* ============================================================
- * Content Sync Router (PHASE 12)
+ * Content Sync Router (PHASE 12 → VERCEL MIGRATION)
  * ------------------------------------------------------------
  * POST /api/content-sync         → Webhook: chỉ báo "Sheet đã đổi",
- *                                  đưa vào Debounce Queue (KHÔNG đọc
- *                                  Sheet, KHÔNG ghi DB tại đây).
- * GET  /api/content-sync/status  → Trạng thái queue + kết quả Sync gần nhất.
+ *                                  ghi tín hiệu vào bảng sync_debounce (KHÔNG đọc
+ *                                  Sheet, KHÔNG ghi contents tại đây).
+ * GET  /api/content-sync/status  → Trạng thái debounce + kết quả Sync gần nhất.
+ *
+ * Việc THỰC SỰ chạy Sync (đọc Sheet, upsert contents) đã chuyển sang route tick
+ * (`tickRoutes.ts`, POST /api/cron/tick/content`), gọi bởi cron ngoài mỗi ~1 phút —
+ * vì trên Vercel (serverless) không thể tự hẹn giờ 60s sau trong RAM như trước.
  *
  * Bảo mật: bắt buộc CONTENT_SYNC_SECRET. Không cấu hình → khóa (503).
  * Chỉ áp dụng cho Dashboard Content. KHÔNG liên quan Ads.
@@ -16,7 +19,7 @@ import { SyncQueue } from './SyncQueue';
 
 const nowIso = () => new Date().toISOString();
 
-export function createContentSyncRouter(deps: { onSynced?: () => void } = {}): express.Router {
+export function createContentSyncRouter(): express.Router {
   const router = express.Router();
 
   const secret = process.env.CONTENT_SYNC_SECRET?.trim() || '';
@@ -24,18 +27,7 @@ export function createContentSyncRouter(deps: { onSynced?: () => void } = {}): e
   const maxWaitMs = Number(process.env.CONTENT_SYNC_MAX_WAIT_MS ?? 300_000);
   const log = (m: string) => console.log(`[content-sync ${nowIso()}] ${m}`);
 
-  const queue = new SyncQueue({
-    debounceMs,
-    maxWaitMs,
-    log,
-    runFn: async () => {
-      const res = await runContentSync({ source: 'webhook', logger: log });
-      // Sync thành công (kể cả 'partial') → làm mới cache Dashboard.
-      if (res.status !== 'failed') deps.onSynced?.();
-      log(`Kết quả: ${res.status} · mới ${res.inserted} · đổi ${res.updated} · giữ ${res.unchanged} · prune ${res.pruned} · ${res.durationMs}ms`);
-      return res;
-    },
-  });
+  const queue = new DbSyncQueue('content');
 
   // Body parser CHỈ cho router này (app chính không dùng express.json).
   router.use(express.json({ limit: '64kb' }));
@@ -55,8 +47,8 @@ export function createContentSyncRouter(deps: { onSynced?: () => void } = {}): e
     return diff === 0;
   }
 
-  // Webhook: nhận tín hiệu → enqueue → trả 202 NGAY (không chờ Sync).
-  router.post('/', (req, res) => {
+  // Webhook: nhận tín hiệu → ghi vào sync_debounce → trả 202 NGAY (không chờ Sync).
+  router.post('/', async (req, res) => {
     if (!secret) {
       return res.status(503).json({ error: 'CONTENT_SYNC_SECRET chưa cấu hình — webhook đang bị khóa.' });
     }
@@ -65,22 +57,26 @@ export function createContentSyncRouter(deps: { onSynced?: () => void } = {}): e
       log('Webhook bị từ chối: sai/thiếu secret.');
       return res.status(401).json({ error: 'unauthorized' });
     }
-    const src = (req.body && req.body.source) || 'sheet';
-    const info = queue.enqueue();
-    log(
-      `Webhook nhận (source=${src}) → ` +
-      (info.busy ? 'đang Sync, xếp hàng chu kỳ mới.' : `hẹn Sync sau ~${Math.round((info.willFireInMs ?? 0) / 1000)}s.`),
-    );
-    return res.status(202).json({ accepted: true, ...info, state: queue.getState() });
+    try {
+      const src = (req.body && req.body.source) || 'sheet';
+      await queue.enqueue();
+      log(`Webhook nhận (source=${src}) → đã ghi tín hiệu, chờ tick kế tiếp xử lý.`);
+      const state = await queue.getState();
+      return res.status(202).json({ accepted: true, state });
+    } catch (e: any) {
+      log(`Lỗi ghi tín hiệu: ${e?.message ?? e}`);
+      return res.status(500).json({ error: e?.message ?? String(e) });
+    }
   });
 
-  // Trạng thái queue (read-only, không secret — chỉ metadata, không chứa dữ liệu nhạy cảm).
-  router.get('/status', (_req, res) => {
-    res.json({
-      ...queue.getState(),
-      config: { debounceMs, maxWaitMs, secretConfigured: !!secret },
-      generatedAt: nowIso(),
-    });
+  // Trạng thái debounce (read-only, không secret — chỉ metadata, không chứa dữ liệu nhạy cảm).
+  router.get('/status', async (_req, res) => {
+    try {
+      const state = await queue.getState();
+      res.json({ ...state, config: { debounceMs, maxWaitMs, secretConfigured: !!secret }, generatedAt: nowIso() });
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message ?? String(e) });
+    }
   });
 
   return router;
