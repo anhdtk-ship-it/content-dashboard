@@ -7,11 +7,12 @@ import { fmtNum, fmtPct } from '../types/report';
 import type { MarketBlock, MarketKey, WeeklyKpi, WeeklyReportData, ReportNarrative } from '../types/report';
 import { SectionReviews, SectionPlans } from './NarrativeSections';
 
-/* ---------- KPI Card (6 thẻ / khối market) ---------- */
+/* ---------- KPI Card (7 thẻ / khối market) ---------- */
 const KPI_DEFS: { label: string; get: (k: WeeklyKpi) => string; tone?: 'good' | 'warn' }[] = [
   { label: 'Đã cấp', get: (k) => fmtNum(k.capped) },
   { label: 'Đã test', get: (k) => fmtNum(k.tested) },
   { label: 'Tồn', get: (k) => fmtNum(k.ton), tone: 'warn' },
+  { label: 'Chờ đăng bài', get: (k) => fmtNum(k.choDangBai), tone: 'warn' },
   { label: 'Tỷ lệ test', get: (k) => fmtPct(k.rateTest) },
   { label: 'Content Duy trì', get: (k) => fmtNum(k.duyTriThang), tone: 'good' },
   { label: 'Tỷ lệ Duy trì', get: (k) => fmtPct(k.rateDuyTri), tone: 'good' },
@@ -19,7 +20,7 @@ const KPI_DEFS: { label: string; get: (k: WeeklyKpi) => string; tone?: 'good' | 
 
 function KpiCards({ kpi }: { kpi: WeeklyKpi }) {
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+    <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
       {KPI_DEFS.map((d) => (
         <div key={d.label} className="kpi-card rounded-card border border-line bg-surface2 px-2 py-2 text-center">
           <div className={`text-[19px] font-bold tabular-nums ${d.tone === 'good' ? 'text-success' : d.tone === 'warn' ? 'text-warn' : 'text-fg'}`}>
@@ -33,8 +34,8 @@ function KpiCards({ kpi }: { kpi: WeeklyKpi }) {
 }
 
 /* ---------- Bảng tiến độ nhân viên (1 bảng / market) ---------- */
-const COLS = ['Nhân viên', 'Đã cấp', 'Đã test', 'Tồn', 'Tỷ lệ test', 'Duy trì tháng', 'Đang duy trì'];
-const cells = (k: WeeklyKpi) => [fmtNum(k.capped), fmtNum(k.tested), fmtNum(k.ton), fmtPct(k.rateTest), fmtNum(k.duyTriThang), fmtNum(k.dangDuyTri)];
+const COLS = ['Nhân viên', 'Đã cấp', 'Đã test', 'Tồn', 'Chờ đăng bài', 'Tỷ lệ test', 'Duy trì tháng', 'Đang duy trì'];
+const cells = (k: WeeklyKpi) => [fmtNum(k.capped), fmtNum(k.tested), fmtNum(k.ton), fmtNum(k.choDangBai), fmtPct(k.rateTest), fmtNum(k.duyTriThang), fmtNum(k.dangDuyTri)];
 
 function EmployeeTable({ block }: { block: MarketBlock }) {
   const num = 'border border-line px-2 py-1 text-right tabular-nums text-fg';

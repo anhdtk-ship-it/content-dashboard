@@ -52,6 +52,7 @@ XAM_BG2 = colors.HexColor('#E7EBEF')
 LOW_TEST_RATE = 0.70
 GOOD_DUYTRI_RATE = 0.10
 HIGH_TON = 3
+HIGH_CHO_DANG_BAI = 3
 
 
 # ================= FONT Unicode (tiếng Việt) =================
@@ -131,9 +132,13 @@ def c_section(title, st, width):
     return t
 
 
-# ================= COMPONENT: KPI Card (6 thẻ / market) =================
+# ================= COMPONENT: KPI Card (7 thẻ / market) =================
 def _tone_ton(v):
     return DO if v >= HIGH_TON * 2 else (VANG if v > 0 else XANH)
+
+
+def _tone_cdb(v):
+    return DO if v >= HIGH_CHO_DANG_BAI * 2 else (VANG if v > 0 else XANH)
 
 
 def _tone_rate_test(v):
@@ -149,6 +154,7 @@ def c_kpi_cards(kpi, st, width):
         ('Đã cấp', vnum(kpi['capped']), INK),
         ('Đã test', vnum(kpi['tested']), INK),
         ('Tồn', vnum(kpi['ton']), _tone_ton(kpi['ton'])),
+        ('Chờ đăng bài', vnum(kpi['choDangBai']), _tone_cdb(kpi['choDangBai'])),
         ('Tỷ lệ test', vpct(kpi['rateTest']), _tone_rate_test(kpi['rateTest'])),
         ('Content Duy trì', vnum(kpi['duyTriThang']), XANH),
         ('Tỷ lệ Duy trì', vpct(kpi['rateDuyTri']), _tone_rate_dt(kpi['rateDuyTri'])),
@@ -157,8 +163,8 @@ def c_kpi_cards(kpi, st, width):
     for label, val, tone in items:
         numst = ParagraphStyle('n', parent=st['cardnum'], textColor=tone)
         row.append([Paragraph(val, numst), Paragraph(label, st['cardlbl'])])
-    cw = width / 6.0
-    t = Table([row], colWidths=[cw] * 6, rowHeights=[1.35 * cm])
+    cw = width / 7.0
+    t = Table([row], colWidths=[cw] * 7, rowHeights=[1.35 * cm])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), XAM_BG),
         ('BOX', (0, 0), (-1, -1), 0.5, XAM_LINE),
@@ -171,17 +177,19 @@ def c_kpi_cards(kpi, st, width):
 
 
 # ================= COMPONENT: Employee Table =================
-COLS = ['Nhân viên', 'Đã cấp', 'Đã test', 'Tồn', 'Tỷ lệ test', 'Duy trì tháng', 'Đang duy trì']
+COLS = ['Nhân viên', 'Đã cấp', 'Đã test', 'Tồn', 'Chờ đăng bài', 'Tỷ lệ test', 'Duy trì tháng', 'Đang duy trì']
 
 
 def _row_cells(k, st, bold=False):
     style = st['td'] if not bold else ParagraphStyle('tb', parent=st['td'], fontName=FONT_B)
     ton_st = ParagraphStyle('tn', parent=style, textColor=_tone_ton(k['ton']))
+    cdb_st = ParagraphStyle('cdb', parent=style, textColor=_tone_cdb(k['choDangBai']))
     rt_st = ParagraphStyle('rt', parent=style, textColor=_tone_rate_test(k['rateTest']))
     dt_st = ParagraphStyle('dt', parent=style, textColor=XANH)
     return [
         Paragraph(vnum(k['capped']), style), Paragraph(vnum(k['tested']), style),
-        Paragraph(vnum(k['ton']), ton_st), Paragraph(vpct(k['rateTest']), rt_st),
+        Paragraph(vnum(k['ton']), ton_st), Paragraph(vnum(k['choDangBai']), cdb_st),
+        Paragraph(vpct(k['rateTest']), rt_st),
         Paragraph(vnum(k['duyTriThang']), dt_st), Paragraph(vnum(k['dangDuyTri']), style),
     ]
 
@@ -193,8 +201,8 @@ def c_employee_table(block, st, width):
     data.append([Paragraph('TỔNG', st['tdL'])] + _row_cells(block['team'], st, bold=True))
 
     name_w = 3.0 * cm
-    numw = (width - name_w) / 6.0
-    t = Table(data, colWidths=[name_w] + [numw] * 6, repeatRows=1)
+    numw = (width - name_w) / 7.0
+    t = Table(data, colWidths=[name_w] + [numw] * 7, repeatRows=1)
     style = [
         ('BACKGROUND', (0, 0), (-1, 0), XAM_BG2),
         ('LINEBELOW', (0, 0), (-1, 0), 0.8, XAM_LINE),

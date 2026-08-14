@@ -11,7 +11,7 @@ export function buildPlainText(data: WeeklyReportData, n: ReportNarrative): stri
   L.push('I. TỔNG QUAN TEAM');
   for (const b of data.markets) {
     const t = b.team;
-    L.push(`  ${b.label}: Đã cấp ${fmtNum(t.capped)} · Đã test ${fmtNum(t.tested)} · Tồn ${fmtNum(t.ton)} · Tỷ lệ test ${fmtPct(t.rateTest)} · Content Duy trì ${fmtNum(t.duyTriThang)} · Tỷ lệ Duy trì ${fmtPct(t.rateDuyTri)}`);
+    L.push(`  ${b.label}: Đã cấp ${fmtNum(t.capped)} · Đã test ${fmtNum(t.tested)} · Tồn ${fmtNum(t.ton)} · Chờ đăng bài ${fmtNum(t.choDangBai)} · Tỷ lệ test ${fmtPct(t.rateTest)} · Content Duy trì ${fmtNum(t.duyTriThang)} · Tỷ lệ Duy trì ${fmtPct(t.rateDuyTri)}`);
   }
   L.push('');
   L.push('II. TIẾN ĐỘ NHÂN VIÊN');
@@ -19,10 +19,10 @@ export function buildPlainText(data: WeeklyReportData, n: ReportNarrative): stri
     L.push(`  ${b.label}:`);
     for (const e of b.employees) {
       const k = e.kpi;
-      L.push(`    • ${e.name}: cấp ${fmtNum(k.capped)}, test ${fmtNum(k.tested)}, tồn ${fmtNum(k.ton)}, tỷ lệ test ${fmtPct(k.rateTest)}, duy trì tháng ${fmtNum(k.duyTriThang)}, đang duy trì ${fmtNum(k.dangDuyTri)}`);
+      L.push(`    • ${e.name}: cấp ${fmtNum(k.capped)}, test ${fmtNum(k.tested)}, tồn ${fmtNum(k.ton)}, chờ đăng bài ${fmtNum(k.choDangBai)}, tỷ lệ test ${fmtPct(k.rateTest)}, duy trì tháng ${fmtNum(k.duyTriThang)}, đang duy trì ${fmtNum(k.dangDuyTri)}`);
     }
     const t = b.team;
-    L.push(`    • TỔNG: cấp ${fmtNum(t.capped)}, test ${fmtNum(t.tested)}, tồn ${fmtNum(t.ton)}, tỷ lệ test ${fmtPct(t.rateTest)}, duy trì tháng ${fmtNum(t.duyTriThang)}, đang duy trì ${fmtNum(t.dangDuyTri)}`);
+    L.push(`    • TỔNG: cấp ${fmtNum(t.capped)}, test ${fmtNum(t.tested)}, tồn ${fmtNum(t.ton)}, chờ đăng bài ${fmtNum(t.choDangBai)}, tỷ lệ test ${fmtPct(t.rateTest)}, duy trì tháng ${fmtNum(t.duyTriThang)}, đang duy trì ${fmtNum(t.dangDuyTri)}`);
   }
   L.push('');
   L.push('III. ĐÁNH GIÁ NHÂN VIÊN');

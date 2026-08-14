@@ -34,7 +34,7 @@ function presetRange(p: string): { from?: string; to?: string } {
 const selectCls = 'rounded-control border border-line bg-surface px-2 py-[6px] text-[13px] text-fg';
 // Màu chuẩn nghiệp vụ (S3-001.1): Chờ chạy=cam · Đang test=vàng · Duy trì=xanh lá · Đã dừng=xám · Không duyệt=đỏ
 const STATUS_COLOR: Record<string, string> = {
-  CHO_CHAY: '#fb923c', DANG_TEST: 'var(--warn)', DUY_TRI: 'var(--success)',
+  CHO_CHAY: '#fb923c', CHO_DANG_BAI: '#22d3ee', DANG_TEST: 'var(--warn)', DUY_TRI: 'var(--success)',
   DA_DUNG: 'var(--slate)', KHONG_TEST: '#a1a1aa', KHONG_DUYET: 'var(--danger)', CHUA_PHAN_LOAI: 'var(--violet)',
 };
 // Ngưỡng "Test quá lâu" — chỉ để HIỂN THỊ (khớp ngưỡng >5d theo test_date_real của /summary).
@@ -77,7 +77,7 @@ interface Summary {
   metrics: { capped: number; tested: number; success: number; dangTest: number; tonKho: number; khongDuyet: number;
     rateTested: number; rateSuccess: number; rateDangTest: number; rateTonKho: number; rateKhongDuyet: number };
   // PHASE 11 — bộ KPI Content 2 nhóm (A: cohort theo upload trong kỳ · B: trạng thái hiện tại all-time)
-  contentKpi: { capped: number; khongTest: number; win: number; choChay: number; dangTest: number };
+  contentKpi: { capped: number; khongTest: number; win: number; choChay: number; choDangBai: number; dangTest: number };
   funnel: { stage: string; value: number; conv: number }[];
   byStatus: { group: string; label: string; value: number }[];
   alerts: Record<string, number>;
@@ -177,13 +177,15 @@ export function OverviewPage() {
         ) : c ? (
           <>
             <SectionHeader title="KPI nghiệp vụ" action={<span className="text-xs text-muted">di chuột vào ⓘ để xem công thức</span>} />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <KPICard label="Đã cấp" value={c.capped} tone="accent"
                 tooltip="Content Upload trong kỳ lọc (Ngày Up Trello). Phát sinh trong tháng." />
               <KPICard label="Không test" value={c.khongTest} tone="orange"
                 tooltip="Upload trong kỳ & trạng thái 'Không test' (không cộng dồn tháng sau)." />
               <KPICard label="Chờ chạy (Tồn)" value={c.choChay} tone="warn"
                 tooltip="Tất cả content trạng thái hiện tại 'Chờ chạy' — backlog, KHÔNG giới hạn tháng." />
+              <KPICard label="Chờ đăng bài" value={c.choDangBai} tone="info"
+                tooltip="Tất cả content trạng thái hiện tại 'Chờ đăng bài' (đã test/duyệt xong, chờ lên lịch đăng) — KHÔNG tính vào Tồn, KHÔNG giới hạn tháng." />
               <KPICard label="Đang test" value={c.dangTest} tone="info"
                 tooltip="Tất cả content trạng thái hiện tại 'Đang test' — KHÔNG giới hạn tháng (chỉ thống kê)." />
               <KPICard label="Content duy trì" value={c.win} tone="good"

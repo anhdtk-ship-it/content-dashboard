@@ -127,7 +127,7 @@ Lệnh: `npm run sync` · `npm run backfill`. Webhook: `POST /api/content-sync` 
 Filter toàn cục (sticky): **Thời gian** (9 preset + tùy chỉnh) · **Thị trường** · **Người nhận** · **Trạng thái** · nút Xóa lọc. Mọi KPI/biểu đồ/bảng đều theo filter. Realtime (anon key) + polling 30s. Drill-down đa tầng (set filter chồng nhau → Content Explorer). Loading skeleton + empty state.
 
 **Chuẩn hóa `status_group`** (tầng dashboard, không đổi DB):
-`Chờ chạy→CHO_CHAY` · `Đang test→DANG_TEST` · `Duy trì - Chưa vít/Đã vít→DUY_TRI` · `Đã test-ko chạy / Đã chạy-Tắt→DA_DUNG` · `Không được duyệt→KHONG_DUYET` · rỗng→`CHUA_PHAN_LOAI`.
+`Chờ chạy→CHO_CHAY` · `Chờ đăng bài→CHO_DANG_BAI` (đã test/duyệt xong, chờ lên lịch đăng — RIÊNG, KHÔNG gộp vào Chờ chạy/Tồn) · `Đang test→DANG_TEST` · `Duy trì - Chưa vít/Đã vít→DUY_TRI` · `Đã test-ko chạy / Đã chạy-Tắt→DA_DUNG` · `Không test→KHONG_TEST` · `Không được duyệt→KHONG_DUYET` · rỗng→`CHUA_PHAN_LOAI`.
 
 **Định nghĩa chất lượng (current_status gốc)**: Đã được test = {Đang test, Duy trì*, Đã test-ko chạy, Đã chạy-Tắt}; **Thành công = {Duy trì*}** (CHỈ Duy trì Chưa vít + Đã vít — KHÔNG tính Đã chạy-Tắt); Thất bại = {Đã test-ko chạy}.
 > **Tỷ lệ test thành công (chốt 2026-07-01)** = Thành công ÷ **Đã có kết quả cuối**, với Đã có kết quả cuối = {Duy trì*, Đã test-ko chạy, Đã chạy-Tắt} (**LOẠI** 'Đang test' vì chưa xong). Áp dụng ở `metrics()` (server), `AssigneesPage`, `MarketsPage`.
@@ -374,6 +374,8 @@ content-dashboard/
   - **Chờ chạy (Tồn)** = trạng thái hiện tại "Chờ chạy".
   - **Đang test** = trạng thái hiện tại "Đang test" (chỉ thống kê Dashboard/Weekly, KHÔNG liên quan Ads).
 - *(Đã bỏ Đã test/Tồn-cũ/Tỷ lệ test/Tỷ lệ win khỏi Weekly Report.)*
+
+> ⚠️ **Mục §12.2 này đã lỗi thời so với code hiện tại** (`src/shared/weeklyMetrics.ts`, module DÙNG CHUNG Dashboard Weekly + PDF — nguồn đúng nhất). Công thức thật hiện tại: **Tồn = ĐÚNG trạng thái "Chờ chạy"**, **Chờ đăng bài = ĐÚNG trạng thái "Chờ đăng bài"** (mới thêm — content đã test/duyệt xong, chờ lên lịch đăng; nhóm RIÊNG, KHÔNG tính vào Tồn), cả hai đều tính theo **cohort upload trong kỳ** (không phải all-time). Cần một lượt rà soát riêng để viết lại §12.2 khớp 100% với `weeklyMetrics.ts`.
 
 ### 12.3 Cấu trúc báo cáo (PHASE 9 — print-friendly, `ReportDocument`)
 Bố cục **văn bản** (KHÔNG KPICard/biểu đồ/bảng Excel), dùng CHUNG cho web + in.

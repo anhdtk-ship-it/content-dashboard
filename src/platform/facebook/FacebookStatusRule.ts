@@ -14,17 +14,17 @@ import type { Platform, StatusRule } from '../types';
 
 // ----- Sao y src/server.ts -----
 const GROUP_LABEL: Record<string, string> = {
-  CHO_CHAY: 'Chờ chạy', DANG_TEST: 'Đang test', DUY_TRI: 'Duy trì',
+  CHO_CHAY: 'Chờ chạy', CHO_DANG_BAI: 'Chờ đăng bài', DANG_TEST: 'Đang test', DUY_TRI: 'Duy trì',
   DA_DUNG: 'Đã dừng', KHONG_TEST: 'Không test', KHONG_DUYET: 'Không duyệt', CHUA_PHAN_LOAI: 'Chưa phân loại',
 };
-const GROUP_ORDER = ['CHO_CHAY', 'DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST', 'KHONG_DUYET', 'CHUA_PHAN_LOAI'];
+const GROUP_ORDER = ['CHO_CHAY', 'CHO_DANG_BAI', 'DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST', 'KHONG_DUYET', 'CHUA_PHAN_LOAI'];
 
 // "Đã test" của FB (server.ts S_TESTED): Đang test + Duy trì* + Đã test-ko chạy + Đã chạy-Tắt.
 const TESTED = new Set(['Đang test', 'Duy trì - Chưa vít', 'Duy trì - Đã vít', 'Đã test-ko chạy', 'Đã chạy-Tắt']);
 
 // Danh sách trạng thái thô hợp lệ (theo Sheet FB hiện tại).
 const ALL_STATUSES = [
-  'Chờ chạy', 'Đang test', 'Duy trì - Chưa vít', 'Duy trì - Đã vít',
+  'Chờ chạy', 'Chờ đăng bài', 'Đang test', 'Duy trì - Chưa vít', 'Duy trì - Đã vít',
   'Đã test-ko chạy', 'Đã chạy-Tắt', 'Không test', 'Không được duyệt',
 ];
 
@@ -35,6 +35,7 @@ export const facebookStatusRule: StatusRule = {
     const v = (s ?? '').trim();
     if (v === '') return 'CHUA_PHAN_LOAI';
     if (v === 'Chờ chạy') return 'CHO_CHAY';
+    if (v === 'Chờ đăng bài') return 'CHO_DANG_BAI';
     if (v === 'Đang test') return 'DANG_TEST';
     if (v.startsWith('Duy trì')) return 'DUY_TRI';
     if (v === 'Đã test-ko chạy' || v === 'Đã chạy-Tắt') return 'DA_DUNG';

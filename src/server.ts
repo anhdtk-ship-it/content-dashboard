@@ -49,6 +49,7 @@ function statusGroup(s?: string): string {
   const v = (s ?? '').trim();
   if (v === '') return 'CHUA_PHAN_LOAI';
   if (v === 'Chờ chạy') return 'CHO_CHAY';
+  if (v === 'Chờ đăng bài') return 'CHO_DANG_BAI';   // đã test/duyệt xong, chờ lên lịch đăng (RIÊNG, không phải Chờ chạy)
   if (v === 'Đang test') return 'DANG_TEST';
   if (v.startsWith('Duy trì')) return 'DUY_TRI';
   if (v === 'Đã test-ko chạy' || v === 'Đã chạy-Tắt') return 'DA_DUNG';
@@ -57,7 +58,7 @@ function statusGroup(s?: string): string {
   return 'CHUA_PHAN_LOAI';
 }
 const GROUP_LABEL: Record<string, string> = {
-  CHO_CHAY: 'Chờ chạy', DANG_TEST: 'Đang test', DUY_TRI: 'Duy trì',
+  CHO_CHAY: 'Chờ chạy', CHO_DANG_BAI: 'Chờ đăng bài', DANG_TEST: 'Đang test', DUY_TRI: 'Duy trì',
   DA_DUNG: 'Đã dừng', KHONG_TEST: 'Không test', KHONG_DUYET: 'Không duyệt', CHUA_PHAN_LOAI: 'Chưa phân loại',
 };
 
@@ -155,7 +156,7 @@ const safeRate = (num: number, den: number) => (den === 0 ? 0 : num / den);
 /** Bộ chỉ số KPI cho 1 tập content (Tổng quan / Người nhận / Thị trường dùng chung). */
 function metrics(rows: Enriched[]) {
   const total = rows.length; // Content được cấp
-  let tested = 0, finalized = 0, success = 0, fail = 0, dangTest = 0, khongDuyet = 0, choChay = 0, chuaPhanLoai = 0, khongTest = 0;
+  let tested = 0, finalized = 0, success = 0, fail = 0, dangTest = 0, khongDuyet = 0, choChay = 0, choDangBai = 0, chuaPhanLoai = 0, khongTest = 0;
   for (const r of rows) {
     const v = (r.current_status ?? '').trim();
     if (v === 'Đang test') dangTest++;
@@ -166,12 +167,13 @@ function metrics(rows: Enriched[]) {
     if (v === 'Không test') khongTest++;         // PHASE 10 (không thuộc tested/tồn kho)
     if (v === 'Không được duyệt') khongDuyet++;
     else if (v === 'Chờ chạy') choChay++;
+    else if (v === 'Chờ đăng bài') choDangBai++; // đã test/duyệt xong, chờ lên lịch đăng (RIÊNG, không tính vào tồn kho)
     else if (v === '') chuaPhanLoai++;
   }
-  const tonKho = choChay + chuaPhanLoai; // đã cấp nhưng chưa test (không tính Không duyệt/Không test)
+  const tonKho = choChay + chuaPhanLoai; // đã cấp nhưng chưa test (không tính Không duyệt/Không test/Chờ đăng bài)
   return {
     capped: total,
-    tested, finalized, success, fail, dangTest, khongDuyet, choChay, chuaPhanLoai, khongTest, tonKho,
+    tested, finalized, success, fail, dangTest, khongDuyet, choChay, choDangBai, chuaPhanLoai, khongTest, tonKho,
     rateTested: safeRate(tested, total),         // Đã được test / Content được cấp
     rateSuccess: safeRate(success, finalized),   // Thành công (Duy trì) / Đã có kết quả cuối (loại Đang test)
     rateDangTest: safeRate(dangTest, total), // Đang test / Content được cấp
@@ -275,7 +277,7 @@ function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
   });
 
   // Status breakdown (group + current_status gốc cho tooltip)
-  const order = ['CHO_CHAY', 'DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST', 'KHONG_DUYET', 'CHUA_PHAN_LOAI'];
+  const order = ['CHO_CHAY', 'CHO_DANG_BAI', 'DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST', 'KHONG_DUYET', 'CHUA_PHAN_LOAI'];
   const byStatus = order.map((g) => {
     const rs = F.filter((r) => r.status_group === g);
     const bd = new Map<string, number>();
@@ -292,7 +294,7 @@ function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
     chuaPhanLoai: countGroup(F, 'CHUA_PHAN_LOAI'),
     // Đang test + Ngày test (test_date_real) cũ hơn 5 ngày (KHÔNG dùng upload_date).
     testQuaLau: F.filter((r) => r.status_group === 'DANG_TEST' && r.test_date_real && r.test_date_real < staleIso).length,
-    chuaTest: F.filter((r) => !(r.test_date ?? '').trim() && !['DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST'].includes(r.status_group)).length,
+    chuaTest: F.filter((r) => !(r.test_date ?? '').trim() && !['DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST', 'CHO_DANG_BAI'].includes(r.status_group)).length,
     // Thiếu ngày test: bỏ qua content trạng thái "Không test" (không cần test → không tính thiếu).
     thieuNgayTest: F.filter((r) => !(r.test_date ?? '').trim() && r.status_group !== 'KHONG_TEST').length,
     thieuTrello: F.filter((r) => !(r.trello_link ?? '').trim()).length,
@@ -320,6 +322,7 @@ function buildSummary(rows: Enriched[], f: Filters, trendMode: string) {
     khongTest: countGroup(F, 'KHONG_TEST'),
     win: countGroup(F, 'DUY_TRI'),
     choChay: countGroup(base, 'CHO_CHAY'),
+    choDangBai: countGroup(base, 'CHO_DANG_BAI'),
     dangTest: countGroup(base, 'DANG_TEST'),
   };
 
@@ -381,7 +384,7 @@ app.get('/api/v3/contents', async (req, res) => {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const staleBefore = new Date(today); staleBefore.setDate(staleBefore.getDate() - 5); // "Test quá lâu": >5 ngày từ Ngày Set Ads
       const staleIso = staleBefore.toISOString().slice(0, 10);
-      const tested = ['DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST']; // KHONG_TEST: không còn cần test
+      const tested = ['DANG_TEST', 'DUY_TRI', 'DA_DUNG', 'KHONG_TEST', 'CHO_DANG_BAI']; // KHONG_TEST/CHO_DANG_BAI: không còn cần test
       list = list.filter((r) => {
         switch (alert) {
           case 'chuaPhanLoai': return r.status_group === 'CHUA_PHAN_LOAI';

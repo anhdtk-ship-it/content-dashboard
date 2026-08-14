@@ -132,6 +132,7 @@
 | Duy trì - Chưa vít / Đã vít | **Xanh lá** | `#0f3320` | `#34d399` | Ổn định |
 | Đang test | **Vàng** | `#3a2a14` | `#fbbf24` | Theo dõi |
 | Chờ chạy | **Cam** | `#3a2410` | `#fb923c` | Cần xử lý |
+| Chờ đăng bài | **Xanh cyan** | `#0e3a3a` | `#22d3ee` | Sẵn sàng |
 | Không được duyệt | **Đỏ** | `#3a1d1d` | `#f87171` | Khẩn cấp |
 | Đã test - không chạy | **Xám** | `#22293a` | `#94a3b8` | — |
 | Đã chạy - Tắt | **Xanh dương nhạt** | `#13283a` | `#7dd3fc` | — |

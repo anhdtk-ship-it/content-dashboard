@@ -13,6 +13,8 @@
  *   Đã test       = trong "Đã cấp" & trạng thái ∈ {Đang test, Duy trì*, Đã test-ko chạy, Đã chạy-Tắt}.
  *   Tồn           = ĐÚNG trạng thái "Chờ chạy" (current_status === 'Chờ chạy'), KHÔNG tính
  *                   bất kỳ trạng thái nào khác (kể cả trống/chưa phân loại).
+ *   Chờ đăng bài  = ĐÚNG trạng thái "Chờ đăng bài" (đã test/duyệt xong, chờ lên lịch đăng) —
+ *                   nhóm RIÊNG, KHÔNG tính vào Tồn.
  *   Tỷ lệ test    = Đã test / Đã cấp.
  *   Duy trì tháng = trong "Đã cấp" & hiện đang "Duy trì" (giữ nguyên rule `win` cũ —
  *                   hệ thống KHÔNG lưu ngày đổi trạng thái nên dùng proxy này).
@@ -45,6 +47,7 @@ export interface WeeklyKpi {
   capped: number;       // Đã cấp
   tested: number;       // Đã test
   ton: number;          // Tồn = đúng trạng thái "Chờ chạy"
+  choDangBai: number;   // Chờ đăng bài = đúng trạng thái "Chờ đăng bài" (RIÊNG, không tính vào Tồn)
   rateTest: number;     // Đã test / Đã cấp
   duyTriThang: number;  // Duy trì tháng
   rateDuyTri: number;   // Duy trì tháng / Đã test
@@ -92,12 +95,15 @@ export function calcKpi(all: RawContent[], range: DateRange): WeeklyKpi {
   const tested = coh.filter((r) => isTested(st(r))).length;
   // Tồn = ĐÚNG trạng thái "Chờ chạy", không tính trạng thái nào khác.
   const ton = coh.filter((r) => st(r) === 'Chờ chạy').length;
+  // Chờ đăng bài = ĐÚNG trạng thái "Chờ đăng bài" — nhóm riêng, KHÔNG gộp vào Tồn.
+  const choDangBai = coh.filter((r) => st(r) === 'Chờ đăng bài').length;
   const duyTriThang = coh.filter((r) => isDuyTri(st(r))).length;
   const dangDuyTri = all.filter((r) => isDuyTri(st(r))).length; // ALL-TIME
   return {
     capped,
     tested,
     ton,
+    choDangBai,
     rateTest: rate(tested, capped),
     duyTriThang,
     rateDuyTri: rate(duyTriThang, tested),
@@ -131,6 +137,7 @@ export function buildWeeklyReport(rows: RawContent[], range: DateRange, generate
  * ========================================================== */
 const LOW_TEST_RATE = 0.7;   // tỷ lệ test dưới ngưỡng → cần tăng tốc đưa vào Ads
 const HIGH_TON = 3;          // tồn từ ngưỡng này → ưu tiên xử lý
+const HIGH_CHO_DANG_BAI = 3; // chờ đăng bài từ ngưỡng này → ưu tiên lên lịch đăng
 const GOOD_DUYTRI_RATE = 0.1; // tỷ lệ Duy trì đạt ngưỡng → chọn content hiệu quả
 const MANY_DANG_DUYTRI = 5;  // đang duy trì nhiều → quản lý ổn định
 
@@ -143,6 +150,9 @@ export function reviewEmployee(kpi: WeeklyKpi): string[] {
   }
   if (kpi.ton >= HIGH_TON) {
     out.push(`⚠ Cần ưu tiên xử lý Content tồn (còn ${fmtNum(kpi.ton)} chưa đưa vào Ads).`);
+  }
+  if (kpi.choDangBai >= HIGH_CHO_DANG_BAI) {
+    out.push(`⚠ Có ${fmtNum(kpi.choDangBai)} Content chờ đăng bài, cần lên lịch đăng sớm.`);
   }
   if (kpi.duyTriThang > 0 && kpi.rateDuyTri >= GOOD_DUYTRI_RATE) {
     out.push(`✓ Khả năng lựa chọn Content hiệu quả (${fmtNum(kpi.duyTriThang)} Duy trì / ${fmtNum(kpi.tested)} đã test = ${fmtPct(kpi.rateDuyTri)}).`);
@@ -164,6 +174,7 @@ export function planForMarket(block: MarketBlock): string[] {
   const out: string[] = [];
 
   if (t.ton > 0) out.push(`Xử lý dứt điểm ${fmtNum(t.ton)} Content tồn chưa đưa vào Ads.`);
+  if (t.choDangBai > 0) out.push(`Lên lịch đăng bài cho ${fmtNum(t.choDangBai)} Content đang chờ đăng.`);
   if (t.capped > 0 && t.rateTest < LOW_TEST_RATE) out.push(`Nâng tỷ lệ test lên trên ${Math.round(LOW_TEST_RATE * 100)}% (hiện ${fmtPct(t.rateTest)}).`);
   if (t.tested > 0 && t.rateDuyTri < GOOD_DUYTRI_RATE) out.push(`Rà soát tiêu chí chọn Content để nâng tỷ lệ Duy trì (hiện ${fmtPct(t.rateDuyTri)}).`);
   if (t.duyTriThang > 0) out.push(`Nhân rộng hướng nội dung của ${fmtNum(t.duyTriThang)} Content đạt Duy trì.`);

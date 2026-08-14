@@ -1,6 +1,7 @@
 // Bảng màu trạng thái & thị trường — nguồn: DESIGN_SYSTEM.md §11.
 export const STATUS_GROUPS = {
   CHO_CHAY: { label: 'Chờ chạy', bg: '#3a3320', fg: '#fde68a' },
+  CHO_DANG_BAI: { label: 'Chờ đăng bài', bg: '#0e3a3a', fg: '#22d3ee' },
   DANG_TEST: { label: 'Đang test', bg: '#3a2a14', fg: '#fbbf24' },
   DUY_TRI: { label: 'Duy trì', bg: '#0f3320', fg: '#34d399' },
   DA_DUNG: { label: 'Đã dừng', bg: '#22293a', fg: '#94a3b8' },
@@ -32,6 +33,7 @@ export function statusStyle(raw?: string): StatusStyle {
   if (v === 'Không test') return { label: v, bg: '#2a2a2e', fg: '#a1a1aa', severity: 'Kết thúc' };            // xám trung tính (PHASE 10)
   if (v === 'Đang test') return { label: v, bg: '#3a2a14', fg: '#fbbf24', severity: 'Theo dõi' };             // vàng
   if (v === 'Chờ chạy') return { label: v, bg: '#3a2410', fg: '#fb923c', severity: 'Cần xử lý' };             // cam
+  if (v === 'Chờ đăng bài') return { label: v, bg: '#0e3a3a', fg: '#22d3ee', severity: 'Sẵn sàng' };           // xanh cyan (đã test/duyệt, chờ lên lịch)
   if (v === 'Không được duyệt') return { label: v, bg: '#3a1d1d', fg: '#f87171', severity: 'Khẩn cấp' };      // đỏ
   return { label: v || 'Chưa phân loại', bg: '#2a2030', fg: '#c4b5fd' };
 }
@@ -41,6 +43,7 @@ export function groupStyle(group: string): StatusStyle {
     case 'DUY_TRI': return { label: 'Duy trì', bg: '#0f3320', fg: '#34d399', severity: 'Ổn định' };
     case 'DANG_TEST': return { label: 'Đang test', bg: '#3a2a14', fg: '#fbbf24', severity: 'Theo dõi' };
     case 'CHO_CHAY': return { label: 'Chờ chạy', bg: '#3a2410', fg: '#fb923c', severity: 'Cần xử lý' };
+    case 'CHO_DANG_BAI': return { label: 'Chờ đăng bài', bg: '#0e3a3a', fg: '#22d3ee', severity: 'Sẵn sàng' };
     case 'KHONG_DUYET': return { label: 'Không duyệt', bg: '#3a1d1d', fg: '#f87171', severity: 'Khẩn cấp' };
     case 'DA_DUNG': return { label: 'Đã dừng', bg: '#22293a', fg: '#94a3b8' };
     case 'KHONG_TEST': return { label: 'Không test', bg: '#2a2a2e', fg: '#a1a1aa' };
