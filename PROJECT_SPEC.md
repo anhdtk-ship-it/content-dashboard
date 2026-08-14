@@ -2,7 +2,7 @@
 
 > **Tài liệu gốc (single source of truth).** Mọi thay đổi về kiến trúc, schema, sync, dashboard, API, phân quyền… **bắt buộc cập nhật vào file này**.
 >
-> Cập nhật lần cuối: 2026-06-25 · Trạng thái: đang phát triển
+> Cập nhật lần cuối: 2026-07-31 (Auth live + Budget Allocation Analytics + Phase 13 Zalo) · Trạng thái: đang phát triển
 > Ký hiệu: ✅ đã triển khai · 🟡 một phần · 🔲 kế hoạch (chưa code)
 
 ---
@@ -165,14 +165,22 @@ Chỉ áp dụng cho **frontend React** (`web/`); bản vanilla `public/index.ht
 
 ---
 
-## 5. Phân quyền 🔲 (thiết kế — chưa triển khai)
+## 5. Authentication / Phân quyền ✅ Auth live · 🟡 Role chưa dùng để phân quyền
 
-| Vai trò | Quyền |
-|---|---|
-| **Admin** | Toàn quyền: xem mọi dashboard, chạy sync, quản lý user, sửa cài đặt |
-| **Viewer** (email `@seryn.vn`) | Chỉ đọc dashboard; không sync/không cài đặt/không quản lý user |
+> **ĐẢO NGƯỢC quyết định trước đây ("KHÔNG auth, dùng Share Link")**: kể từ commit `105f1a5`, app **CÓ** Authentication. Chi tiết vận hành/luồng đăng nhập đầy đủ: `CURRENT_STATE.md` (mục Authentication) + `PROJECT_HANDOFF.md §9`.
 
-**Hướng triển khai dự kiến**: Supabase Auth (email OTP/SSO) → kiểm tra domain `@seryn.vn` cấp role `viewer`, danh sách admin cấu hình riêng. RLS bật trên `contents`/`sync_logs` cho client anon; API service-role chỉ chạy phía server. Hiện tại **chưa có auth** — dashboard mở, anon key chỉ phục vụ realtime.
+- **Cơ chế ✅:** Supabase Auth (Google OAuth), chỉ chấp nhận email domain **`@seryn.vn`** (env `AUTH_ALLOWED_DOMAIN`). Sau đăng nhập, `requireAuth` (`src/auth/authMiddleware.ts`) xác thực JWT qua Supabase Admin → check domain → tra bảng `users` → 403 nếu `is_active=false` hoặc sai domain → **auto-provision** user mới (role mặc định `viewer`, `is_active=true`) nếu lần đầu đăng nhập.
+- **Bảng `users` ✅** (`sql/008_users.sql`): `email`, `role`, `is_active`. RLS bật, **không có policy** cho anon/authenticated → chỉ service_role (server) truy cập được.
+- **Route bảo vệ ✅:** `/api/v3/*`, `/ads-monitor`, `/api/zalo`. **Route public (không auth):** `/health`, `/api/config`, `/api/content-sync` (secret riêng), `/api/zalo-sync` (secret riêng), static SPA.
+- **Frontend ✅:** `web/main.tsx` bọc app trong `AuthGate` + `installAuthFetch()` (tự gắn header `Authorization: Bearer <JWT>`). Chưa đăng nhập → `LoginPage`; 403 → màn hình chặn truy cập.
+
+| Vai trò | Quyền hiện tại | Quyền dự kiến (🔲 chưa code) |
+|---|---|---|
+| **Admin** | Giống Viewer (chưa phân biệt) | Toàn quyền: xem mọi dashboard, chạy sync, quản lý user, sửa cài đặt |
+| **Viewer** (mọi email `@seryn.vn` hợp lệ) | Xem đầy đủ mọi dashboard (Content/Ads/Zalo/Budget/Weekly Report) | Chỉ đọc; không sync/không cài đặt/không quản lý user |
+
+- **🔲 Còn thiếu:** cột `role` đã lưu nhưng **CHƯA** có logic nào đọc/chặn theo role — mọi user hợp lệ quyền ngang nhau. Muốn phân quyền thật cần thêm check `role` trong `authMiddleware` hoặc ở từng route nhạy cảm.
+- **⚠️ Vận hành cần đảm bảo trên Railway:** bật Google provider + OAuth Client ID/Secret (Supabase Dashboard + Google Cloud Console) + Redirect URL đúng domain production; set `SUPABASE_ANON_KEY`; đã chạy `sql/008_users.sql`; có ít nhất 1 user trong bảng `users` (auto-provision sẽ tự tạo khi đăng nhập lần đầu, nhưng cần domain/provider đã bật trước).
 
 ---
 
@@ -294,10 +302,10 @@ content-dashboard/
 - [ ] Cài đặt 🔲
 
 ### Phân quyền & vận hành
-- [ ] Supabase Auth (đăng nhập) 🔲
-- [ ] Role Admin / Viewer (@seryn.vn) 🔲
-- [ ] RLS cho client anon 🔲
-- [ ] Deploy (hiện chạy local `:4000`) 🔲
+- [x] Supabase Auth (đăng nhập Google, domain @seryn.vn) ✅
+- [ ] Role Admin / Viewer — cột đã lưu, logic phân quyền CHƯA code 🟡
+- [x] RLS bật trên bảng `users` (chỉ service_role) ✅
+- [x] Deploy Railway (production live) ✅
 
 ### Tài liệu
 - [x] `mapping-spec.md`
@@ -408,6 +416,16 @@ Tạo `src/platform/<nền-tảng>/` (StatusRule + module), đăng ký `registry
 
 ### 13.6 ZALO-04 — nối Google Sheet thật (2 tab)
 Google Sheet Zalo có ĐÚNG 2 tab `Video`/`Banner`; `content_format` = **tên tab** (không có cột định dạng/thị trường/người phụ trách). Backend đọc đồng thời 2 tab → merge → sync (`ZaloContentSyncService` + `ZaloSyncProvider.transformTab`). Mapping: Tên Content→`title` (cột thêm ở `sql/011_zalo_title.sql`), Ngày Up Trello→"đã cấp", Ngày test, Trạng thái. **Khoá định danh ổn định**: Content ID → Trello card id → hash(format|title|ngày up) — KHÔNG dùng số dòng → chống trùng khi re-sync. Settings thêm `warning_threshold`; Leader chỉnh Target/ngưỡng ngay trong Dashboard (`ZaloSettingsPanel`). Data Quality: "thiếu dữ liệu bắt buộc" (thiếu tên) + "trùng" theo TÊN. Auto-sync webhook `/api/zalo-sync` debounce 60s + `apps-script/ContentSyncZalo.gs`.
+
+---
+
+## 14. Budget Allocation Analytics (FB-ADS-02) — module độc lập, CHỈ ĐỌC
+
+> Menu **Budget Allocation** (`web/budget/BudgetAllocationPage.tsx`, `#/budget`). Module phân tích ngân sách + content theo nhân viên Ads, dành cho Facebook. **ĐỘC LẬP hoàn toàn**: không có bảng/API/sync riêng — **chỉ đọc dữ liệu qua `/ads-monitor`** (`web/budget/budgetApi.ts` gọi thẳng route Ads Monitor có sẵn). Không ghi dữ liệu, không đổi logic Ads Monitor.
+
+- **Nội dung:** biểu đồ cột nhóm (grouped bar) thể hiện ngân sách + số content theo từng nhân viên Ads, tách 2 tab **Nội Địa** / **Quốc Tế** (nhãn thuần Việt, giữ nguyên field `content` gốc). Nhân viên "Br" (Branding) bị loại khỏi tab Nội Địa (nhiễu dữ liệu, không phải nhân viên Ads thật — cùng vấn đề đã ghi ở §11.4).
+- **Lịch sử điều chỉnh UI (không đổi số liệu):** gộp ngân sách+content vào 1 biểu đồ cột nhân viên (bỏ toggle) → tăng bề rộng cột (34px) + cỡ chữ nhãn/tên NV → bỏ bảng chi tiết theo nhân viên (giữ lại biểu đồ cột nhóm) để tránh trùng lặp thông tin với biểu đồ.
+- **Ràng buộc:** KHÔNG thêm route backend riêng cho module này trừ khi thật sự cần tính toán phía server; nếu sửa `ads_monitor_query`/schema Ads Monitor, kiểm tra ảnh hưởng tới `budgetApi.ts`. Route được bảo vệ bởi `requireAuth` qua chính `/ads-monitor` (§5).
 
 ---
 

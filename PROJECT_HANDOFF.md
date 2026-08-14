@@ -1,45 +1,56 @@
-# PROJECT HANDOFF — Content Operations Dashboard (Seryn) + Ads Monitor + Weekly Report
+# PROJECT HANDOFF — Content Operations Dashboard (Seryn) + Ads Monitor + Weekly Report + Zalo + Budget Analytics
 
-> **Handoff v3.0 · Cập nhật: 2026-07-01** (sau Phase 4→11: Ads Monitor GO-LIVE + Weekly Report + trạng thái "Không test")
+> **Handoff v4.0 · Cập nhật: 2026-07-31** (sau Phase 12→13 + Auth + Zalo + Budget Analytics — kể từ v3.0 @ `ed1c820`)
 > Tài liệu để một phiên Claude mới tiếp tục công việc mà KHÔNG cần đọc lịch sử chat.
 > Thư mục gốc: `C:\Users\Admin\Downloads\wesd\content-dashboard`
 > (Lưu ý: thư mục cha `wesd` là một project Next.js KHÁC — `haiau-seo-hub` — không liên quan tài liệu này.)
-> `git` HEAD hiện tại: **`ed1c820`** (nhánh `main`, working tree sạch). Ngày trong code chạy theo giờ máy.
+> `git` HEAD hiện tại: **`7852d1a`** (nhánh `main`, working tree sạch). Ngày trong code chạy theo giờ máy.
 
 ---
 
 ## 1. Project Overview
 
-* **Mục tiêu:** App nội bộ vận hành nội dung cho team Seryn. Gồm **3 miền độc lập** trong cùng repo/server:
-  1. **Dashboard Content** — theo dõi vòng đời test content (cấp → test → duy trì/tắt/không test), KPI chất lượng, hiệu suất theo Nhân viên Ads / Biên tập / thị trường, cảnh báo.
+* **Mục tiêu:** App nội bộ vận hành nội dung cho team Seryn. Gồm **5 miền độc lập** trong cùng repo/server:
+  1. **Dashboard Content (Facebook)** — theo dõi vòng đời test content (cấp → test → duy trì/tắt/không test), KPI chất lượng, hiệu suất theo Nhân viên Ads / Biên tập / thị trường, cảnh báo.
   2. **Ads Monitor** — theo dõi chi tiêu quảng cáo Facebook theo Page/Content, trạng thái động (Lifecycle + chi tiêu ngày mới nhất).
-  3. **Weekly Report** — báo cáo tuần (Reports → Weekly Report), chỉ đọc dữ liệu Content, có xuất PDF (in trình duyệt).
-* **Phạm vi:** App nội bộ, truy cập bằng **Share Link** (KHÔNG có Authentication — đã hủy, §9). Ưu tiên đọc KPI nhanh.
-* **Kiến trúc tổng thể:** Google Sheets → (script sync/import, ts-node) → Supabase (Postgres) → Express API (`src/server.ts`) → Frontend React (Vite, `web/`).
+  3. **Weekly Report** — báo cáo tuần cho cả Facebook và Zalo, xuất PDF (reportlab chuẩn cho Zalo; in trình duyệt cho Facebook).
+  4. **Zalo (đa nền tảng, Phase 13)** — dashboard/API/sync/webhook/weekly/PDF riêng cho content Zalo, kiến trúc `platform_*` chung để mở rộng nền tảng mới (TikTok…) chỉ bằng cách thêm 1 platform.
+  5. **Budget Allocation Analytics (FB-ADS-02)** — module phân tích ngân sách/nhân viên độc lập, chỉ ĐỌC dữ liệu Ads Monitor (không ghi, không sync riêng).
+* **Phạm vi:** App nội bộ, **Authentication ĐÃ BẬT** kể từ `105f1a5` (Supabase Auth Google, chỉ email `@seryn.vn`) — mô hình Share Link cũ đã bị **đảo ngược**, xem §9.
+* **Kiến trúc tổng thể:** Google Sheets (Content/Ads/Zalo — 3 spreadsheet riêng) → (sync engine + webhook, ts-node) → Supabase (Postgres) → Express API (`src/server.ts`, có `requireAuth`) → Frontend React (Vite, `web/`, bọc `AuthGate`).
 
 ---
 
 ## 2. Current Status
 
-* **Phase hiện tại:** Đã xong **Phase 11**. Cả 3 miền chạy **dữ liệu THẬT**, đã commit + push `main` (Railway auto-deploy).
-* **% hoàn thành (ước lượng — Cần xác minh theo kỳ vọng sản phẩm):** Dashboard Content ~90% · Ads Monitor ~90% (live, còn chờ xác nhận mapping nghiệp vụ) · Weekly Report ~85% (chờ persist II/III + DOCX) · Tổng thể ~88%.
-* **Module đã hoàn thành:** Sync Engine + prune, API V3, UI library, Dashboard Content (Tổng Quan/Thị Trường/Content&Vòng đời), GlobalFilter; **Ads Monitor go-live** (server-side SQL, lịch sử theo ngày, Lifecycle + status, filter động, loại Khiêm); **Weekly Report** (KPI 2 nhóm, Rule Engine, print PDF); trạng thái **"Không test"** (Content + Weekly).
-* **Đang làm:** không có việc dở trong working tree (đã commit hết).
-* **Chưa bắt đầu / còn treo:** worker chạy `ads:import` tự động hằng ngày trên hạ tầng; persist phần II/III của Weekly Report (đang lưu cục bộ); export DOCX; xác nhận nghiệp vụ mapping Ads + định nghĩa win.
+* **Phase hiện tại:** Đã xong **Phase 13** (kiến trúc đa nền tảng + Zalo) + Auth + Budget Analytics. Tất cả 5 miền chạy **dữ liệu THẬT**, đã commit + push `main` (Railway auto-deploy).
+* **Module đã hoàn thành kể từ v3.0:**
+  * **Phase 12** — Auto-Sync Content qua webhook + debounce (không cần bấm Sync tay).
+  * **GoogleAuthFactory** — sync chạy được trên Railway (không cần file credentials, đọc `GOOGLE_CREDENTIALS_JSON`).
+  * **Authentication + Authorization** — Supabase Auth Google, domain `@seryn.vn`, bảng `users` + `is_active` + `role` (role lưu, CHƯA phân quyền).
+  * **Weekly Report** — 2 nhóm KPI (Phase 11), trạng thái "Không test" (Phase 10), đổi nhãn "Content duy trì", đánh giá cá nhân theo tỷ lệ, kế hoạch cả team, báo cáo theo market + PDF chuyên nghiệp (reportlab.platypus, standalone).
+  * **Phase 13 — Zalo:** dashboard/API/sync/webhook/weekly/PDF riêng, additive, KHÔNG đụng Facebook.
+  * **Budget Allocation Analytics (FB-ADS-02):** module mới, phân tích ngân sách + content theo nhân viên (biểu đồ cột nhóm Nội Địa/Quốc Tế), chỉ đọc Ads Monitor.
+* **Đang làm:** không có việc dở trong working tree (đã commit hết, HEAD `7852d1a`).
+* **Chưa bắt đầu / còn treo:** phân quyền theo `role` (Admin/Viewer) — cột đã có, logic chưa code; worker chạy `ads:import` tự động hằng ngày trên hạ tầng luôn-bật (hiện chạy Windows Task Scheduler cục bộ); persist phần II/III Weekly Report; export DOCX.
 
 ---
 
 ## 3. Current Architecture
 
-* **Frontend:** Vite 8 + **React 19** + Tailwind v4, thư mục `web/`. Hash router trong `web/main.tsx` (1 nguồn menu/route). UI primitives `src/components/ui` + layout `src/components/layout`. **Zoom UI 1.1** (`web/styles.css #root`). `@media print` (in Weekly Report → PDF).
-* **Backend:** Node + **TypeScript (CommonJS, ts-node, KHÔNG build)**, **Express 5** — `src/server.ts` (~648 dòng). Bind `0.0.0.0` + `PORT ?? 4000`. `/health`. Serve `web/dist`. SPA fallback `/{*splat}`. Đọc Supabase bằng **service_role**, cache `getContents()` TTL 10s.
-* **Database:** **Supabase** (Postgres). Bảng: `contents`, `sync_logs`, `content_status_history` (rỗng), **`ads_monitor`** (snapshot ngày), **`ads_monitor_lifecycle`** (Phase 7). VIEW/FUNCTION Ads (xem §12). Migrations 001–006 **đã áp dụng**.
+* **Frontend:** Vite 8 + **React 19** + Tailwind v4, thư mục `web/`. Hash router trong `web/main.tsx`, **bọc trong `AuthGate`** + `installAuthFetch()` (tự gắn `Authorization: Bearer <JWT>` cho mọi request `/api/v3`, `/ads-monitor`, `/api/auth`, `/api/zalo`). UI primitives `src/components/ui` + layout `src/components/layout`. **Zoom UI 1.1** (`web/styles.css #root`, đã fix double-scrollbar). `@media print` cho Weekly Report Facebook.
+* **Backend:** Node + **TypeScript (CommonJS, ts-node, KHÔNG build)**, **Express 5** — `src/server.ts`. Bind `0.0.0.0` + `PORT ?? 4000`. `/health`. Serve `web/dist`. SPA fallback `/{*splat}`. Đọc Supabase bằng **service_role**, cache `getContents()` TTL 10s (tự invalidate sau webhook sync).
+* **Database:** **Supabase** (Postgres). Bảng Content: `contents`, `sync_logs`, `content_status_history` (rỗng). Bảng Ads: `ads_monitor`, `ads_monitor_lifecycle`. Bảng Auth: **`users`** (Phase Auth, RLS chỉ service_role). Bảng đa nền tảng (Zalo): **`platform_contents`**, **`platform_settings`**, **`platform_sync_logs`**. Migrations 001–011 **đã áp dụng** (xem §12).
 * **API (chỉ thêm, không đổi cũ):**
-  * Content: `GET /api/config`, `/api/v3/{summary,contents,sync-status,lifecycle,content-detail,lifecycle-table}`, `/health`. `summary` trả thêm **`contentKpi`** (Phase 11: capped/khongTest/win + choChay/dangTest). `/contents` drill `alert,ageMin,ageMax,codes,endedExact,q,sort` + `editor_name`.
-  * Ads: **`GET /ads-monitor`** — server-side, gọi RPC `ads_monitor_query`. Params `page,pageSize,content,adsOwner,location,pageCode,status,month|sheetDate|dateFrom/dateTo,sortField,sortDirection`. Trả `{items,summary,total,page,pageSize,totalPages,source,owners,generatedAt}`.
-* **Google Sheets:** `googleapis` (Service Account `content-dashboard@content-dashboard-500413.iam.gserviceaccount.com`, read-only). Content sheet + Ads sheet — CẢ HAI đã kết nối (xem §13).
+  * Auth: `GET/POST /api/auth/me` — kiểm tra JWT + domain + `is_active`, auto-provision user mới. Bảo vệ toàn bộ `/api/v3/*` và `/ads-monitor` bằng `requireAuth`.
+  * Content (FB): `GET /api/config`, `/api/v3/{summary,contents,sync-status,lifecycle,content-detail,lifecycle-table}`, `/health`.
+  * Content-Sync webhook (public, secret riêng): `POST /api/content-sync`, `GET /api/content-sync/status`.
+  * Ads: `GET /ads-monitor` (server-side, RPC `ads_monitor_query`).
+  * Zalo: `/api/zalo/*` (`summary`·`contents`·`weekly`·`sync-status`·`settings`, `requireAuth`); webhook public riêng `POST /api/zalo-sync` (secret `ZALO_SYNC_SECRET`).
+  * Budget Analytics: KHÔNG có route riêng — frontend (`web/budget/`) gọi trực tiếp `/ads-monitor`.
+* **Google Sheets:** `googleapis` (Service Account, qua `GoogleAuthFactory` — `GOOGLE_CREDENTIALS_JSON` ưu tiên cho Railway, fallback file local). **3 spreadsheet riêng:** Content, Ads (`Raw_Data`), Zalo (2 tab `Video`/`Banner`).
 * **Deployment:** GitHub `anhdtk-ship-it/content-dashboard` → **Railway** deploy nhánh `main`. Domain `content-dashboard-production-4e96.up.railway.app`.
-* **Authentication:** KHÔNG có — Share Link (§9).
+* **Authentication:** **CÓ** — Supabase Auth (Google), domain `@seryn.vn` bắt buộc. Xem §9 (đảo ngược quyết định v3.0 cũ).
 
 ---
 
@@ -47,8 +58,14 @@
 ```
 content-dashboard/
 ├── src/
-│   ├── server.ts                ← Express API (Content + /ads-monitor + /health + SPA fallback)
-│   ├── sync-all-content.ts · sync-scheduler.ts · backfill-dates.ts · date-util.ts · sheets-reader.ts · transform-content.ts …
+│   ├── server.ts                ← Express API (Content + Ads + Zalo + Auth + Content-Sync + /health + SPA)
+│   ├── auth/                    ← MODULE AUTH: authMiddleware.ts (requireAuth) · routes.ts (/api/auth/me)
+│   ├── content-sync/            ← MODULE AUTO-SYNC (Phase 12): ContentSyncService.ts · SyncQueue.ts · routes.ts
+│   ├── platform/zalo/           ← MODULE ZALO (Phase 13, độc lập FB): ZaloStatusRule.ts · ZaloContent.ts ·
+│   │                                ZaloSyncProvider.ts · ZaloSyncService.ts · zaloMetrics.ts · zaloWeeklyMetrics.ts · api.ts · syncRouter.ts
+│   ├── google-auth.ts            ← GoogleAuthFactory (createGoogleAuth/createSheetsClient) — dùng chung 7+ nơi
+│   ├── sync-all-content.ts (CLI wrapper mỏng gọi ContentSyncService) · sync-scheduler.ts · backfill-dates.ts ·
+│   │   date-util.ts · sheets-reader.ts · transform-content.ts · zalo-sync.ts · zalo-seed.ts · zalo-verify.ts …
 │   ├── components/ui/ · components/layout/    ← UI library dùng chung
 │   └── ads-monitor/             ← MODULE ADS MONITOR (backend, độc lập)
 │       ├── types.ts · calculateAdsStatus.ts(latestAmount,lifecycle) · mock.ts
@@ -56,146 +73,170 @@ content-dashboard/
 │       ├── AdsMonitorSyncProvider.ts · GoogleSheetAdsSyncProvider.ts (map Raw_Data FB Ads)
 │       ├── import.ts (ads:import) · verify.ts (ads:verify) · ads-scheduler.ts (ads:scheduler)
 ├── web/                         ← App React
-│   ├── main.tsx · styles.css(zoom+@media print) · GlobalFilter.tsx · editor-name.ts
+│   ├── main.tsx (bọc AuthGate) · styles.css(zoom+@media print) · GlobalFilter.tsx · editor-name.ts
+│   ├── auth/                    ← MODULE AUTH (frontend): supabaseClient.ts · authFetch.ts · LoginPage.tsx · AuthGate.tsx
 │   ├── OverviewPage · MarketsPage · AssigneesPage · ExplorerPage · LifecyclePage · UsagePage · AnalyticsPage · UsageCompare · AlertDrawer · Tabs
 │   ├── ads-monitor/ (pages/AdsMonitorPage · components/{AdsSummaryCards,AdsFilters,AdsTable} · types · utils)
-│   └── reports/                 ← MODULE WEEKLY REPORT (độc lập, Phase 8-11)
+│   ├── budget/                  ← MODULE BUDGET ANALYTICS (FB-ADS-02, độc lập, chỉ đọc /ads-monitor)
+│   │   └── BudgetAllocationPage.tsx · budgetApi.ts · BudgetDrawer.tsx
+│   ├── zalo/                    ← MODULE ZALO (frontend): ZaloDashboardPage.tsx · ZaloWeeklyPage.tsx ·
+│   │   └── ZaloDrawer.tsx · ZaloSettingsPanel.tsx · zaloApi.ts
+│   └── reports/                 ← MODULE WEEKLY REPORT (độc lập, Phase 8-13)
 │       ├── types/report.ts · utils/{week,format}.ts · hooks/useWeeklyReport.ts
 │       ├── services/{WeeklyReportService,ruleEngine,exporters}.ts
 │       └── components/{ReportFilters,ExportBar,ReportDocument,NarrativeSections}.tsx · pages/WeeklyReportPage.tsx
+│   reports/ (Python)             ← build_zalo_weekly_data.ts + zalo_report_pdf.py (reportlab.platypus, PDF chuẩn Zalo)
+├── apps-script/                  ← Google Apps Script trigger webhook: ContentSync.gs · ContentSyncZalo.gs
 ├── public/index.html            ← Dashboard VANILLA (LEGACY — KHÔNG serve; đừng sửa)
-├── sql/ 001..006_*.sql          ← migrations (chạy tay Supabase SQL Editor; 001–006 đã áp dụng)
+├── sql/ 001..011_*.sql          ← migrations (chạy tay Supabase SQL Editor; tất cả đã áp dụng)
 ├── run-ads-import.bat + ads-import.log  ← wrapper Windows chạy ads:import (gitignored, cục bộ máy)
 ├── .env (+ .env.example commit) · credentials/ (gitignored)
-└── PROJECT_SPEC.md · CURRENT_STATE.md · PROJECT_BACKLOG.md · DESIGN_SYSTEM.md · WIREFRAMES.md · mapping-spec.md · (file này) · reviews R2–R6
+└── PROJECT_SPEC.md · CURRENT_STATE.md · PROJECT_BACKLOG.md · DESIGN_SYSTEM.md · WIREFRAMES.md · mapping-spec.md ·
+    ZALO_SETUP.md · PHASE_12_AUTO_SYNC.md · (file này) · reviews R2–R6
 ```
 
 ---
 
 ## 5. Completed Work
-* **Sync Engine** idempotent 8 sheet → `contents` + khử trùng stale (env `SYNC_PRUNE_STALE`, có guard). `npm run scheduler` (node-cron, chống chạy chồng).
-* **Dashboard Content:** Tổng Quan (Phase 11: **thẻ KPI 5 nhóm mới** Đã cấp/Không test/Chờ chạy/Đang test/Content test win + funnel + phân bố trạng thái + "Cần xử lý" drill-down + So sánh tháng + nhúng bảng xếp hạng), Thị Trường, Content & Vòng đời (Explorer + Lifecycle), GlobalFilter chung.
-* **Trạng thái "Không test" (Phase 10):** `statusGroup`→`KHONG_TEST`, thêm vào filter/màu/breakdown, loại khỏi cảnh báo "chưa test".
-* **"Test quá lâu"** (`buildSummary` + drill): tính theo `test_date_real`, ngưỡng **>10 ngày** (đổi từ upload/14 ngày).
-* **Ads Monitor — GO-LIVE (Phase 4→7):** đọc Sheet Ads Raw_Data → `ads_monitor` (khóa snapshot `(page_code,content,sheet_date)`, giữ lịch sử ngày); server-side pagination/filter/sort/KPI bằng SQL function; **Lifecycle NEW/TEST/MAINTAIN** (bảng riêng, monotonic, refresh khi import); trạng thái hiển thị = chi tiêu **ngày dữ liệu mới nhất** + Lifecycle; filter Nhân viên Ads **động**; **loại trừ Khiêm**; import lịch (`ads:scheduler`/Task Scheduler 09:35).
-* **Weekly Report (Phase 8→11):** module `web/reports/` độc lập, Business Rule riêng (`WeeklyReportService`), KPI 2 nhóm, **Rule Engine** (Đánh giá + Hành động, độc lập theo KPI từng NV Ads), bảng theo nhân viên + dòng Tổng, bộ lọc khoảng thời gian tùy chỉnh, **xuất PDF = in trình duyệt** (`@media print`, header lặp qua `<thead>`, A4).
+* **Sync Engine** idempotent 8 sheet Content → `contents` + khử trùng stale (env `SYNC_PRUNE_STALE`, có guard). `npm run scheduler` (node-cron, chống chạy chồng).
+* **Dashboard Content:** Tổng Quan, Thị Trường, Content & Vòng đời (Explorer + Lifecycle), GlobalFilter chung. Trạng thái **"Không test"**, KPI 2 nhóm, "Test quá lâu" (ngưỡng đã hạ 10→5 ngày), "Thiếu ngày test" loại trừ "Không test".
+* **Ads Monitor — GO-LIVE:** đọc Sheet Ads Raw_Data → `ads_monitor`; server-side pagination/filter/sort/KPI; Lifecycle NEW/TEST/MAINTAIN; import lịch (Task Scheduler 09:35).
+* **Weekly Report (Phase 8→13):** module `web/reports/` độc lập, KPI 2 nhóm, Rule Engine, đánh giá cá nhân theo tỷ lệ, kế hoạch cả team, báo cáo theo market, PDF chuẩn (`reportlab.platypus`, standalone không phụ thuộc trình duyệt).
+* **Phase 12 — Auto-Sync Content:** webhook `POST /api/content-sync` + Debounce Queue (60s, max-wait 5 phút) + so sánh signature (chỉ upsert bản ghi đổi). `ContentSyncService.ts` là nguồn logic sync DUY NHẤT (CLI + webhook đều gọi).
+* **GoogleAuthFactory:** `src/google-auth.ts` — chạy được trên Railway (`GOOGLE_CREDENTIALS_JSON`) không cần file `credentials/*.json`. Refactor 7+ nơi dùng chung.
+* **Authentication + Authorization:** Supabase Auth Google, domain `@seryn.vn`, bảng `users` (RLS chỉ service_role), auto-provision user mới, 403 nếu `is_active=false` hoặc sai domain. Bảo vệ toàn bộ `/api/v3` + `/ads-monitor` + `/api/zalo`.
+* **Phase 13 — Zalo (đa nền tảng):** bảng `platform_*` dùng chung cho nền tảng mới; `ZaloStatusRule` (Business Rule riêng: Tồn/Đang test/Duy trì/Không test); dashboard theo tháng + định dạng (Video/Banner, tự do không hardcode); sync 2 tab Sheet + webhook riêng; Weekly Zalo + PDF Python (`reportlab`).
+* **Budget Allocation Analytics (FB-ADS-02):** module `web/budget/` độc lập, chỉ đọc `/ads-monitor`; phân tích ngân sách + content theo nhân viên, biểu đồ cột nhóm Nội Địa/Quốc Tế, loại NV "Br" khỏi Nội Địa.
 
 ---
 
 ## 6. Work In Progress
-* Không có code dở trong working tree — tất cả đã commit + push `main` (HEAD `ed1c820`).
-* Việc vận hành còn treo (chưa code): (a) chạy `ads:import` tự động hằng ngày trên hạ tầng luôn-bật; (b) persist phần soạn II/III của Weekly Report; (c) export DOCX; (d) xác nhận nghiệp vụ (mapping Ads owner, định nghĩa win).
+* Không có code dở trong working tree — tất cả đã commit + push `main` (HEAD `7852d1a`).
+* Việc vận hành còn treo (chưa code): (a) chạy `ads:import` tự động hằng ngày trên hạ tầng luôn-bật (hiện chỉ chạy trên máy Windows cục bộ); (b) persist phần soạn II/III của Weekly Report; (c) export DOCX; (d) phân quyền thật theo `role` (Admin/Viewer) — cột đã lưu, logic chưa code.
 
 ---
 
 ## 7. Next Priorities
 **P1**
+* **Phân quyền theo `role`** — hiện mọi user hợp lệ (`@seryn.vn` + `is_active`) có quyền như nhau; nếu cần phân biệt Admin/Viewer phải code thêm (kiểm tra `role` trong `authMiddleware` hoặc route-level).
 * **Scheduler import Ads hằng ngày** trên máy/hạ tầng luôn-bật (Windows Task Scheduler `run-ads-import.bat` 09:35 đã dựng cục bộ; hoặc worker Railway riêng chạy `npm run ads:scheduler`). Railway web service KHÔNG tự chạy.
-* **Xác nhận nghiệp vụ mapping Ads:** `ads_owner` còn nhiễu `Br/BR/S` + hoa/thường `LIÊN` (cân nhắc join tab `Config` account_id→Ads_name); xác nhận khóa `(page_code, content, sheet_date)`.
-* Khi Google Sheet Content có content trạng thái **"Không test"** → kiểm tra số lên đúng ở Dashboard + Weekly Report.
+* **Vận hành Auth trên Railway:** xác nhận đã bật Google provider + OAuth Client ID/Secret (Supabase/Google Cloud) + Redirect URL đúng domain production; `SUPABASE_ANON_KEY` đã set; đã có ít nhất 1 user admin trong bảng `users`.
+* **Cập nhật `PROJECT_SPEC.md §5`** (Phân quyền) — hiện vẫn ghi "chưa triển khai/chưa có auth", đã lỗi thời so với thực tế (auth đã live) — cần đồng bộ.
 
 **P2**
 * Persist phần II/III Weekly Report (thêm bảng `weekly_report_notes` — migration mới) để giữ chỉnh sửa qua các lần mở.
+* Xác nhận nghiệp vụ mapping Ads (`ads_owner` còn nhiễu `Br/BR/S`).
 * `EXPLAIN ANALYZE ads_monitor_query(...)` ở mốc dữ liệu lớn (100k–500k) xác nhận index/`DISTINCT ON`.
-* Xác nhận ngữ nghĩa "Content Test Win" (hiện = trạng thái "Duy trì") có đúng nghiệp vụ.
 
 **P3**
 * Export DOCX Weekly Report (interface đã có, chưa implement).
-* Sửa lỗi parse năm 2025→2026 (`date-util.ts`) cho ~76 content.
-* Module Sync/User/Settings (hiện React stub, ẩn menu); ghi `content_status_history`.
+* Thêm nền tảng thứ 3 (TikTok…) tái dùng kiến trúc `platform_*` (chỉ cần `src/platform/<tên>/` + đăng ký `registry.ts` + mount route 1 dòng).
+* Sửa lỗi parse năm 2025→2026 (`date-util.ts`) cho content cũ.
 
 ---
 
 ## 8. Known Issues / Inconsistencies
-* **⚠️ Mapping Ads Raw_Data là GIẢ ĐỊNH nghiệp vụ:** Raw_Data = export FB Ads cấp ad/ngày, KHÔNG có cột content/location/ads_owner/page_code → suy ra: `content←ad_name`, `page_code←adset_name`, `ads_owner←token đầu adset_name`, `location←TQ/NN trong campaign_name`, `sheet_date←date`, `amount_spent←SUM bản sao theo (page_code,content,ngày)`. **Cần nghiệp vụ xác nhận.**
-* **`ads_owner` nhiễu:** hiện có `Br`, `BR` (prefix page Branding), `S` (rác), `LIÊN` (hoa) trong danh sách filter động. Chưa lọc/chuẩn hóa (chờ quyết định — có thể join `Config`). Khiêm ĐÃ bị loại trừ hoàn toàn.
-* **Trạng thái "Ads đã tắt" = chi tiêu ngày dữ liệu mới nhất (global `max(sheet_date)`) = 0.** Sheet FB bỏ qua ngày không chi tiêu → content không có dòng ngày mới nhất bị coi là "Đã tắt" (đúng ý "ngừng chi tiêu = tắt", đã xác nhận).
-* **"Không test" hiện = 0** ở mọi nơi vì Google Sheet Content **chưa có** content trạng thái này. Logic sẵn sàng; khi Sheet thêm (đúng chính tả "Không test") → tự lên số. KHÔNG có ngày-đổi-trạng-thái (`content_status_history` rỗng) → "Không test theo tháng" của Weekly tính theo **upload trong kỳ** (cohort), đã chốt nghiệp vụ.
-* **Weekly Report §7/§11 — cơ sở ngày khác nhau:** Đã cấp/Không test/Win = cohort upload trong kỳ; Chờ chạy/Đang test = trạng thái hiện tại all-time → KHÔNG có đẳng thức cộng trừ giữa các KPI. II/III lưu **cục bộ** (chưa persist).
-* **Parse năm cố định 2026** trong `date-util.ts` → ~76 content năm 2025 lệch tháng/năm (đã biết, đừng "sửa" tùy ý).
-* **`content_status_history` rỗng** → lifecycle/retention Content dùng derived từ `test_date_real`.
-* **Scheduler KHÔNG tự chạy trên Railway web service** (chỉ chạy `npm start`); import/sync chỉ khi chạy tay hoặc worker riêng.
+* **`PROJECT_SPEC.md §5` (Phân quyền) lỗi thời** — vẫn ghi "chưa có auth/chưa triển khai" dù Authentication đã live từ `105f1a5`. `CURRENT_STATE.md` là nguồn đúng nhất hiện tại cho phần Auth.
+* **Phân quyền `role` chỉ hình thức** — mọi user `@seryn.vn` hợp lệ có quyền ngang nhau (kể cả thao tác nhạy cảm nếu có trong tương lai); cột `role` đã lưu (`sql/008_users.sql`) nhưng chưa dùng để chặn route nào.
+* **Auto-provision không cần duyệt trước** — bất kỳ ai có email `@seryn.vn` đăng nhập Google lần đầu được tự động thêm vào `users` với `is_active=true`; muốn khoá phải vào Supabase set `is_active=false` thủ công.
+* **Mapping Ads Raw_Data là GIẢ ĐỊNH nghiệp vụ** (xem §11 `PROJECT_SPEC.md` để biết chi tiết suy luận `content←ad_name`, `page_code←adset_name`…) — cần nghiệp vụ xác nhận. `ads_owner` còn nhiễu `Br/BR/S`, hoa/thường `LIÊN`.
+* **"Không test" (Facebook)** hiện đã lên số thật (không còn = 0 như v3.0) sau lần sync gần nhất — logic hoạt động đúng khi Sheet có content trạng thái này.
+* **Scheduler KHÔNG tự chạy trên Railway web service** (chỉ chạy `npm start`); import Ads/scheduler chỉ khi chạy tay hoặc worker riêng (hiện dùng Windows Task Scheduler cục bộ).
 * **Dashboard vanilla `public/index.html`** không còn serve (server serve `web/dist`) — legacy, đừng sửa.
-* Tài liệu cũ **`PROJECT_CONTEXT.md / TODO.md / ROADMAP.md` KHÔNG tồn tại**. Có: `PROJECT_SPEC.md` (source of truth), `CURRENT_STATE.md`, `PROJECT_BACKLOG.md`, `DESIGN_SYSTEM.md`, `WIREFRAMES.md`, `mapping-spec.md`, reviews R2–R6.
 * Nhánh **`demo-v2`** = baseline trước Ads Monitor — giữ nguyên có chủ đích.
+* Budget Allocation Analytics **không có backend route riêng** — chỉ đọc `/ads-monitor` phía frontend; nếu logic Ads Monitor đổi, kiểm tra ảnh hưởng module này.
 
 ---
 
 ## 9. Important Decisions (KHÔNG tự ý đổi)
-* **KHÔNG Authentication** — dùng Share Link (Sprint Auth Cancelled). Đừng tái tạo.
+* **⚠️ ĐẢO NGƯỢC quyết định v3.0 cũ "KHÔNG Authentication":** kể từ `105f1a5`, app **CÓ** Authentication (Supabase Auth Google, domain `@seryn.vn` bắt buộc). KHÔNG quay lại mô hình Share Link nếu không có yêu cầu rõ ràng.
+  * Route public (không cần đăng nhập): `/health`, `/api/config`, `/api/content-sync` (secret riêng), `/api/zalo-sync` (secret riêng), static SPA.
+  * Route bảo vệ: `/api/v3/*`, `/ads-monitor`, `/api/zalo`.
+  * `role` đã lưu trong bảng `users` nhưng **CHƯA** dùng để phân quyền — mọi user hợp lệ quyền ngang nhau.
 * **PROJECT_SPEC.md là source of truth** — mọi thay đổi schema/API/sync/dashboard/report phải cập nhật vào đó (+ CURRENT_STATE.md).
-* **3 miền tách biệt Business Rule:** Dashboard Content, Ads Monitor, Weekly Report **KHÔNG dùng chung** logic. Cụ thể: Weekly Report có `WeeklyReportService`/`ruleEngine` RIÊNG, KHÔNG gọi `calculateAdsStatus`/`ads_monitor_lifecycle`/status Dashboard.
-* **Ads Monitor (Phase 7) — trạng thái ĐỘNG, KHÔNG lưu cứng:**
-  * `Lifecycle` = theo **tổng chi tiêu ĐỜI** (mọi ngày): `>3.000.000` MAINTAIN · `>100.000` TEST · còn lại NEW. **Monotonic** (chỉ nâng). Lưu bảng `ads_monitor_lifecycle`, refresh **chỉ khi import** (`ads_monitor_refresh_lifecycle()`).
-  * Trạng thái hiển thị = `calculateAdsStatus(latestAmount, lifecycle)`: chi tiêu **ngày dữ liệu mới nhất = 0** → "Đã tắt"; >0 → NEW=Mới chạy · TEST=Đang test · MAINTAIN=Đang duy trì.
-* **KPI Content bất biến (Dashboard):** Vòng đời = today − `test_date_real`; "Content được cấp" theo Ngày Up Trello (`upload_date_real`); màu trạng thái chuẩn (`tokens.ts` + DESIGN_SYSTEM §11), thêm `KHONG_TEST` = xám trung tính.
-* **KPI Weekly Report (Phase 11) — 2 nhóm:** A (cohort upload trong kỳ) = Đã cấp/Không test/Content test win(="Duy trì"); B (trạng thái hiện tại all-time) = Chờ chạy (Tồn)/Đang test. Weekly group theo `assignee_name` = **Nhân viên Ads** (KHÔNG dùng `editor_name`).
-* **PDF Weekly Report = IN chính báo cáo** (`window.print()` + `@media print`), KHÔNG template/HTML riêng.
-* **Ràng buộc chung:** thêm migration mới (không sửa migration cũ đã áp dụng), API additive, không mock khi đã cấu hình Supabase (mock chỉ dev / `ADS_USE_MOCK=true`), không tạo màu/typography ngoài DESIGN_SYSTEM.
+* **5 miền tách biệt Business Rule:** Dashboard Content (FB), Ads Monitor, Weekly Report, Zalo, Budget Analytics **KHÔNG dùng chung** logic nghiệp vụ. Zalo có `ZaloStatusRule` RIÊNG (KHÔNG dùng `calculateAdsStatus`/status Dashboard FB). Weekly Report có `WeeklyReportService`/`ruleEngine` RIÊNG.
+* **Facebook = Stable Version** — khi phát triển Zalo/platform mới, KHÔNG đụng code/logic Facebook.
+* **Kiến trúc đa nền tảng (`platform_*`)** — thêm nền tảng mới (TikTok…) = tạo `src/platform/<nền-tảng>/` + đăng ký `registry.ts` + mount route, KHÔNG đổi schema/logic nền tảng cũ.
+* **Ads Monitor (Phase 7) — trạng thái ĐỘNG, KHÔNG lưu cứng:** Lifecycle theo tổng chi tiêu ĐỜI (monotonic), trạng thái hiển thị = `calculateAdsStatus(latestAmount, lifecycle)`. Chi tiết công thức: xem `PROJECT_SPEC.md §11`.
+* **Budget Allocation Analytics** — module chỉ ĐỌC (`/ads-monitor`), KHÔNG có sync/API/bảng riêng; không tự ý thêm ghi dữ liệu.
+* **PDF:** Weekly Report Facebook = in trình duyệt (`window.print()` + `@media print`). Weekly Zalo = PDF chuẩn qua Python `reportlab.platypus` (standalone, không phụ thuộc trình duyệt).
+* **Ràng buộc chung:** thêm migration mới (không sửa migration cũ đã áp dụng), API additive, không mock khi đã cấu hình Supabase, không tạo màu/typography ngoài DESIGN_SYSTEM.
 
 ---
 
 ## 10. Environment (biến môi trường — file `.env`, gitignored)
 | Biến | Bắt buộc | Dùng cho |
 |---|---|---|
-| `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` | ✅ (server throw nếu thiếu) | Server + Sync + Ads |
-| `SUPABASE_ANON_KEY` | ⏺ | `/api/config` |
-| `GOOGLE_SHEET_ID` · `GOOGLE_CREDENTIALS_PATH` | ✅ | Sync Content |
-| `ADS_SHEET_ID` (`1kqVs8dy…`) · `ADS_SHEET_TAB` (`Raw_Data`) | ✅ (cho `ads:import`) | Ads Import — **ĐÃ cấu hình** |
+| `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server + Sync + Ads + Zalo + Auth |
+| `SUPABASE_ANON_KEY` | ✅ | `/api/config` + Supabase Auth phía client |
+| `GOOGLE_CREDENTIALS_JSON` (Railway/cloud) hoặc `GOOGLE_CREDENTIALS_PATH` (local) | ✅ (1 trong 2) | `GoogleAuthFactory` — Sync Content/Ads/Zalo |
+| `GOOGLE_SHEET_ID` | ✅ | Sync Content |
+| `ADS_SHEET_ID` · `ADS_SHEET_TAB` (`Raw_Data`) | ✅ | Ads Import |
+| `ZALO_SHEET_ID` (alias `ZALO_GOOGLE_SHEET_ID`) | ✅ | Sync Zalo (2 tab Video/Banner) |
+| `AUTH_ALLOWED_DOMAIN` (`seryn.vn`) | ✅ | Auth — domain check |
+| `CONTENT_SYNC_SECRET` · `_DEBOUNCE_MS` · `_MAX_WAIT_MS` | ✅ (webhook) | Content-Sync webhook (Phase 12) |
+| `ZALO_SYNC_SECRET` | ✅ (webhook) | Zalo webhook |
 | `ADS_USE_MOCK` | ⏺ (dev) | Ép mock dù đã cấu hình Supabase (mặc định off) |
 | `PORT` | (Railway cấp; default 4000) | Express |
-| `SYNC_ENABLED` · `SYNC_CRON` (`*/15 * * * *`) · `SYNC_PRUNE_STALE` (true) | ⏺ | Scheduler Content |
-| `ADS_SYNC_ENABLED` (true) · `ADS_SYNC_CRON` (`35 9 * * *`) | ⏺ | Scheduler Ads import (`ads:scheduler`) |
-> `.env.example` là template (commit). `credentials/*.json` gitignored. Lưu ý dotenv CHỈ đọc `.env` (không đọc `.env.local`).
+| `SYNC_ENABLED` · `SYNC_CRON` · `SYNC_PRUNE_STALE` | ⏺ | Scheduler Content |
+| `ADS_SYNC_ENABLED` · `ADS_SYNC_CRON` (`35 9 * * *`) | ⏺ | Scheduler Ads import |
+> `.env.example` là template (commit). `credentials/*.json` gitignored. dotenv CHỈ đọc `.env` (không đọc `.env.local`).
 
 ---
 
 ## 11. Deployment Status
-* **GitHub:** `github.com/anhdtk-ship-it/content-dashboard`. `main` = HEAD **`ed1c820`** (Phase 11, working tree sạch). Nhánh `demo-v2` = baseline cũ.
-* **Railway:** deploy tự động từ `main`. Bind `0.0.0.0`, serve `web/dist` + API. Domain `content-dashboard-production-4e96.up.railway.app`. ⚠️ Cần đặt env `ADS_SHEET_ID/ADS_SHEET_TAB` + `SUPABASE_*` trên Railway; **KHÔNG** đặt `ADS_USE_MOCK`. Scheduler/import KHÔNG tự chạy trên web service.
-* **Supabase:** đang dùng (URL trong `.env`). Migrations 001–006 **đã áp dụng**. (DDL chạy tay trong SQL Editor — service_role qua PostgREST không chạy DDL.)
+* **GitHub:** `github.com/anhdtk-ship-it/content-dashboard`. `main` = HEAD **`7852d1a`** (working tree sạch). Nhánh `demo-v2` = baseline cũ.
+* **Railway:** deploy tự động từ `main`. Bind `0.0.0.0`, serve `web/dist` + API. Domain `content-dashboard-production-4e96.up.railway.app`. ⚠️ Cần đặt: `SUPABASE_*`, `GOOGLE_CREDENTIALS_JSON`, `ADS_SHEET_ID/ADS_SHEET_TAB`, `ZALO_SHEET_ID`, `AUTH_ALLOWED_DOMAIN`, `CONTENT_SYNC_SECRET`, `ZALO_SYNC_SECRET` — và **bật Google OAuth provider trên Supabase** (Client ID/Secret + Redirect URL) để Auth hoạt động. **KHÔNG** đặt `ADS_USE_MOCK`. Scheduler/import KHÔNG tự chạy trên web service.
+* **Supabase:** migrations 001–011 **đã áp dụng** (DDL chạy tay trong SQL Editor — service_role qua PostgREST không chạy DDL).
 * **Vercel:** không dùng. **Domain khác:** không.
 
 ---
 
 ## 12. Database Status
-* **`contents`** (1.469 dòng): PK id, content_code, title, market, assignee_name(=Nhân viên Ads), cgsd, editor_name(=Biên tập), trello_link, upload_date(_real), current_status, test_date(_real), created_at. UNIQUE (content_code, market, assignee_name). `current_status` gồm cả **"Không test"** (Phase 10).
-* **`ads_monitor`** (~9.570 dòng thô, lịch sử theo ngày): content/location/ads_owner/page_code/amount_spent/updated_at/created_at/**sheet_date NOT NULL**. **KHÔNG có cột status**. UNIQUE `(page_code, content, sheet_date)`. Index: daily_key, sheet_date, ads_owner.
-* **`ads_monitor_lifecycle`** (902 dòng — 1/content): page_code, content, lifecycle(NEW/TEST/MAINTAIN), lifetime_spent, updated_at. PK (page_code, content).
-* **`sync_logs`** (5) · **`content_status_history`** (0 — rỗng).
-* **Function/View Ads:** `ads_monitor_query(...)` (plpgsql, filter+sort+paginate+KPI+owners, loại trừ Khiêm, trạng thái = latest-day + lifecycle) · `ads_monitor_refresh_lifecycle()` (refresh monotonic). *(VIEW `ads_monitor_lifetime` định nghĩa ở sql/006 nhưng app dùng function, không dùng view — Cần xác minh view đã tạo trên DB hay chưa.)*
-* **Migration:** `sql/001..004` (Content) + `sql/005` (ads_monitor + query + index) + `sql/006` (lifecycle + refresh + query lifecycle-based + backfill) — **tất cả đã áp dụng**.
+* **`contents`** — Content Facebook. UNIQUE (content_code, market, assignee_name). `current_status` gồm cả "Không test".
+* **`ads_monitor`** (lịch sử theo ngày, UNIQUE `page_code,content,sheet_date`) + **`ads_monitor_lifecycle`** (NEW/TEST/MAINTAIN, 1/content).
+* **`sync_logs`** (mở rộng migration 007: source/rows_unchanged/rows_pruned/duration_ms) · **`content_status_history`** (rỗng).
+* **`users`** (migration 008) — `email`, `role`, `is_active`, RLS bật, chỉ service_role truy cập được (không có policy anon/authenticated).
+* **`platform_contents` / `platform_settings` / `platform_sync_logs`** (migration 010, thay thế 009) — bảng đa nền tảng, cột `platform` phân biệt Facebook/Zalo. `platform_contents` có thêm `title` (migration 011, riêng cho Zalo).
+* **Function/View Ads:** `ads_monitor_query(...)` · `ads_monitor_refresh_lifecycle()`.
+* **Migration:** `sql/001`→`sql/011` — **tất cả đã áp dụng**. Chi tiết từng bảng/cột: `PROJECT_SPEC.md §2, §11, §13`.
 
 ---
 
 ## 13. Google Sheets Status
-* **Content (đang kết nối):** spreadsheet `1G2ZY21nszf-F1Q6bIMunymOaHysecj-S2iAelqnQNdc`, dùng 8 tab `NĐ/QT × Hiếu/Ánh/KA/Liên` (loại Khiêm). Sync: `npm run sync` (hoặc scheduler). Mapping: `mapping-spec.md` + `transformSheet`.
-* **Ads (ĐÃ kết nối — Phase 6):** spreadsheet RIÊNG `1kqVs8dyOgnk5l3CsgcGlhex-eI7OHhAkS6GLKnXh4j0`, tab **`Raw_Data`** (export FB Ads cấp ad/ngày). Đã share cho Service Account. Import: `npm run ads:import` → upsert theo `(page_code,content,sheet_date)` (giữ lịch sử) → tự `refresh_lifecycle`. Verify: `npm run ads:verify`.
-* **Mapping Ads:** xem §8 (giả định, cần xác nhận). Các tab khác của workbook: Config (account→Ads_name), Seryn Page (Mã page/Địa lý), Data_M+TT, Logs…
-* **Còn thiếu:** chuẩn hóa `ads_owner`; tự động hóa import hằng ngày trên hạ tầng.
+* **Content (Facebook):** spreadsheet riêng, 8 tab `NĐ/QT × Hiếu/Ánh/KA/Liên` (loại Khiêm). Sync: `npm run sync` hoặc **auto qua webhook (Phase 12)**.
+* **Ads:** spreadsheet riêng, tab `Raw_Data` (export FB Ads cấp ad/ngày). Import: `npm run ads:import`, verify `npm run ads:verify`.
+* **Zalo:** spreadsheet riêng, **đúng 2 tab** `Video`/`Banner` (header trải nhiều hàng — cột TT Team/Ngày Test ở hàng trên, ID/Trello/Ngày up ở hàng dưới). Sync: `npm run zalo:sync`, hoặc **auto qua webhook** `/api/zalo-sync`. Verify: `npm run zalo:verify`.
+* **Còn thiếu:** chuẩn hóa `ads_owner`; tự động hóa import Ads hằng ngày trên hạ tầng luôn-bật.
 
 ---
 
-## 14. Session Summary (phiên gần nhất — rất dài, Phase 5→11)
-* **Phase 5 (Ads Perf):** server-side pagination/filter/sort/KPI bằng SQL; bỏ `findAll()`; khóa snapshot ngày (giữ lịch sử).
-* **Phase 6 (Go-live):** chạy `sql/005` trên Supabase; cấu hình + import thật (9423 dòng); bỏ fallback-mock âm thầm; sửa provider map đúng schema Raw_Data (FB Ads); ban đầu chi tiêu/NGÀY.
-* **Chỉnh Ads:** đổi `amount_spent` sang **tích lũy/đời**; fix trạng thái theo **ngày dữ liệu mới nhất** (không phải ngày cuối riêng content); filter Nhân viên Ads **động**; **loại trừ Khiêm**.
-* **Phase 7:** mô hình **Lifecycle + Current Status** (bảng `ads_monitor_lifecycle`, `refresh` monotonic, `calculateAdsStatus(latestAmount, lifecycle)`); scheduler `ads:scheduler` (09:35).
-* **Content Dashboard:** "test quá lâu" theo test_date >10 ngày; fix tooltip "i" (màu cố định).
-* **Phase 8–9 (Weekly Report):** module `web/reports/` độc lập; lọc khoảng thời gian tùy chỉnh (bỏ Địa lý); Section II Rule Engine độc lập; **PDF = in trình duyệt** (`@media print`, header lặp qua `<thead>`, A4); Section I "theo nhân viên" dạng **bảng + dòng Tổng**.
-* **Phase 10:** trạng thái **"Không test"** (Content Dashboard additive + Weekly Report KPI + Tồn mới).
-* **Phase 11:** bộ KPI Content **2 nhóm** (A phát sinh trong tháng / B trạng thái hiện tại all-time); Overview đổi sang 5 thẻ KPI mới (`summary.contentKpi`).
-* Mọi thay đổi đã commit + push `main`. Ads Monitor giữ nguyên qua Phase 8–11 (verified `source: supabase`).
+## 14. Session Summary (kể từ v3.0 @ `ed1c820`, Phase 12→13)
+* **Phase 12 (Auto-Sync Content):** webhook `POST /api/content-sync` + Debounce Queue + so sánh signature; `ContentSyncService.ts` gom logic sync về 1 chỗ (CLI + webhook đều gọi).
+* **GoogleAuthFactory:** fix Sync fail trên Railway (thiếu file credentials) — factory đọc `GOOGLE_CREDENTIALS_JSON` trước, refactor 7+ nơi dùng chung.
+* **Fix KPI:** tỷ lệ test thành công = Duy trì ÷ (Duy trì + Đã test-ko chạy + Đã chạy-Tắt).
+* **Overview:** đổi nhãn "Content duy trì", thêm cột "Đang test all-time", bỏ cột "Duy trì >90d"; sau đó hạ ngưỡng "Test quá lâu" 10→5 ngày + thêm cột "Tồn" cạnh "Đã test".
+* **Weekly Report PDF (Facebook):** chuyển sang `reportlab.platypus` standalone (không phụ thuộc trình duyệt).
+* **Weekly Report:** "Content duy trì" + đánh giá cá nhân theo tỷ lệ (không phải số tuyệt đối) + kế hoạch chuyển sang CẢ TEAM (1 danh sách).
+* **UI fix:** bỏ thanh cuộn thừa của `body` do `#root{zoom:1.1}`.
+* **Authentication + Authorization (`105f1a5`, `37c13c5`):** Supabase Auth Google `@seryn.vn`; fix domain check bền hơn + trả `reason` để chẩn đoán 403.
+* **Weekly Report nâng cấp:** báo cáo quản trị theo market (Nội địa/Quốc tế) + PDF chuyên nghiệp; Tồn loại trừ "Không test"/"Không được duyệt".
+* **Auth mở rộng (`485ae67`):** cho phép MỌI email `@seryn.vn` đăng nhập (bỏ yêu cầu allowlist thủ công).
+* **Phase 13 (`07e91fb` → `b554821`):** kiến trúc đa nền tảng (`platform_*`), deploy module Zalo đầy đủ (dashboard/API/webhook/weekly/PDF/sync) — additive, Facebook giữ nguyên.
+* **Vá lỗi Zalo (nhiều commit):** sidebar theo cấu trúc Platform; chuẩn hoá `content_format` từ tên tab; đọc header trải nhiều hàng; Business Rule đúng theo cột "TT Team"; khoá sync match cả khi header có chú thích; "Test quá lâu" đếm nhóm "Đang test" quá 5 ngày.
+* **Budget Allocation Analytics (`3ac20e0` → `a0919a4`):** module FB-ADS-02 mới — phân tích ngân sách + content theo nhân viên, tách tab Nội Địa/Quốc Tế, biểu đồ cột nhóm, loại NV "Br" khỏi Nội Địa, gộp ngân sách+content vào 1 biểu đồ (bỏ toggle).
+* **Fix Overview:** "Thiếu ngày test" bỏ qua content trạng thái "Không test".
+* Mọi thay đổi đã commit + push `main`. HEAD hiện tại `7852d1a`.
 
 ---
 
 ## 15. Next Session Instructions (cho Claude mới)
-1. **Đọc trước:** file này → `PROJECT_SPEC.md` → `CURRENT_STATE.md` → `DESIGN_SYSTEM.md`. Source chính: `src/server.ts`, `web/main.tsx`, `web/OverviewPage.tsx`, `src/components/ui/tokens.ts`, toàn bộ `src/ads-monitor/` + `web/ads-monitor/` + `web/reports/`. SQL: `sql/005` + `sql/006`.
+1. **Đọc trước:** file này → `PROJECT_SPEC.md` → `CURRENT_STATE.md` → `DESIGN_SYSTEM.md` → `ZALO_SETUP.md` (nếu đụng Zalo). Source chính: `src/server.ts`, `web/main.tsx`, `src/auth/`, `web/auth/`, `src/content-sync/`, `src/platform/zalo/` + `web/zalo/`, `web/budget/`, toàn bộ `src/ads-monitor/` + `web/ads-monitor/` + `web/reports/`. SQL: `sql/008` (users) + `sql/010`/`011` (platform/Zalo).
 2. **cwd:** luôn `cd /c/Users/Admin/Downloads/wesd/content-dashboard` (Bash hay nhảy về `wesd` — project Next.js khác).
-3. **Chạy:** `npm run dashboard` (Express :4000, serve web/dist + API) · `npm run dev` (Vite :5173, proxy `/api`+`/ads-monitor`→:4000) · `npm run build` · `npm run typecheck` (chỉ check `src/`; `web/` do vite build kiểm). Sync/Ads: `npm run sync|scheduler|ads:import|ads:verify|ads:scheduler`. **Sửa `server.ts`/`src/ads-monitor` phải RESTART Express** (ts-node không reload).
-4. **Git/Deploy:** làm trên `main`; commit + `git push origin main` → Railway tự deploy. Working tree hiện sạch. Trước khi commit: `git diff --cached --name-only | grep -iE "\.env$|credentials"` để chắc KHÔNG lộ secret.
-5. **DDL Supabase:** service_role qua PostgREST KHÔNG chạy được DDL → migration mới phải chạy TAY trong SQL Editor (`https://supabase.com/dashboard/project/<ref>/sql/new`, Ctrl+A rồi dán, tránh chạy thiếu). Có thể copy file vào clipboard qua PowerShell `Get-Content -Raw file | Set-Clipboard`.
-6. **Verify:** `preview_start` (dashboard) rồi `preview_eval` (DOM) — screenshot hay timeout. Đối chiếu Supabase qua `curl` PostgREST (apikey=service_role) hoặc script `ts-node` tạm (đặt trong `src/` để resolve node_modules, rồi xóa). KHÔNG click "Xuất PDF" trong preview (mở hộp thoại in gây treo) — kiểm tra qua Ctrl+P thật.
-7. **TUYỆT ĐỐI KHÔNG:** sửa Ads Monitor khi đang làm Content/Weekly (và ngược lại); đổi công thức Lifecycle/Status Ads; sửa `public/index.html` (legacy); tái tạo Authentication; dùng chung Business Rule giữa 3 miền.
+3. **Chạy:** `npm run dashboard` (Express :4000) · `npm run dev` (Vite :5173, proxy) · `npm run build` · `npm run typecheck`. Sync: `npm run sync|scheduler|ads:import|ads:verify|ads:scheduler|zalo:sync|zalo:verify`. **Sửa `server.ts`/backend phải RESTART Express** (ts-node không reload).
+4. **Git/Deploy:** làm trên `main`; commit + `git push origin main` → Railway tự deploy. Trước khi commit: `git diff --cached --name-only | grep -iE "\.env$|credentials"` để chắc KHÔNG lộ secret.
+5. **DDL Supabase:** service_role qua PostgREST KHÔNG chạy được DDL → migration mới phải chạy TAY trong SQL Editor.
+6. **Đăng nhập khi test:** app yêu cầu đăng nhập Google `@seryn.vn` — chuẩn bị tài khoản test hợp lệ hoặc kiểm tra qua `curl` với JWT thật (API sẽ 401 nếu không có token).
+7. **TUYỆT ĐỐI KHÔNG:** sửa module này khi đang làm module khác trong số 5 miền (Content FB/Ads Monitor/Weekly Report/Zalo/Budget Analytics); đổi công thức Lifecycle/Status Ads; sửa `public/index.html` (legacy); **tắt lại Authentication** (đã đảo ngược quyết định cũ — xem §9) trừ khi có yêu cầu rõ ràng; dùng chung Business Rule giữa các miền.
 
 > Nếu chỉ đọc 1 mục: đọc **§9 (Important Decisions)** + **§8 (Known Issues)** trước khi viết code.
