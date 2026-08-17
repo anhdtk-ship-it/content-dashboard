@@ -9,6 +9,7 @@ import { requireAuth } from './auth/authMiddleware';
 import authRouter from './auth/routes';
 import { createZaloRouter } from './platform/zalo/api';
 import { createZaloSyncRouter } from './platform/zalo/syncRouter';
+import { createTestSyncRouter } from './test-sync/routes';
 
 /* ============================================================
  * createApp() — dựng toàn bộ Express app (API + business logic), KHÔNG serve static,
@@ -688,6 +689,12 @@ export function createApp(): express.Application {
    * qua requireAuth (không phải người dùng đăng nhập). Đăng ký TRƯỚC SPA fallback.
    * ========================================================== */
   app.use('/api/cron', createCronTickRouter({ onContentSynced: invalidateContentsCache, onZaloSynced: zaloApi.invalidate }));
+
+  /* ============================================================
+   * TEST SYNC (PHASE VERCEL-04C) — TEST ONLY, secret riêng VERCEL_TEST_SYNC_SECRET,
+   * KHÔNG liên quan webhook/cron production. Đăng ký TRƯỚC SPA fallback.
+   * ========================================================== */
+  app.use('/api/test-sync', createTestSyncRouter());
 
   return app;
 }
