@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import adsMonitorRouter from './ads-monitor/routes';
 import { createContentSyncRouter } from './content-sync/routes';
 import { createCronTickRouter } from './content-sync/tickRoutes';
+import { createDailySyncRouter } from './content-sync/dailyRoutes';
 import { requireAuth } from './auth/authMiddleware';
 import authRouter from './auth/routes';
 import { createZaloRouter } from './platform/zalo/api';
@@ -689,6 +690,13 @@ export function createApp(): express.Application {
    * qua requireAuth (không phải người dùng đăng nhập). Đăng ký TRƯỚC SPA fallback.
    * ========================================================== */
   app.use('/api/cron', createCronTickRouter({ onContentSynced: invalidateContentsCache, onZaloSynced: zaloApi.invalidate }));
+
+  /* ============================================================
+   * DAILY FULL-SYNC (PHASE VERCEL-06) — /api/cron/daily/{content,zalo}, gọi bởi Vercel Cron
+   * native (03:30 UTC = 10:30 Asia/Ho_Chi_Minh, xem vercel.json). ĐỘC LẬP với tick ở trên
+   * (không qua queue/debounce) — full sync trực tiếp, prune LUÔN false. Đăng ký TRƯỚC SPA fallback.
+   * ========================================================== */
+  app.use('/api/cron', createDailySyncRouter({ onContentSynced: invalidateContentsCache, onZaloSynced: zaloApi.invalidate }));
 
   /* ============================================================
    * TEST SYNC (PHASE VERCEL-04C) — TEST ONLY, secret riêng VERCEL_TEST_SYNC_SECRET,
