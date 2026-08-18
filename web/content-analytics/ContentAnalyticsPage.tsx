@@ -3,17 +3,20 @@ import { PageContainer, LoadingSkeleton, EmptyState, ActionButton } from '../../
 import { fetchContentAnalytics, currentMonth, type ContentAnalyticsResult } from './contentAnalyticsApi';
 import { Filters, type ContentAnalyticsFilterState } from './Filters';
 import { OverviewCards } from './OverviewCards';
-import { ContentTable } from './ContentTable';
 import { EmployeeTable } from './EmployeeTable';
 
 /* ============================================================
- * Phân tích Data Content (PHASE CONTENT-ANALYTICS-03) — MODULE MỚI, ĐỘC LẬP.
- * Stateless: đọc Google Sheet Raw_Data trực tiếp qua /api/content-analytics mỗi lần đổi
- * filter. KHÔNG liên quan Ads Monitor / Content Sync / Zalo / Weekly Report / Dashboard cũ.
+ * Phân tích Data Content (PHASE CONTENT-ANALYTICS-03, sửa layout ở PHASE 04) — MODULE MỚI,
+ * ĐỘC LẬP. Stateless: đọc Google Sheet Raw_Data trực tiếp qua /api/content-analytics mỗi lần
+ * đổi filter. KHÔNG liên quan Ads Monitor / Content Sync / Zalo / Weekly Report / Dashboard cũ.
+ * PHASE 04: bỏ bảng liệt kê từng Content (explorer) — dashboard chỉ để đọc nhanh tỷ trọng
+ * Content Mới/Cũ + phân tích theo 4 nhân viên thật (KA/Hiếu/Ánh/Liên), không phải công cụ
+ * tra từng content. Field byContent vẫn có trong API (phục vụ tính overview) nhưng không
+ * render ra UI nữa.
  * ========================================================== */
 export function ContentAnalyticsPage() {
   const [filters, setFilters] = useState<ContentAnalyticsFilterState>({
-    month: currentMonth(), employee: 'ALL', type: 'all', search: '',
+    month: currentMonth(), employee: 'ALL', type: 'all',
   });
   const [data, setData] = useState<ContentAnalyticsResult | null>(null);
   const [employeeOptions, setEmployeeOptions] = useState<string[]>([]);
@@ -39,7 +42,7 @@ export function ContentAnalyticsPage() {
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.month, filters.employee, filters.type, filters.search, reload]);
+  }, [filters.month, filters.employee, filters.type, reload]);
 
   const onFilterChange = (patch: Partial<ContentAnalyticsFilterState>) => setFilters((f) => ({ ...f, ...patch }));
 
@@ -67,14 +70,11 @@ export function ContentAnalyticsPage() {
 
             <OverviewCards overview={data.overview} />
 
-            {data.overview.dataTotal === 0 && data.byContent.length === 0 ? (
+            {data.overview.dataTotal === 0 ? (
               <EmptyState message="Không có Data (purchases) nào khớp bộ lọc trong tháng này." />
             ) : (
               <>
-                <div className="mb-2 text-[13px] font-semibold text-fg">Theo Content</div>
-                <ContentTable rows={data.byContent} />
-
-                <div className="mb-2 mt-5 text-[13px] font-semibold text-fg">Theo Nhân viên</div>
+                <div className="mb-2 mt-1 text-[13px] font-semibold text-fg">Phân tích theo Nhân viên</div>
                 <EmployeeTable rows={data.byEmployee} />
               </>
             )}

@@ -11,7 +11,9 @@ export interface RawAdsAnalyticsRow {
   adId: string;
   adName: string;        // dùng để suy ra Content (normalize)
   accountId: string;     // CHỈ dùng nội bộ cho khóa dedup — KHÔNG xuất ra API/UI
-  accountName: string;   // Employee — dùng nguyên giá trị, KHÔNG chuẩn hóa
+  accountName: string;   // Nguồn để suy ra Employee — xem resolveEmployee() (PHASE 04):
+                          // chỉ nhận diện 1 trong 4 tên cố định KA/Hiếu/Ánh/Liên, còn lại
+                          // → UNKNOWN_EMPLOYEE. KHÔNG hiển thị accountName nguyên văn ra UI.
   campaignId: string;    // CHỈ dùng nội bộ cho khóa dedup
   adsetId: string;       // CHỈ dùng nội bộ cho khóa dedup
   purchases: number;     // Data
@@ -73,4 +75,7 @@ export interface ContentAnalyticsParams {
   search: string;             // substring khớp Content (không phân biệt hoa/thường)
 }
 
-export const UNKNOWN_EMPLOYEE = '(Không xác định)';
+/** Đúng 4 nhân viên Ads thật (PHASE 04) — thứ tự cố định dùng để hiển thị bảng Nhân viên. */
+export const EMPLOYEE_NAMES = ['KA', 'Hiếu', 'Ánh', 'Liên'] as const;
+
+export const UNKNOWN_EMPLOYEE = 'Không xác định';

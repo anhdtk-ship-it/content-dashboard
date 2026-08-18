@@ -60,12 +60,12 @@ export interface ContentAnalyticsResult {
 
 export interface ContentAnalyticsQuery {
   month: string;
-  employee: string; // 'ALL' hoặc account_name
+  employee: string; // 'ALL' hoặc 1 trong 4 tên nhân viên (KA/Hiếu/Ánh/Liên) / UNKNOWN_EMPLOYEE
   type: ContentTypeFilter;
-  search: string;
+  search?: string; // PHASE 04: UI không còn ô "Tìm Content" — backend vẫn hỗ trợ nếu có giá trị
 }
 
-export const UNKNOWN_EMPLOYEE = '(Không xác định)';
+export const UNKNOWN_EMPLOYEE = 'Không xác định';
 
 /** Tháng hiện tại 'YYYY-MM'. */
 export function currentMonth(): string {
@@ -78,7 +78,7 @@ export async function fetchContentAnalytics(q: ContentAnalyticsQuery): Promise<C
   p.set('month', q.month);
   if (q.employee && q.employee !== 'ALL') p.set('employee', q.employee);
   if (q.type && q.type !== 'all') p.set('type', q.type);
-  if (q.search) p.set('search', q.search);
+  if (q.search) p.set('search', q.search.trim());
 
   const token = await getAccessToken();
   const headers: HeadersInit = token ? { Authorization: 'Bearer ' + token } : {};

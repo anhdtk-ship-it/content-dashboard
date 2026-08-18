@@ -2,9 +2,8 @@ import type { ContentTypeFilter } from './contentAnalyticsApi';
 
 export interface ContentAnalyticsFilterState {
   month: string;
-  employee: string; // 'ALL' hoặc account_name
+  employee: string; // 'ALL' hoặc 1 trong 4 tên nhân viên (KA/Hiếu/Ánh/Liên) / "Không xác định"
   type: ContentTypeFilter;
-  search: string;
 }
 
 const ctrl = 'h-9 rounded-control border border-line bg-surface px-2.5 text-[13px] text-fg focus:border-accent focus:outline-none';
@@ -40,12 +39,6 @@ export function Filters({
         <select value={value.type} className={ctrl} onChange={(e) => onChange({ type: e.target.value as ContentTypeFilter })}>
           {TYPE_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-      </div>
-
-      <div className="flex min-w-[200px] flex-1 flex-col">
-        <label className={lbl}>Tìm Content</label>
-        <input type="text" placeholder="Nhập tên content…" value={value.search} className={ctrl}
-          onChange={(e) => onChange({ search: e.target.value })} />
       </div>
     </div>
   );

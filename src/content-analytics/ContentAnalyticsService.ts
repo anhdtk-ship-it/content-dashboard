@@ -14,10 +14,14 @@
  *   - Content MỚI nếu first_seen thuộc tháng M đang xem; CŨ nếu trước đó.
  *   - Data = SUM(purchases). Một Content có thể có nhiều Employee — KHÔNG ép về 1 người,
  *     giữ đầy đủ employeeBreakdown; "employee" hiển thị là danh sách nối bằng ", ".
+ *   - PHASE 04: Employee CHỈ có đúng 4 người thật (KA/Hiếu/Ánh/Liên), suy ra từ account_name
+ *     qua resolveEmployee() (không hiển thị account_name nguyên văn nữa). byEmployee (khi
+ *     employee='ALL') LUÔN trả đủ 4 tên theo thứ tự cố định (0 nếu không có data), cộng thêm
+ *     dòng UNKNOWN_EMPLOYEE nếu có account_name không khớp — để không mất purchases thật.
  * ========================================================== */
 import { ContentAnalyticsProvider } from './ContentAnalyticsProvider';
 import {
-  UNKNOWN_EMPLOYEE,
+  UNKNOWN_EMPLOYEE, EMPLOYEE_NAMES,
   type RawAdsAnalyticsRow, type ContentAnalyticsParams, type ContentAnalyticsResult,
   type ByContentItem, type ByEmployeeItem, type ContentType,
 } from './types';
@@ -27,10 +31,17 @@ export function normalizeContent(adName: string): string {
   return (adName ?? '').trim().replace(/\s+/g, ' ');
 }
 
-/** Employee = account_name nguyên văn; rỗng → "(Không xác định)". KHÔNG suy ra từ trường khác. */
+/**
+ * Employee (PHASE 04) — CHỈ có đúng 4 nhân viên Ads thật: KA, Hiếu, Ánh, Liên.
+ * account_name là mã kỹ thuật dạng "Med-Build-KA-1-VCB-6119" (không phải tên nhân viên) —
+ * tách theo dấu '-', lấy token khớp (không phân biệt hoa/thường) với 1 trong 4 tên trên.
+ * KHÔNG lấy account_id/số thứ tự/mã ngân hàng. KHÔNG tự tạo nhân viên mới ngoài 4 tên này —
+ * account_name không khớp (vd "Khiêm") → UNKNOWN_EMPLOYEE, KHÔNG âm thầm gán vào 1 trong 4.
+ */
 export function resolveEmployee(accountName: string): string {
-  const v = (accountName ?? '').trim();
-  return v || UNKNOWN_EMPLOYEE;
+  const tokens = (accountName ?? '').split('-').map((t) => t.trim().toLowerCase()).filter(Boolean);
+  const hit = EMPLOYEE_NAMES.find((name) => tokens.includes(name.toLowerCase()));
+  return hit ?? UNKNOWN_EMPLOYEE;
 }
 
 export interface DedupOutcome { deduped: RawAdsAnalyticsRow[]; duplicateGroups: number }
@@ -186,12 +197,22 @@ export async function buildContentAnalytics(
     const e = empAgg.get(employee)!;
     if (type === 'new') e.dataNew += r.purchases; else e.dataOld += r.purchases;
   }
-  const byEmployee: ByEmployeeItem[] = [...empAgg.entries()]
-    .map(([employee, v]) => {
-      const t = v.dataNew + v.dataOld;
-      return { employee, dataNew: v.dataNew, dataOld: v.dataOld, dataTotal: t, pctNew: safePct(v.dataNew, t), pctOld: safePct(v.dataOld, t) };
-    })
-    .sort((a, b) => b.dataTotal - a.dataTotal);
+  const toByEmployeeItem = (employee: string, v: { dataNew: number; dataOld: number } | undefined): ByEmployeeItem => {
+    const dataNew = v?.dataNew ?? 0, dataOld = v?.dataOld ?? 0, t = dataNew + dataOld;
+    return { employee, dataNew, dataOld, dataTotal: t, pctNew: safePct(dataNew, t), pctOld: safePct(dataOld, t) };
+  };
+  let byEmployee: ByEmployeeItem[];
+  if (params.employee === 'ALL') {
+    // Luôn hiển thị đủ 4 nhân viên cố định, đúng thứ tự, kể cả khi = 0 trong tháng/loại đang lọc.
+    byEmployee = EMPLOYEE_NAMES.map((emp) => toByEmployeeItem(emp, empAgg.get(emp)));
+    // account_name không khớp 4 tên trên — CHỈ hiện khi có data thật, để không mất purchases
+    // (vẫn cộng đủ vào overview.dataTotal) mà không tự ý gán vào 1 trong 4 nhân viên.
+    const unknown = empAgg.get(UNKNOWN_EMPLOYEE);
+    if (unknown && unknown.dataNew + unknown.dataOld > 0) byEmployee.push(toByEmployeeItem(UNKNOWN_EMPLOYEE, unknown));
+  } else {
+    // Đã lọc theo 1 nhân viên cụ thể ở row-level (STEP 5) — empAgg chỉ còn đúng nhân viên đó.
+    byEmployee = [...empAgg.entries()].map(([employee, v]) => toByEmployeeItem(employee, v));
+  }
 
   const contentsUnknownEmployee = byContentAll.filter((c) => c.employeeBreakdown.some((e) => e.employee === UNKNOWN_EMPLOYEE)).length;
 
