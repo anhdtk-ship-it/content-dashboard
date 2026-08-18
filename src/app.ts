@@ -11,6 +11,7 @@ import authRouter from './auth/routes';
 import { createZaloRouter } from './platform/zalo/api';
 import { createZaloSyncRouter } from './platform/zalo/syncRouter';
 import { createTestSyncRouter } from './test-sync/routes';
+import { createContentAnalyticsRouter } from './content-analytics/routes';
 
 /* ============================================================
  * createApp() — dựng toàn bộ Express app (API + business logic), KHÔNG serve static,
@@ -703,6 +704,15 @@ export function createApp(): express.Application {
    * KHÔNG liên quan webhook/cron production. Đăng ký TRƯỚC SPA fallback.
    * ========================================================== */
   app.use('/api/test-sync', createTestSyncRouter());
+
+  /* ============================================================
+   * CONTENT ANALYTICS (PHASE CONTENT-ANALYTICS-03) — MODULE MỚI, ĐỘC LẬP. Đọc trực tiếp
+   * Google Sheet Raw_Data (Ads) mỗi request (stateless, KHÔNG bảng Supabase mới). Bảo vệ
+   * bằng requireAuth giống /api/v3. KHÔNG liên quan Ads Monitor/Content Sync/Zalo/Auth.
+   * Đăng ký TRƯỚC SPA fallback.
+   * ========================================================== */
+  app.use('/api/content-analytics', requireAuth);
+  app.use('/api/content-analytics', createContentAnalyticsRouter());
 
   return app;
 }
