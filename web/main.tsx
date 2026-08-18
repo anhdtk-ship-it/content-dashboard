@@ -38,7 +38,7 @@ const NAV: NavGroupDef[] = [
   // 📘 Facebook — nhóm platform (trỏ tới các route Facebook ĐANG CÓ, giữ nguyên trang).
   { key: 'facebook', icon: '📘', label: 'Facebook', collapsible: true, items: [
     { icon: '📋', label: 'Tổng quan', href: '#/overview', key: 'overview' },
-    { icon: '📈', label: 'Tiến độ Content', href: '#/usage', key: 'usage' },
+    // 'Tiến độ Content' (#/usage) ẩn khỏi menu theo yêu cầu — route vẫn truy cập được qua URL.
     { icon: '📝', label: 'Weekly Report', href: '#/weekly-report', key: 'weekly-report' },
     { icon: '🔎', label: 'Content Explorer', href: '#/explorer', key: 'explorer' },
     { icon: '♻️', label: 'Vòng đời Content', href: '#/lifecycle', key: 'lifecycle' },
