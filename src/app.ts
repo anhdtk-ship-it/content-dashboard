@@ -12,6 +12,7 @@ import { createZaloRouter } from './platform/zalo/api';
 import { createZaloSyncRouter } from './platform/zalo/syncRouter';
 import { createTestSyncRouter } from './test-sync/routes';
 import { createContentAnalyticsRouter } from './content-analytics/routes';
+import { createContentPerformanceRouter } from './content-performance/routes';
 
 /* ============================================================
  * createApp() — dựng toàn bộ Express app (API + business logic), KHÔNG serve static,
@@ -713,6 +714,14 @@ export function createApp(): express.Application {
    * ========================================================== */
   app.use('/api/content-analytics', requireAuth);
   app.use('/api/content-analytics', createContentAnalyticsRouter());
+
+  /* ============================================================
+   * CONTENT PERFORMANCE (CP-04) — MODULE MỚI, ĐỘC LẬP với Content Analytics. Đọc trực tiếp
+   * 2 Google Sheet mới (Performance/ROAS + Quality/CLĐT) mỗi request (stateless, KHÔNG bảng
+   * Supabase mới). Bảo vệ bằng requireAuth giống /api/v3. Đăng ký TRƯỚC SPA fallback.
+   * ========================================================== */
+  app.use('/api/content-performance', requireAuth);
+  app.use('/api/content-performance', createContentPerformanceRouter());
 
   return app;
 }

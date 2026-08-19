@@ -20,6 +20,7 @@ import { ZaloDashboardPage } from './zalo/ZaloDashboardPage';
 import { ZaloWeeklyPage } from './zalo/ZaloWeeklyPage';
 import { BudgetAllocationPage } from './budget/BudgetAllocationPage';
 import { ContentAnalyticsPage } from './content-analytics/ContentAnalyticsPage';
+import { ContentPerformancePage } from './content-performance/ContentPerformancePage';
 import { AuthGate } from './auth/AuthGate';
 import { installAuthFetch } from './auth/authFetch';
 
@@ -46,6 +47,7 @@ const NAV: NavGroupDef[] = [
     { icon: '📡', label: 'Ads Monitor', href: '#/ads-monitor', key: 'ads-monitor' },
     { icon: '💰', label: 'Phân bổ ngân sách', href: '#/budget-allocation', key: 'budget-allocation' },
     { icon: '📊', label: 'Phân tích Data Content', href: '#/content-analytics', key: 'content-analytics' },
+    { icon: '📈', label: 'Phân tích Hiệu quả Content', href: '#/content-performance', key: 'content-performance' },
   ] },
 
   // 💬 Zalo — nhóm platform (chỉ hiện trang đã dựng: Tổng quan + Weekly Report).
@@ -83,6 +85,8 @@ const PAGES: Record<string, { title: string; el: ReactNode }> = {
   'budget-allocation': { title: 'Phân bổ ngân sách', el: <BudgetAllocationPage /> },
   // Module mới (PHASE CONTENT-ANALYTICS-03) — đọc trực tiếp Google Sheet Raw_Data (Ads), stateless.
   'content-analytics': { title: 'Phân tích Data Content', el: <ContentAnalyticsPage /> },
+  // Module mới (CP-04) — đọc trực tiếp Performance/ROAS + Quality/CLĐT Sheet, stateless, V1 chỉ kênh Facebook.
+  'content-performance': { title: 'Phân tích Hiệu quả Content', el: <ContentPerformancePage /> },
 };
 
 const routeKey = (h: string) => (h || '').replace(/^#\//, '').split('?')[0] || 'overview';
