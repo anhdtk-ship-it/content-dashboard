@@ -54,6 +54,28 @@ function isJunkContentName(name: string): boolean {
 }
 
 const emptyMetrics = (): PerformanceMonthMetrics => ({ cost: 0, dataCount: 0, dataPrice: 0, roasMonth: 0, roas3Month: 0 });
+const emptyGeoMetrics = (): PerformanceGeoMetrics => ({ total: emptyMetrics(), noiDia: emptyMetrics(), quocTe: emptyMetrics() });
+
+/** 5 category Facebook đã xác nhận thật ở CP-03A (KHÔNG hard-code thêm ngoài danh sách này). */
+const KNOWN_FACEBOOK_CATEGORIES = ['Facebook CGSĐ', 'Facebook BS', 'Facebook mess Nữ MB', 'Facebook remar', 'Facebook hotline'];
+
+/** acc += b (cộng dồn Cost/SL data — 2 field duy nhất có ý nghĩa cộng được; Giá data/ROAS không cộng). */
+function accumulate(acc: PerformanceMonthMetrics, b: PerformanceMonthMetrics): void {
+  acc.cost += b.cost;
+  acc.dataCount += b.dataCount;
+}
+/** gap = subtotal - sumIndividual, cho cả 3 nhóm địa lý. roasMonth/roas3Month của phần "chưa phân bổ"
+ * lấy tạm theo tỷ lệ subtotal (Sheet không cho biết breakdown ROAS của phần này theo content nào). */
+function gapMetrics(subtotal: PerformanceMonthMetrics, sum: PerformanceMonthMetrics): PerformanceMonthMetrics {
+  const cost = subtotal.cost - sum.cost;
+  const dataCount = subtotal.dataCount - sum.dataCount;
+  if (cost <= 0 && dataCount <= 0) return emptyMetrics();
+  return {
+    cost: Math.max(0, cost), dataCount: Math.max(0, dataCount),
+    dataPrice: dataCount > 0 ? Math.round(Math.max(0, cost) / dataCount) : 0,
+    roasMonth: subtotal.roasMonth, roas3Month: subtotal.roas3Month,
+  };
+}
 
 export class PerformanceSheetProvider {
   async fetchRows(): Promise<RawPerformanceContentRow[]> {
@@ -110,21 +132,7 @@ export class PerformanceSheetProvider {
       geoByCol[c] = curGeo;
     }
 
-    const out: RawPerformanceContentRow[] = [];
-    let curKenh = '';
-    let curPhanLoai = '';
-    for (let r = dataStartIdx; r < rows.length; r++) {
-      const row = rows[r] ?? [];
-      const kenhCell = (row[1] ?? '').toString().trim();
-      const plCell = (row[2] ?? '').toString().trim();
-      if (kenhCell) curKenh = kenhCell; // forward-fill (một số section không lặp lại Kênh/Phân loại mỗi dòng)
-      if (plCell) curPhanLoai = plCell;
-      const contentName = (row[3] ?? '').toString().trim();
-
-      if (!contentName) continue;               // dòng group/subtotal — không phải content thật
-      if (isJunkContentName(contentName)) continue;
-      if (curKenh !== 'Facebook') continue;      // V1: CHỈ kênh Facebook (đã chốt)
-
+    const parseRowMonths = (row: string[]): Record<string, PerformanceGeoMetrics> => {
       const months: Record<string, PerformanceGeoMetrics> = {};
       for (let c = 4; c < maxCols; c++) {
         const month = monthByCol[c];
@@ -140,9 +148,74 @@ export class PerformanceSheetProvider {
         else if (metricName === 'Roas trong tháng') bucket.roasMonth = parsePercentVN(raw);
         else if (metricName === 'Roas 3 tháng') bucket.roas3Month = parsePercentVN(raw);
       }
+      return months;
+    };
 
+    const out: RawPerformanceContentRow[] = [];
+    // Cộng dồn Cost/SL data của TỪNG dòng content thật đã nhận, theo category + tháng — để đối
+    // chiếu với dòng subtotal của Sheet ở bước sau (phát hiện phần "chưa phân bổ theo content",
+    // vd category "Facebook hotline" — Sheet hầu như không có breakdown theo content cho nhóm
+    // này dù subtotal vẫn có số liệu thật).
+    const sumByCategory = new Map<string, Record<string, PerformanceGeoMetrics>>();
+    const subtotalMonthsByCategory = new Map<string, Record<string, PerformanceGeoMetrics>>();
+
+    let curKenh = '';
+    let curPhanLoai = '';
+    for (let r = dataStartIdx; r < rows.length; r++) {
+      const row = rows[r] ?? [];
+      const kenhCell = (row[1] ?? '').toString().trim();
+      const plCell = (row[2] ?? '').toString().trim();
+      if (kenhCell) curKenh = kenhCell; // forward-fill (một số section không lặp lại Kênh/Phân loại mỗi dòng)
+      if (plCell) curPhanLoai = plCell;
+      const contentName = (row[3] ?? '').toString().trim();
+
+      if (!contentName) {
+        // Dòng group/subtotal (Tên content rỗng) — lưu lại đúng 1 trong 5 category Facebook,
+        // dùng để đối chiếu gap ở bước sau (KHÔNG push vào `out` ở đây).
+        if (curKenh === 'Facebook' && KNOWN_FACEBOOK_CATEGORIES.includes(curPhanLoai) && !subtotalMonthsByCategory.has(curPhanLoai)) {
+          subtotalMonthsByCategory.set(curPhanLoai, parseRowMonths(row));
+        }
+        continue;
+      }
+      if (isJunkContentName(contentName)) continue;
+      if (curKenh !== 'Facebook') continue;      // V1: CHỈ kênh Facebook (đã chốt)
+
+      const months = parseRowMonths(row);
       out.push({ channel: curPhanLoai, contentName, months });
+
+      if (!sumByCategory.has(curPhanLoai)) sumByCategory.set(curPhanLoai, {});
+      const catSum = sumByCategory.get(curPhanLoai)!;
+      for (const [month, geo] of Object.entries(months)) {
+        if (!catSum[month]) catSum[month] = emptyGeoMetrics();
+        accumulate(catSum[month].total, geo.total);
+        accumulate(catSum[month].noiDia, geo.noiDia);
+        accumulate(catSum[month].quocTe, geo.quocTe);
+      }
     }
+
+    // Đối chiếu gap: category nào có subtotal Sheet LỚN HƠN tổng các dòng content thật đã tìm
+    // được (vd "Facebook hotline" — có 1 dòng content lẻ nhưng KHÔNG đủ để giải thích subtotal),
+    // phần chênh lệch được thêm thành 1 dòng "tổng hợp" — dùng ĐÚNG số liệu subtotal của Sheet
+    // trừ đi phần đã có content thật, KHÔNG suy đoán, để KPI tổng khớp với Sheet.
+    for (const category of KNOWN_FACEBOOK_CATEGORIES) {
+      const subtotalMonths = subtotalMonthsByCategory.get(category);
+      if (!subtotalMonths) continue;
+      const sumMonths = sumByCategory.get(category) ?? {};
+      const gapMonths: Record<string, PerformanceGeoMetrics> = {};
+      for (const [month, subtotal] of Object.entries(subtotalMonths)) {
+        const sum = sumMonths[month] ?? emptyGeoMetrics();
+        const gap: PerformanceGeoMetrics = {
+          total: gapMetrics(subtotal.total, sum.total),
+          noiDia: gapMetrics(subtotal.noiDia, sum.noiDia),
+          quocTe: gapMetrics(subtotal.quocTe, sum.quocTe),
+        };
+        if (gap.total.cost > 0 || gap.total.dataCount > 0) gapMonths[month] = gap;
+      }
+      if (Object.keys(gapMonths).length > 0) {
+        out.push({ channel: category, contentName: `(Chưa phân bổ theo Content — ${category})`, months: gapMonths });
+      }
+    }
+
     return out;
   }
 }
