@@ -26,6 +26,17 @@ export interface RawPerformanceContentRow {
   months: Record<string, PerformanceGeoMetrics>; // key = 'YYYY-MM'
 }
 
+/** KHÓA nhóm hợp lệ để tra `subtotals` — đúng nhãn "Phân loại" trong Sheet, cộng 1 khóa tổng riêng. */
+export const TOTAL_FACEBOOK_KEY = 'Tổng kênh Facebook';
+export interface PerformanceSheetData {
+  contents: RawPerformanceContentRow[];
+  /** Dòng subtotal ĐÃ CÓ SẴN trong Sheet (Tổng kênh Facebook + từng category) — dùng để hiển thị
+   * Tổng quan (KPI) khớp CHÍNH XÁC 100% với Sheet khi bộ lọc khớp đúng 1 dòng subtotal có sẵn
+   * (channel=ALL hoặc 1 category cụ thể, KHÔNG lọc Biên tập/Tìm kiếm). KHÔNG tự suy ra công thức
+   * ROAS 3 tháng rolling — luôn đọc giá trị Sheet đã tính sẵn. */
+  subtotals: Map<string, Record<string, PerformanceGeoMetrics>>;
+}
+
 /** 1 dòng Quality thô đọc từ CLĐT Sheet — MỖI block tháng sinh ra 1 dòng riêng cho cùng content. */
 export interface QualityMetrics {
   carePriceCount: number; carePriceRate: number;
@@ -73,6 +84,11 @@ export interface ContentPerformanceMeta {
   editorsAvailable: string[];
   monthsAvailable: string[]; // các 'YYYY-MM' có dữ liệu thật trong Performance Sheet
   contentsUnmatchedEditor: number; // số Content (trong kết quả đang hiển thị) không tìm được Biên tập từ Content Sheet
+  /** true = Tổng quan lấy TRỰC TIẾP dòng subtotal có sẵn trong Sheet (khớp 100%).
+   * false = KHÔNG có subtotal khớp bộ lọc hiện tại (đang lọc Biên tập/Tìm kiếm) → Tổng quan
+   * là ƯỚC LƯỢNG tự tính (Chi phí/SL Data vẫn cộng đúng; ROAS tháng/3 tháng chỉ là xấp xỉ vì
+   * Sheet không cung cấp subtotal cho tổ hợp lọc tuỳ ý này). */
+  overviewFromSheetSubtotal: boolean;
   warnings: string[];
 }
 

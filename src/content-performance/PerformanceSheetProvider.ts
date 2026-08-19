@@ -21,7 +21,7 @@
  * ========================================================== */
 import { google } from 'googleapis';
 import { createGoogleAuth } from '../google-auth';
-import type { RawPerformanceContentRow, PerformanceGeoMetrics, PerformanceMonthMetrics } from './types';
+import { TOTAL_FACEBOOK_KEY, type RawPerformanceContentRow, type PerformanceGeoMetrics, type PerformanceMonthMetrics, type PerformanceSheetData } from './types';
 
 const METRIC_NAMES = ['Chi phí', 'SL data', 'Giá data', 'Roas trong tháng', 'Roas 3 tháng'] as const;
 type MetricName = (typeof METRIC_NAMES)[number];
@@ -78,7 +78,7 @@ function gapMetrics(subtotal: PerformanceMonthMetrics, sum: PerformanceMonthMetr
 }
 
 export class PerformanceSheetProvider {
-  async fetchRows(): Promise<RawPerformanceContentRow[]> {
+  async fetchRows(): Promise<PerformanceSheetData> {
     const spreadsheetId = process.env.PERFORMANCE_SHEET_ID?.trim();
     const tab = process.env.PERFORMANCE_SHEET_TAB?.trim();
     if (!spreadsheetId) throw new Error('Thiếu PERFORMANCE_SHEET_ID trong env.');
@@ -94,7 +94,7 @@ export class PerformanceSheetProvider {
       spreadsheetId, range: `'${actual.replace(/'/g, "''")}'`, valueRenderOption: 'FORMATTED_VALUE',
     });
     const rows = (res.data.values ?? []) as string[][];
-    if (!rows.length) return [];
+    if (!rows.length) return { contents: [], subtotals: new Map() };
 
     // Năm lấy từ dòng tiêu đề (vd "... NĂM 2026"), KHÔNG hard-code.
     const titleRow = rows.find((r) => r.some((c) => /NĂM\s+\d{4}/.test(c ?? '')));
@@ -170,9 +170,12 @@ export class PerformanceSheetProvider {
       const contentName = (row[3] ?? '').toString().trim();
 
       if (!contentName) {
-        // Dòng group/subtotal (Tên content rỗng) — lưu lại đúng 1 trong 5 category Facebook,
-        // dùng để đối chiếu gap ở bước sau (KHÔNG push vào `out` ở đây).
-        if (curKenh === 'Facebook' && KNOWN_FACEBOOK_CATEGORIES.includes(curPhanLoai) && !subtotalMonthsByCategory.has(curPhanLoai)) {
+        // Dòng group/subtotal (Tên content rỗng) — lưu lại "Tổng kênh Facebook" + đúng 1 trong 5
+        // category Facebook, dùng để đối chiếu gap VÀ để Service đọc trực tiếp cho Tổng quan
+        // (khớp 100% với Sheet). KHÔNG push vào `out` ở đây.
+        if (curKenh === 'Facebook' && curPhanLoai === TOTAL_FACEBOOK_KEY && !subtotalMonthsByCategory.has(TOTAL_FACEBOOK_KEY)) {
+          subtotalMonthsByCategory.set(TOTAL_FACEBOOK_KEY, parseRowMonths(row));
+        } else if (curKenh === 'Facebook' && KNOWN_FACEBOOK_CATEGORIES.includes(curPhanLoai) && !subtotalMonthsByCategory.has(curPhanLoai)) {
           subtotalMonthsByCategory.set(curPhanLoai, parseRowMonths(row));
         }
         continue;
@@ -216,6 +219,6 @@ export class PerformanceSheetProvider {
       }
     }
 
-    return out;
+    return { contents: out, subtotals: subtotalMonthsByCategory };
   }
 }
