@@ -5,11 +5,13 @@ import { runZaloSync } from '../platform/zalo/ZaloSyncService';
 /* ============================================================
  * Daily Full-Sync Router (PHASE VERCEL-06)
  * ------------------------------------------------------------
- * POST /api/cron/daily/content  → runContentSync({ source: 'daily-cron', prune: false })
- * POST /api/cron/daily/zalo     → runZaloSync({ source: 'daily-cron', prune: false })
+ * GET|POST /api/cron/daily/content  → runContentSync({ source: 'daily-cron', prune: false })
+ * GET|POST /api/cron/daily/zalo     → runZaloSync({ source: 'daily-cron', prune: false })
  *
  * Gọi bởi Vercel Cron NATIVE (khai báo trong vercel.json `crons`), lịch 03:30 UTC = 10:30
- * Asia/Ho_Chi_Minh mỗi ngày. Vercel Cron tự gửi header `Authorization: Bearer <CRON_SECRET>`.
+ * Asia/Ho_Chi_Minh mỗi ngày. Vercel Cron gọi bằng **GET** và tự gửi header
+ * `Authorization: Bearer <CRON_SECRET>` — vì vậy checkAuth chấp nhận cả GET lẫn POST
+ * (xác thực secret giữ nguyên cho cả hai; method khác GET/POST vẫn 405).
  *
  * ĐỘC LẬP HOÀN TOÀN với /api/cron/tick/* (debounce webhook, tickRoutes.ts KHÔNG bị đụng):
  *  - KHÔNG gọi DbSyncQueue/queue/debounce — gọi thẳng runContentSync/runZaloSync mỗi lần.
@@ -41,13 +43,16 @@ function bearerToken(req: express.Request): string {
 
 /**
  * checkAuth trả `false` VÀ tự trả response lỗi nếu:
- *  - method không phải POST → 405
+ *  - method không phải GET/POST → 405
  *  - CRON_SECRET chưa cấu hình → 503
  *  - secret sai/thiếu → 401
  */
 function checkAuth(req: express.Request, res: express.Response): boolean {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method không được hỗ trợ — chỉ nhận POST.' });
+  // Vercel Cron native gọi endpoint bằng GET → phải cho GET đi qua, nếu không sẽ 405 và
+  // sync KHÔNG BAO GIỜ chạy. POST vẫn giữ (caller thủ công/ngoài repo). Xác thực
+  // CRON_SECRET bên dưới áp dụng NHƯ NHAU cho cả GET lẫn POST — GET KHÔNG được bypass.
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.status(405).json({ error: 'Method không được hỗ trợ — chỉ nhận GET hoặc POST.' });
     return false;
   }
   const secret = process.env.CRON_SECRET?.trim() || '';
