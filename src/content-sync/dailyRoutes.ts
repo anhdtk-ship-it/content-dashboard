@@ -3,27 +3,28 @@ import { runContentSync } from './ContentSyncService';
 import { runZaloSync } from '../platform/zalo/ZaloSyncService';
 
 /* ============================================================
- * Daily Full-Sync Router (PHASE VERCEL-06)
+ * Daily Full-Sync Router — CƠ CHẾ ĐỒNG BỘ DUY NHẤT của hệ thống.
  * ------------------------------------------------------------
  * GET|POST /api/cron/daily/content  → runContentSync({ source: 'daily-cron', prune: false })
  * GET|POST /api/cron/daily/zalo     → runZaloSync({ source: 'daily-cron', prune: false })
  *
- * Gọi bởi Vercel Cron NATIVE (khai báo trong vercel.json `crons`), lịch 03:30 UTC = 10:30
- * Asia/Ho_Chi_Minh mỗi ngày. Vercel Cron gọi bằng **GET** và tự gửi header
- * `Authorization: Bearer <CRON_SECRET>` — vì vậy checkAuth chấp nhận cả GET lẫn POST
- * (xác thực secret giữ nguyên cho cả hai; method khác GET/POST vẫn 405).
+ * Gọi bởi Vercel Cron NATIVE (khai báo trong vercel.json `crons`), lịch `0 3 * * *` UTC
+ * = 10:00 Asia/Ho_Chi_Minh mỗi ngày. Lưu ý: gói Hobby chỉ bảo đảm chạy TRONG KHOẢNG 1 GIỜ
+ * quanh lịch (quan sát thực tế: trễ đều ~36 phút → rơi vào khoảng 10:30–10:40 giờ VN).
  *
- * ĐỘC LẬP HOÀN TOÀN với /api/cron/tick/* (debounce webhook, tickRoutes.ts KHÔNG bị đụng):
- *  - KHÔNG gọi DbSyncQueue/queue/debounce — gọi thẳng runContentSync/runZaloSync mỗi lần.
- *  - Đây là FULL SYNC trực tiếp từ Google Sheet, chạy theo lịch cố định, không phụ thuộc
- *    tín hiệu webhook.
+ * Vercel Cron gọi bằng **GET** và tự gửi header `Authorization: Bearer <CRON_SECRET>` —
+ * vì vậy checkAuth chấp nhận cả GET lẫn POST (method khác vẫn 405).
+ *
+ * LỊCH SỬ: trước đây còn 1 cơ chế thứ hai (webhook Apps Script → bảng sync_debounce →
+ * /api/cron/tick/*) cho đồng bộ gần thời gian thực. Cơ chế đó đã được GỠ BỎ HOÀN TOÀN
+ * (2026-09-11) theo quyết định "dữ liệu chỉ cần cập nhật 1 lần/ngày vào khung giờ cố định".
+ * KHÔNG khôi phục nếu không có yêu cầu rõ ràng — xem PROJECT_SPEC.md §3.
  *
  * prune LUÔN false — hardcode tại route, KHÔNG đọc SYNC_PRUNE_STALE/ZALO_SYNC_PRUNE_STALE,
- * KHÔNG cho query/body override.
+ * KHÔNG cho query/body override. ⇒ Content bị xoá khỏi Google Sheet sẽ KHÔNG bị xoá khỏi DB;
+ * muốn dọn "mồ côi" phải chạy tay `npm run sync` (CLI có prune + guard).
  *
- * Bảo mật: dùng CHUNG biến `CRON_SECRET` với /api/cron/tick/* (cùng mục đích: cron nội bộ,
- * không phải webhook công khai), nhưng đọc qua `Authorization: Bearer` (khớp Vercel Cron
- * native) thay vì header `x-cron-secret` — helper riêng, KHÔNG sửa checkAuth của tickRoutes.ts.
+ * Bảo mật: `CRON_SECRET`, đọc qua `Authorization: Bearer` (khớp Vercel Cron native).
  * ========================================================== */
 
 const nowIso = () => new Date().toISOString();

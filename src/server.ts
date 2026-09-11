@@ -3,11 +3,12 @@ import express from 'express';
 import { createApp } from './app';
 
 /* ============================================================
- * Entry point cho LOCAL DEV + RAILWAY (process dài hạn, app.listen()).
- * Toàn bộ route API nằm ở `createApp()` (`src/app.ts`) — file này chỉ thêm phần
- * chỉ có ý nghĩa với 1 process chạy liên tục: serve static `web/dist` + SPA fallback
- * + `.listen()`. Trên Vercel, các phần này KHÔNG dùng (Vercel serve `web/dist` bằng
- * static hosting riêng) — xem `api/index.ts`.
+ * Entry point cho LOCAL DEV (`npm run dashboard` / `npm run dev:server`).
+ * ------------------------------------------------------------
+ * PRODUCTION CHẠY TRÊN VERCEL và KHÔNG dùng file này — xem `api/index.ts`.
+ * File này chỉ thêm những thứ chỉ có ý nghĩa với 1 process chạy liên tục trên máy:
+ * serve static `web/dist` + SPA fallback + `.listen()`. Toàn bộ route API nằm ở
+ * `createApp()` (`src/app.ts`), dùng chung cho cả local lẫn Vercel.
  * ========================================================== */
 
 const PORT = Number(process.env.PORT ?? 4000);

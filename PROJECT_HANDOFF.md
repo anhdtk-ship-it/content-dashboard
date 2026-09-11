@@ -1,6 +1,6 @@
 # PROJECT HANDOFF — Content Operations Dashboard (Seryn) + Ads Monitor + Weekly Report + Zalo + Budget Analytics
 
-> **Handoff v4.0 · Cập nhật: 2026-07-31** (sau Phase 12→13 + Auth + Zalo + Budget Analytics — kể từ v3.0 @ `ed1c820`)
+> **Handoff v4.1 · Cập nhật: 2026-09-11** (v4.0 @ 2026-07-31) (sau Phase 12→13 + Auth + Zalo + Budget Analytics — kể từ v3.0 @ `ed1c820`)
 > Tài liệu để một phiên Claude mới tiếp tục công việc mà KHÔNG cần đọc lịch sử chat.
 > Thư mục gốc: `C:\Users\Admin\Downloads\wesd\content-dashboard`
 > (Lưu ý: thư mục cha `wesd` là một project Next.js KHÁC — `haiau-seo-hub` — không liên quan tài liệu này.)
@@ -23,10 +23,10 @@
 
 ## 2. Current Status
 
-* **Phase hiện tại:** Đã xong **Phase 13** (kiến trúc đa nền tảng + Zalo) + Auth + Budget Analytics. Tất cả 5 miền chạy **dữ liệu THẬT**, đã commit + push `main` (Railway auto-deploy).
+* **Phase hiện tại:** Đã xong **Phase 13** (kiến trúc đa nền tảng + Zalo) + Auth + Budget Analytics. Tất cả 5 miền chạy **dữ liệu THẬT**, đã commit + push `main` (Vercel auto-deploy).
 * **Module đã hoàn thành kể từ v3.0:**
   * **Phase 12** — Auto-Sync Content qua webhook + debounce (không cần bấm Sync tay).
-  * **GoogleAuthFactory** — sync chạy được trên Railway (không cần file credentials, đọc `GOOGLE_CREDENTIALS_JSON`).
+  * **GoogleAuthFactory** — sync chạy được trên cloud (không cần file credentials, đọc `GOOGLE_CREDENTIALS_JSON`).
   * **Authentication + Authorization** — Supabase Auth Google, domain `@seryn.vn`, bảng `users` + `is_active` + `role` (role lưu, CHƯA phân quyền).
   * **Weekly Report** — 2 nhóm KPI (Phase 11), trạng thái "Không test" (Phase 10), đổi nhãn "Content duy trì", đánh giá cá nhân theo tỷ lệ, kế hoạch cả team, báo cáo theo market + PDF chuyên nghiệp (reportlab.platypus, standalone).
   * **Phase 13 — Zalo:** dashboard/API/sync/webhook/weekly/PDF riêng, additive, KHÔNG đụng Facebook.
@@ -39,18 +39,17 @@
 ## 3. Current Architecture
 
 * **Frontend:** Vite 8 + **React 19** + Tailwind v4, thư mục `web/`. Hash router trong `web/main.tsx`, **bọc trong `AuthGate`** + `installAuthFetch()` (tự gắn `Authorization: Bearer <JWT>` cho mọi request `/api/v3`, `/ads-monitor`, `/api/auth`, `/api/zalo`). UI primitives `src/components/ui` + layout `src/components/layout`. **Zoom UI 1.1** (`web/styles.css #root`, đã fix double-scrollbar). `@media print` cho Weekly Report Facebook.
-* **Backend:** Node + **TypeScript (CommonJS, ts-node, KHÔNG build cho nhánh local/Railway)**, **Express 5**. ⚠️ **VERCEL MIGRATION (đang chuyển đổi):** route/business-logic tách khỏi `src/server.ts` sang **`src/app.ts`** (`createApp()` — KHÔNG static, KHÔNG SPA, KHÔNG `.listen()`). `src/server.ts` (local/Railway) = `createApp()` + static `web/dist` + SPA fallback `/{*splat}` + `.listen(PORT ?? 4000, '0.0.0.0')`. `api/index.ts` (Vercel serverless) = `createApp()` export trực tiếp, KHÔNG static (Vercel serve `web/dist` riêng qua `vercel.json`). Đọc Supabase bằng **service_role**, cache `getContents()` TTL 10s (tự invalidate sau webhook sync — cache này chỉ có ý nghĩa trong 1 lần cold-start trên Vercel, KHÔNG sao).
+* **Backend:** Node + **TypeScript (CommonJS, ts-node, KHÔNG build cho nhánh local)**, **Express 5**. Route/business-logic nằm ở **`src/app.ts`** (`createApp()` — KHÔNG static, KHÔNG SPA, KHÔNG `.listen()`), dùng chung cho cả 2 entry: `api/index.ts` (**Vercel serverless — production**) export thẳng `createApp()`; `src/server.ts` (**chỉ local dev**) = `createApp()` + static `web/dist` + SPA fallback `/{*splat}` + `.listen(PORT ?? 4000)`. Đọc Supabase bằng **service_role**, cache `getContents()` TTL 10s.
 * **Database:** **Supabase** (Postgres). Bảng Content: `contents`, `sync_logs`, `content_status_history` (rỗng). Bảng Ads: `ads_monitor`, `ads_monitor_lifecycle`. Bảng Auth: **`users`** (Phase Auth, RLS chỉ service_role). Bảng đa nền tảng (Zalo): **`platform_contents`**, **`platform_settings`**, **`platform_sync_logs`**. Bảng **`sync_debounce`** (migration 012 — VERCEL MIGRATION, xem §8/§11) thay cho `SyncQueue.ts` in-memory. Migrations 001–012 (012 **CHƯA áp dụng**, xem §12).
 * **API (chỉ thêm, không đổi cũ):**
   * Auth: `GET/POST /api/auth/me` — kiểm tra JWT + domain + `is_active`, auto-provision user mới. Bảo vệ toàn bộ `/api/v3/*` và `/ads-monitor` bằng `requireAuth`.
   * Content (FB): `GET /api/config`, `/api/v3/{summary,contents,sync-status,lifecycle,content-detail,lifecycle-table}`, `/health`.
-  * Content-Sync webhook (public, secret riêng): `POST /api/content-sync` (chỉ ghi tín hiệu vào `sync_debounce`, KHÔNG tự Sync), `GET /api/content-sync/status`.
-  * **Cron Tick (VERCEL MIGRATION, mới):** `POST /api/cron/tick/content`, `POST /api/cron/tick/zalo` (secret riêng `CRON_SECRET`) — gọi bởi cron NGOÀI (~1 phút/lần), claim quyền chạy Sync qua RPC `sync_tick_claim` rồi mới thực sự đọc Sheet/ghi DB. Xem §8.
+  * **Cron đồng bộ (public, secret `CRON_SECRET`):** `GET|POST /api/cron/daily/content` · `/api/cron/daily/zalo` — **cơ chế sync DUY NHẤT**, gọi bởi Vercel Cron native lúc 10:00 giờ VN. Webhook `/api/content-sync`, `/api/zalo-sync` và `/api/cron/tick/*` ĐÃ GỠ BỎ 2026-09-11.
   * Ads: `GET /ads-monitor` (server-side, RPC `ads_monitor_query`).
-  * Zalo: `/api/zalo/*` (`summary`·`contents`·`weekly`·`sync-status`·`settings`, `requireAuth`); webhook public riêng `POST /api/zalo-sync` (secret `ZALO_SYNC_SECRET`, cũng chỉ ghi tín hiệu — Sync thật qua cron tick).
+  * Zalo: `/api/zalo/*` (`summary`·`contents`·`weekly`·`sync-status`·`settings`, `requireAuth`).
   * Budget Analytics: KHÔNG có route riêng — frontend (`web/budget/`) gọi trực tiếp `/ads-monitor`.
-* **Google Sheets:** `googleapis` (Service Account, qua `GoogleAuthFactory` — `GOOGLE_CREDENTIALS_JSON` ưu tiên cho Railway/Vercel, fallback file local). **3 spreadsheet riêng:** Content, Ads (`Raw_Data`), Zalo (2 tab `Video`/`Banner`).
-* **Deployment:** GitHub `anhdtk-ship-it/content-dashboard`. ⚠️ **Đang chuyển từ Railway sang Vercel** (deploy auto-detect không ổn định trên Railway) — xem §11 cho trạng thái/checklist chi tiết. Railway (cũ): domain `content-dashboard-production-4e96.up.railway.app`.
+* **Google Sheets:** `googleapis` (Service Account, qua `GoogleAuthFactory` — `GOOGLE_CREDENTIALS_JSON` ưu tiên cho Vercel, fallback file local). **3 spreadsheet riêng:** Content, Ads (`Raw_Data`), Zalo (2 tab `Video`/`Banner`).
+* **Deployment:** GitHub `anhdtk-ship-it/content-dashboard` → **Vercel** tự deploy từ `main`. Production: `https://content-dashboard-five-kappa.vercel.app`. Railway đã ngưng hoàn toàn (app bị xoá). Xem §11.
 * **Authentication:** **CÓ** — Supabase Auth (Google), domain `@seryn.vn` bắt buộc. Xem §9 (đảo ngược quyết định v3.0 cũ). Khi cutover sang Vercel: cần thêm domain Vercel vào Redirect URLs allowlist của Supabase Auth (§11).
 
 ---
@@ -61,13 +60,12 @@ content-dashboard/
 ├── api/
 │   └── index.ts                 ← Entry point VERCEL (serverless) — export createApp(), KHÔNG static/SPA/listen
 ├── src/
-│   ├── app.ts                   ← createApp(): TOÀN BỘ route API (Content+Ads+Zalo+Auth+Content-Sync+Cron Tick),
-│   │                                KHÔNG static/SPA/listen — dùng chung bởi server.ts (local/Railway) VÀ api/index.ts (Vercel)
-│   ├── server.ts                ← Entry point LOCAL DEV + RAILWAY: createApp() + static web/dist + SPA fallback + listen()
+│   ├── app.ts                   ← createApp(): TOÀN BỘ route API (Content+Ads+Zalo+Auth+Cron daily),
+│   │                                KHÔNG static/SPA/listen — dùng chung bởi server.ts (local dev) VÀ api/index.ts (Vercel)
+│   ├── server.ts                ← Entry point CHỈ LOCAL DEV: createApp() + static web/dist + SPA fallback + listen()
 │   ├── auth/                    ← MODULE AUTH: authMiddleware.ts (requireAuth) · routes.ts (/api/auth/me)
-│   ├── content-sync/            ← MODULE AUTO-SYNC (Phase 12 → Vercel Migration): ContentSyncService.ts ·
-│   │                                DbSyncQueue.ts (debounce lưu Supabase, bảng sync_debounce — THAY SyncQueue.ts cũ) ·
-│   │                                routes.ts (webhook enqueue) · tickRoutes.ts (cron tick /api/cron/tick/*)
+│   ├── content-sync/            ← ContentSyncService.ts (nguồn logic sync DUY NHẤT) ·
+│   │                                dailyRoutes.ts (route cron 10:00 — sync duy nhất)
 │   ├── platform/zalo/           ← MODULE ZALO (Phase 13, độc lập FB): ZaloStatusRule.ts · ZaloContent.ts ·
 │   │                                ZaloSyncProvider.ts · ZaloSyncService.ts · zaloMetrics.ts · zaloWeeklyMetrics.ts · api.ts · syncRouter.ts
 │   ├── google-auth.ts            ← GoogleAuthFactory (createGoogleAuth/createSheetsClient) — dùng chung 7+ nơi
@@ -93,9 +91,8 @@ content-dashboard/
 │       ├── services/{WeeklyReportService,ruleEngine,exporters}.ts
 │       └── components/{ReportFilters,ExportBar,ReportDocument,NarrativeSections}.tsx · pages/WeeklyReportPage.tsx
 │   reports/ (Python)             ← build_zalo_weekly_data.ts + zalo_report_pdf.py (reportlab.platypus, PDF chuẩn Zalo)
-├── apps-script/                  ← Google Apps Script trigger webhook: ContentSync.gs · ContentSyncZalo.gs
 ├── public/index.html            ← Dashboard VANILLA (LEGACY — KHÔNG serve; đừng sửa)
-├── sql/ 001..012_*.sql          ← migrations (chạy tay Supabase SQL Editor; 001–011 đã áp dụng, 012 CHƯA — xem §12)
+├── sql/ 001..012_*.sql          ← migrations (chạy tay Supabase SQL Editor; 001–012 đã áp dụng; 012 không còn được dùng)
 ├── vercel.json                   ← MỚI: buildCommand/outputDirectory/rewrites/maxDuration cho Vercel
 ├── run-ads-import.bat + ads-import.log  ← wrapper Windows chạy ads:import (gitignored, cục bộ máy)
 ├── .env (+ .env.example commit) · credentials/ (gitignored)
@@ -110,8 +107,8 @@ content-dashboard/
 * **Dashboard Content:** Tổng Quan, Thị Trường, Content & Vòng đời (Explorer + Lifecycle), GlobalFilter chung. Trạng thái **"Không test"**, KPI 2 nhóm, "Test quá lâu" (ngưỡng đã hạ 10→5 ngày), "Thiếu ngày test" loại trừ "Không test".
 * **Ads Monitor — GO-LIVE:** đọc Sheet Ads Raw_Data → `ads_monitor`; server-side pagination/filter/sort/KPI; Lifecycle NEW/TEST/MAINTAIN; import lịch (Task Scheduler 09:35).
 * **Weekly Report (Phase 8→13):** module `web/reports/` độc lập, KPI 2 nhóm, Rule Engine, đánh giá cá nhân theo tỷ lệ, kế hoạch cả team, báo cáo theo market, PDF chuẩn (`reportlab.platypus`, standalone không phụ thuộc trình duyệt).
-* **Phase 12 — Auto-Sync Content:** webhook `POST /api/content-sync` + Debounce Queue (60s, max-wait 5 phút) + so sánh signature (chỉ upsert bản ghi đổi). `ContentSyncService.ts` là nguồn logic sync DUY NHẤT (CLI + webhook đều gọi).
-* **GoogleAuthFactory:** `src/google-auth.ts` — chạy được trên Railway (`GOOGLE_CREDENTIALS_JSON`) không cần file `credentials/*.json`. Refactor 7+ nơi dùng chung.
+* **Phase 12 — Auto-Sync Content (ĐÃ GỠ BỎ 2026-09-11):** từng có webhook + Debounce Queue; nay chỉ còn `ContentSyncService.ts` là nguồn logic sync DUY NHẤT (CLI + cron daily đều gọi), giữ cơ chế so sánh signature (chỉ upsert bản ghi đổi).
+* **GoogleAuthFactory:** `src/google-auth.ts` — chạy được trên Vercel (`GOOGLE_CREDENTIALS_JSON`) không cần file `credentials/*.json`. Refactor 7+ nơi dùng chung.
 * **Authentication + Authorization:** Supabase Auth Google, domain `@seryn.vn`, bảng `users` (RLS chỉ service_role), auto-provision user mới, 403 nếu `is_active=false` hoặc sai domain. Bảo vệ toàn bộ `/api/v3` + `/ads-monitor` + `/api/zalo`.
 * **Phase 13 — Zalo (đa nền tảng):** bảng `platform_*` dùng chung cho nền tảng mới; `ZaloStatusRule` (Business Rule riêng: Tồn/Đang test/Duy trì/Không test); dashboard theo tháng + định dạng (Video/Banner, tự do không hardcode); sync 2 tab Sheet + webhook riêng; Weekly Zalo + PDF Python (`reportlab`).
 * **Budget Allocation Analytics (FB-ADS-02):** module `web/budget/` độc lập, chỉ đọc `/ads-monitor`; phân tích ngân sách + content theo nhân viên, biểu đồ cột nhóm Nội Địa/Quốc Tế, loại NV "Br" khỏi Nội Địa.
@@ -127,8 +124,8 @@ content-dashboard/
 ## 7. Next Priorities
 **P1**
 * **Phân quyền theo `role`** — hiện mọi user hợp lệ (`@seryn.vn` + `is_active`) có quyền như nhau; nếu cần phân biệt Admin/Viewer phải code thêm (kiểm tra `role` trong `authMiddleware` hoặc route-level).
-* **Scheduler import Ads hằng ngày** trên máy/hạ tầng luôn-bật (Windows Task Scheduler `run-ads-import.bat` 09:35 đã dựng cục bộ; hoặc worker Railway riêng chạy `npm run ads:scheduler`). Railway web service KHÔNG tự chạy.
-* **Vận hành Auth trên Railway:** xác nhận đã bật Google provider + OAuth Client ID/Secret (Supabase/Google Cloud) + Redirect URL đúng domain production; `SUPABASE_ANON_KEY` đã set; đã có ít nhất 1 user admin trong bảng `users`.
+* **Scheduler import Ads hằng ngày** trên máy/hạ tầng luôn-bật (Windows Task Scheduler `run-ads-import.bat` 09:35 đã dựng cục bộ; hoặc một máy/worker luôn-bật chạy `npm run ads:scheduler`, hoặc thêm route `/api/cron/daily/ads` cho Vercel Cron).
+* **Vận hành Auth trên Vercel:** xác nhận đã bật Google provider + OAuth Client ID/Secret (Supabase/Google Cloud) + Redirect URL đúng domain production; `SUPABASE_ANON_KEY` đã set; đã có ít nhất 1 user admin trong bảng `users`.
 * **Cập nhật `PROJECT_SPEC.md §5`** (Phân quyền) — hiện vẫn ghi "chưa triển khai/chưa có auth", đã lỗi thời so với thực tế (auth đã live) — cần đồng bộ.
 
 **P2**
@@ -144,13 +141,13 @@ content-dashboard/
 ---
 
 ## 8. Known Issues / Inconsistencies
-* **⚠️ VERCEL MIGRATION đang dở dang** — code đã tách xong (`app.ts`/`server.ts`/`api/index.ts`, `DbSyncQueue` thay `SyncQueue`, `vercel.json`, migration `sql/012_sync_debounce.sql`), nhưng **CHƯA**: (a) chạy migration 012 trên Supabase, (b) tạo project Vercel + set env vars, (c) đăng ký cron ngoài (cron-job.org) gọi `/api/cron/tick/content` + `/api/cron/tick/zalo` mỗi ~1 phút (bắt buộc — không có cron ngoài thì Sync KHÔNG BAO GIỜ tự chạy, dù enqueue vẫn ghi tín hiệu bình thường), (d) thêm domain Vercel vào Supabase Auth Redirect URLs, (e) cập nhật `WEBHOOK_URL` trong Apps Script (`ContentSync.gs`/`ContentSyncZalo.gs`) sang domain Vercel. Cho tới khi xong cả 5 việc này, **Railway vẫn phải là bản chạy chính** (webhook cũ trên Railway KHÔNG còn tương thích code mới nếu deploy nhầm — code mới BẮT BUỘC phải có bảng `sync_debounce` + cron ngoài mới hoạt động).
+* **✅ Vercel migration ĐÃ HOÀN TẤT (2026-09-11)** — production chạy tại `content-dashboard-five-kappa.vercel.app`, Railway đã xoá. Cơ chế auto-sync tức thời (webhook + `DbSyncQueue` + `/api/cron/tick/*` + Apps Script) **đã được GỠ BỎ khỏi code**, thay bằng **Vercel Cron native 10:00 giờ VN** gọi `/api/cron/daily/*`. Bảng `sync_debounce` (`sql/012`) giữ trên Supabase nhưng không còn dùng. Chi tiết: `PROJECT_SPEC.md §3.1` + `CURRENT_STATE.md` (mục 2026-09-11).
 * **`PROJECT_SPEC.md §5` (Phân quyền) lỗi thời** — vẫn ghi "chưa có auth/chưa triển khai" dù Authentication đã live từ `105f1a5`. `CURRENT_STATE.md` là nguồn đúng nhất hiện tại cho phần Auth.
 * **Phân quyền `role` chỉ hình thức** — mọi user `@seryn.vn` hợp lệ có quyền ngang nhau (kể cả thao tác nhạy cảm nếu có trong tương lai); cột `role` đã lưu (`sql/008_users.sql`) nhưng chưa dùng để chặn route nào.
 * **Auto-provision không cần duyệt trước** — bất kỳ ai có email `@seryn.vn` đăng nhập Google lần đầu được tự động thêm vào `users` với `is_active=true`; muốn khoá phải vào Supabase set `is_active=false` thủ công.
 * **Mapping Ads Raw_Data là GIẢ ĐỊNH nghiệp vụ** (xem §11 `PROJECT_SPEC.md` để biết chi tiết suy luận `content←ad_name`, `page_code←adset_name`…) — cần nghiệp vụ xác nhận. `ads_owner` còn nhiễu `Br/BR/S`, hoa/thường `LIÊN`.
 * **"Không test" (Facebook)** hiện đã lên số thật (không còn = 0 như v3.0) sau lần sync gần nhất — logic hoạt động đúng khi Sheet có content trạng thái này.
-* **Scheduler KHÔNG tự chạy trên Railway web service** (chỉ chạy `npm start`); import Ads/scheduler chỉ khi chạy tay hoặc worker riêng (hiện dùng Windows Task Scheduler cục bộ).
+* **Scheduler KHÔNG tự chạy trên Vercel** (serverless, không có process dài hạn); import Ads chỉ khi chạy tay hoặc worker riêng (hiện dùng Windows Task Scheduler cục bộ).
 * **Dashboard vanilla `public/index.html`** không còn serve (server serve `web/dist`) — legacy, đừng sửa.
 * Nhánh **`demo-v2`** = baseline trước Ads Monitor — giữ nguyên có chủ đích.
 * Budget Allocation Analytics **không có backend route riêng** — chỉ đọc `/ads-monitor` phía frontend; nếu logic Ads Monitor đổi, kiểm tra ảnh hưởng module này.
@@ -159,7 +156,7 @@ content-dashboard/
 
 ## 9. Important Decisions (KHÔNG tự ý đổi)
 * **⚠️ ĐẢO NGƯỢC quyết định v3.0 cũ "KHÔNG Authentication":** kể từ `105f1a5`, app **CÓ** Authentication (Supabase Auth Google, domain `@seryn.vn` bắt buộc). KHÔNG quay lại mô hình Share Link nếu không có yêu cầu rõ ràng.
-  * Route public (không cần đăng nhập): `/health`, `/api/config`, `/api/content-sync` (secret riêng), `/api/zalo-sync` (secret riêng), static SPA.
+  * Route public (không cần đăng nhập): `/health`, `/api/config`, `/api/cron/daily/*` (secret `CRON_SECRET`), `/api/test-sync/*` (secret riêng), static SPA.
   * Route bảo vệ: `/api/v3/*`, `/ads-monitor`, `/api/zalo`.
   * `role` đã lưu trong bảng `users` nhưng **CHƯA** dùng để phân quyền — mọi user hợp lệ quyền ngang nhau.
 * **PROJECT_SPEC.md là source of truth** — mọi thay đổi schema/API/sync/dashboard/report phải cập nhật vào đó (+ CURRENT_STATE.md).
@@ -170,7 +167,7 @@ content-dashboard/
 * **Budget Allocation Analytics** — module chỉ ĐỌC (`/ads-monitor`), KHÔNG có sync/API/bảng riêng; không tự ý thêm ghi dữ liệu.
 * **PDF:** Weekly Report Facebook = in trình duyệt (`window.print()` + `@media print`). Weekly Zalo = PDF chuẩn qua Python `reportlab.platypus` (standalone, không phụ thuộc trình duyệt).
 * **Ràng buộc chung:** thêm migration mới (không sửa migration cũ đã áp dụng), API additive, không mock khi đã cấu hình Supabase, không tạo màu/typography ngoài DESIGN_SYSTEM.
-* **Debounce Auto-Sync (VERCEL MIGRATION) — trạng thái lưu Supabase, KHÔNG trong RAM:** `enqueue()` (webhook) chỉ ghi tín hiệu vào bảng `sync_debounce`; **chỉ route tick** (`/api/cron/tick/content`, `/api/cron/tick/zalo`, gọi bởi cron ngoài) mới thực sự claim + chạy Sync, qua RPC atomic `sync_tick_claim`/`sync_tick_finish` (xem `sql/012_sync_debounce.sql`). KHÔNG quay lại `setTimeout` trong RAM (không hoạt động đúng trên serverless).
+* **Đồng bộ 1 LẦN/NGÀY lúc 10:00 giờ VN (chốt 2026-09-11):** Vercel Cron native gọi `/api/cron/daily/*`; `prune` LUÔN false tại route. KHÔNG khôi phục webhook/debounce/Apps Script nếu không có yêu cầu rõ ràng. Dashboard KHÔNG còn tự làm mới 30s — xem `PROJECT_SPEC.md §3.1`.
 
 ---
 
@@ -179,16 +176,15 @@ content-dashboard/
 |---|---|---|
 | `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server + Sync + Ads + Zalo + Auth |
 | `SUPABASE_ANON_KEY` | ✅ | `/api/config` + Supabase Auth phía client |
-| `GOOGLE_CREDENTIALS_JSON` (Railway/cloud) hoặc `GOOGLE_CREDENTIALS_PATH` (local) | ✅ (1 trong 2) | `GoogleAuthFactory` — Sync Content/Ads/Zalo |
+| `GOOGLE_CREDENTIALS_JSON` (Vercel) hoặc `GOOGLE_CREDENTIALS_PATH` (local) | ✅ (1 trong 2) | `GoogleAuthFactory` — Sync Content/Ads/Zalo |
 | `GOOGLE_SHEET_ID` | ✅ | Sync Content |
 | `ADS_SHEET_ID` · `ADS_SHEET_TAB` (`Raw_Data`) | ✅ | Ads Import |
 | `ZALO_SHEET_ID` (alias `ZALO_GOOGLE_SHEET_ID`) | ✅ | Sync Zalo (2 tab Video/Banner) |
 | `AUTH_ALLOWED_DOMAIN` (`seryn.vn`) | ✅ | Auth — domain check |
-| `CONTENT_SYNC_SECRET` · `_DEBOUNCE_MS` · `_MAX_WAIT_MS` | ✅ (webhook) | Content-Sync webhook (Phase 12) |
-| `ZALO_SYNC_SECRET` · `ZALO_SYNC_DEBOUNCE_MS` · `ZALO_SYNC_MAX_WAIT_MS` | ✅ (webhook) | Zalo webhook |
-| **`CRON_SECRET`** (MỚI — VERCEL MIGRATION) | ✅ (bắt buộc để Sync thật sự chạy) | `/api/cron/tick/*` — cron ngoài gọi mỗi ~1 phút |
+| ~~`CONTENT_SYNC_SECRET` · `ZALO_SYNC_SECRET` · `*_DEBOUNCE_MS` · `*_MAX_WAIT_MS`~~ | ❌ ĐÃ BỎ | Webhook + debounce đã gỡ 2026-09-11 — không còn được đọc ở đâu, nên xoá khỏi Vercel |
+| **`CRON_SECRET`** | ✅ (bắt buộc để Sync chạy) | `/api/cron/daily/*` — Vercel Cron native gọi mỗi ngày 10:00 giờ VN |
 | `ADS_USE_MOCK` | ⏺ (dev) | Ép mock dù đã cấu hình Supabase (mặc định off) |
-| `PORT` | (Railway cấp; default 4000; KHÔNG cần trên Vercel) | Express (`server.ts`, không dùng ở `api/index.ts`) |
+| `PORT` | (chỉ local; default 4000; KHÔNG dùng trên Vercel) | Express (`server.ts`, không dùng ở `api/index.ts`) |
 | `SYNC_ENABLED` · `SYNC_CRON` · `SYNC_PRUNE_STALE` | ⏺ | Scheduler Content |
 | `ADS_SYNC_ENABLED` · `ADS_SYNC_CRON` (`35 9 * * *`) | ⏺ | Scheduler Ads import |
 > `.env.example` là template (commit). `credentials/*.json` gitignored. dotenv CHỈ đọc `.env` (không đọc `.env.local`).
@@ -196,17 +192,18 @@ content-dashboard/
 ---
 
 ## 11. Deployment Status
-* **GitHub:** `github.com/anhdtk-ship-it/content-dashboard`. Nhánh `demo-v2` = baseline cũ.
-* **⚠️ ĐANG CHUYỂN Railway → Vercel** (lý do: Railway auto-deploy không cập nhật bundle sau nhiều lần push). Code đã sẵn sàng cho cả 2 (xem §3), nhưng **chưa cutover xong** — checklist còn thiếu (thứ tự nên làm):
-  1. Chạy `sql/012_sync_debounce.sql` trên Supabase SQL Editor (bảng + 3 RPC — **bắt buộc**, thiếu bảng này thì webhook vẫn nhận tín hiệu nhưng KHÔNG BAO GIỜ tự Sync).
-  2. Tạo project Vercel, import repo GitHub này. KHÔNG cần preset đặc biệt — `vercel.json` (root) tự quyết định `buildCommand: npm run build`, `outputDirectory: web/dist`, `rewrites` (route `/health`, `/api/*`, `/ads-monitor*` vào `api/index.ts`; còn lại Vercel serve static). `functions["api/index.ts"].maxDuration = 60` — **verify lại trần thực tế của gói Hobby trên Vercel dashboard/docs tại thời điểm deploy** (số này đổi theo chính sách Vercel).
-  3. Set env vars trên Vercel (xem §10) — gồm cả **`CRON_SECRET` mới**. `PORT` không cần.
-  4. Đăng ký **2 cron job miễn phí** (vd cron-job.org — Vercel Hobby Cron chỉ chạy 1 lần/ngày, KHÔNG đủ) gọi `POST https://<domain-vercel>/api/cron/tick/content` và `.../zalo` mỗi ~1 phút, header `x-cron-secret: <CRON_SECRET>`. **Thiếu bước này = Auto-Sync đứng im vĩnh viễn** (enqueue vẫn ghi tín hiệu, không ai tick để claim).
-  5. Supabase Dashboard → Authentication → URL Configuration → thêm domain Vercel mới vào Redirect URLs (giữ domain Railway cũ trong lúc chuyển tiếp).
-  6. Cập nhật Script Property `WEBHOOK_URL` trong Apps Script `ContentSync.gs` VÀ `ContentSyncZalo.gs` sang domain Vercel (không cần sửa code `.gs`).
-  7. Test end-to-end (sửa 1 dòng Sheet → chờ webhook + tick → xác nhận Dashboard cập nhật) TRƯỚC khi tắt Railway. Chạy full sync tay 1 lần (`npm run sync`, `npm run zalo:sync`) trước khi giao hẳn cho webhook/tick, để lần đầu không phải chạy đua cold-start với ~1900+ dòng.
-* **Railway (đang chạy, giữ song song cho tới khi Vercel verify xong):** deploy tự động từ `main` (không ổn định — lý do đổi sang Vercel). Bind `0.0.0.0`, serve `web/dist` + API qua `src/server.ts` (KHÔNG đổi, vẫn hoạt động như cũ trên nhánh này). Domain `content-dashboard-production-4e96.up.railway.app`. Cần đặt thêm `CRON_SECRET` nếu vẫn dùng Railway sau khi code này deploy (webhook trên Railway giờ cũng cần cron ngoài tick, KHÔNG còn tự debounce trong RAM).
-* **Supabase:** migrations 001–011 đã áp dụng; **012 (sync_debounce) CHƯA áp dụng** — xem checklist trên.
+
+> **Cập nhật 2026-09-11 — đã chốt xong, không còn "đang chuyển đổi".**
+
+* **Production: VERCEL** — `https://content-dashboard-five-kappa.vercel.app`
+  * Cấu hình ở `vercel.json` (root): `buildCommand: npm run build`, `outputDirectory: web/dist`, `rewrites` đưa `/health`, `/api/*`, `/ads-monitor*` vào `api/index.ts`, `functions["api/index.ts"].maxDuration = 60`.
+  * Entry serverless: `api/index.ts` → `createApp()`. Vercel serve `web/dist` bằng static hosting riêng (không qua Express).
+  * **Cron native** (`vercel.json → crons`): `/api/cron/daily/content` và `/api/cron/daily/zalo`, lịch `0 3 * * *` UTC = **10:00 giờ VN**. Gói Hobby chạy xê dịch trong khoảng 1 giờ (đo thực tế: trễ ~36 phút).
+  * ⚠️ Gói **Hobby chỉ dành cho mục đích phi thương mại** — đây là công cụ nội bộ công ty, về nguyên tắc thuộc diện phải dùng Pro. Rủi ro vận hành cần biết.
+* **RAILWAY: ĐÃ NGƯNG HOÀN TOÀN.** App đã bị xoá — `GET https://content-dashboard-production-4e96.up.railway.app/health` trả `404 {"message":"Application not found"}` (kiểm chứng 2026-09-11). Không còn file/cấu hình nào trong repo phụ thuộc Railway. `src/server.ts` được giữ lại nhưng **chỉ dùng cho local dev**.
+* **GitHub:** `anhdtk-ship-it/content-dashboard`, nhánh `main` → Vercel tự deploy. Nhánh `demo-v2` = baseline cũ, giữ có chủ đích.
+* **Supabase:** migrations `sql/001`→`sql/012` đã áp dụng. Riêng `012` (`sync_debounce`) **không còn được dùng** sau khi gỡ cơ chế debounce — giữ nguyên bảng, không xoá.
+* **Đồng bộ Ads** vẫn chạy bằng Windows Task Scheduler trên máy cục bộ (09:35) — **chưa** đưa lên Vercel. Đây là việc P1 còn lại.
 
 ---
 
@@ -253,7 +250,7 @@ content-dashboard/
 1. **Đọc trước:** file này → `PROJECT_SPEC.md` → `CURRENT_STATE.md` → `DESIGN_SYSTEM.md` → `ZALO_SETUP.md` (nếu đụng Zalo). Source chính: `src/server.ts`, `web/main.tsx`, `src/auth/`, `web/auth/`, `src/content-sync/`, `src/platform/zalo/` + `web/zalo/`, `web/budget/`, toàn bộ `src/ads-monitor/` + `web/ads-monitor/` + `web/reports/`. SQL: `sql/008` (users) + `sql/010`/`011` (platform/Zalo).
 2. **cwd:** luôn `cd /c/Users/Admin/Downloads/wesd/content-dashboard` (Bash hay nhảy về `wesd` — project Next.js khác).
 3. **Chạy:** `npm run dashboard` (Express :4000) · `npm run dev` (Vite :5173, proxy) · `npm run build` · `npm run typecheck`. Sync: `npm run sync|scheduler|ads:import|ads:verify|ads:scheduler|zalo:sync|zalo:verify`. **Sửa `server.ts`/backend phải RESTART Express** (ts-node không reload).
-4. **Git/Deploy:** làm trên `main`; commit + `git push origin main` → Railway tự deploy. Trước khi commit: `git diff --cached --name-only | grep -iE "\.env$|credentials"` để chắc KHÔNG lộ secret.
+4. **Git/Deploy:** làm trên `main`; commit + `git push origin main` → Vercel tự deploy. Trước khi commit: `git diff --cached --name-only | grep -iE "\.env$|credentials"` để chắc KHÔNG lộ secret.
 5. **DDL Supabase:** service_role qua PostgREST KHÔNG chạy được DDL → migration mới phải chạy TAY trong SQL Editor.
 6. **Đăng nhập khi test:** app yêu cầu đăng nhập Google `@seryn.vn` — chuẩn bị tài khoản test hợp lệ hoặc kiểm tra qua `curl` với JWT thật (API sẽ 401 nếu không có token).
 7. **TUYỆT ĐỐI KHÔNG:** sửa module này khi đang làm module khác trong số 5 miền (Content FB/Ads Monitor/Weekly Report/Zalo/Budget Analytics); đổi công thức Lifecycle/Status Ads; sửa `public/index.html` (legacy); **tắt lại Authentication** (đã đảo ngược quyết định cũ — xem §9) trừ khi có yêu cầu rõ ràng; dùng chung Business Rule giữa các miền.

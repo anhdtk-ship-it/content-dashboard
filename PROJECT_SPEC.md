@@ -2,7 +2,7 @@
 
 > **Tài liệu gốc (single source of truth).** Mọi thay đổi về kiến trúc, schema, sync, dashboard, API, phân quyền… **bắt buộc cập nhật vào file này**.
 >
-> Cập nhật lần cuối: 2026-07-31 (Auth live + Budget Allocation Analytics + Phase 13 Zalo) · Trạng thái: đang phát triển
+> Cập nhật lần cuối: 2026-09-11 — **gỡ bỏ toàn bộ cơ chế auto-sync tức thời (webhook + debounce + tick + Apps Script) và mọi dấu vết Railway; chốt đồng bộ 1 lần/ngày lúc 10:00 giờ VN trên Vercel** (§3.1). Trước đó cùng ngày: bổ sung §4.10, §7, §8, §10, §12.2, §14, §15, §16 cho khớp code tại HEAD `0d2cb06`.
 > Ký hiệu: ✅ đã triển khai · 🟡 một phần · 🔲 kế hoạch (chưa code)
 
 ---
@@ -107,22 +107,56 @@
 - **Đặc tính**: upsert + **khử trùng 1 chiều** (Sheet → DB; xóa dòng đã biến mất khỏi sheet, có guard). ✅ đồng bộ xóa stale (thay cho trạng thái kế hoạch trước đây).
 - **Tự động hoá**: scheduler `node-cron` (`src/sync-scheduler.ts`, `npm run scheduler`) — `SYNC_ENABLED`/`SYNC_CRON`. Hoặc chạy tay: `npm run sync`.
 
-### 3.1 Auto-Sync theo thời gian thực (PHASE 12) — CHỈ Content
-> Chi tiết đầy đủ + đề xuất Google Apps Script: `PHASE_12_AUTO_SYNC.md`.
+### 3.1 Cách hệ thống tự đồng bộ — MỘT cơ chế DUY NHẤT (chốt 2026-09-11) ✅
 
-- **Kiến trúc (VERCEL MIGRATION — đã đổi từ debounce-in-RAM sang debounce-qua-Supabase):** Google Sheet Content → **Apps Script Trigger** → **Webhook** (`POST /api/content-sync`, chỉ ghi tín hiệu vào bảng `sync_debounce`) → **Cron Tick** (`POST /api/cron/tick/content`, gọi bởi dịch vụ cron NGOÀI mỗi ~1 phút — vd cron-job.org, vì Vercel Hobby Cron chỉ chạy 1 lần/ngày) → claim quyền chạy qua RPC atomic → **ContentSyncService** → Validate → Supabase → Dashboard (poll 30s) → Weekly Report.
-- **Nguồn logic sync gom về 1 chỗ:** `src/content-sync/ContentSyncService.ts` (`runContentSync()`); `src/sync-all-content.ts` (CLI) và webhook đều gọi hàm này (DRY). Điểm mới: **so sánh signature từng bản ghi → CHỈ upsert bản ghi thay đổi**; upsert 1-câu-lệnh (atomic) khi tập nhỏ (≤5000), lô hoá khi bulk lớn; validate loại bản ghi thiếu khóa; prune giữ nguyên guard.
-- **Webhook** (`src/content-sync/routes.ts`): chỉ báo "Sheet đã đổi" → gọi `DbSyncQueue.enqueue()` (ghi `pending`/`last_signal_at` vào `sync_debounce`); **KHÔNG** đọc Sheet/ghi DB tại đây; trả 202 ngay. Bảo mật bắt buộc `CONTENT_SYNC_SECRET` (header `x-content-sync-secret`); chưa cấu hình → 503; sai → 401. `GET /api/content-sync/status` xem trạng thái debounce.
-- **DbSyncQueue + Cron Tick** (`src/content-sync/DbSyncQueue.ts`, `tickRoutes.ts`, bảng `sync_debounce` — `sql/012_sync_debounce.sql`) — THAY `SyncQueue.ts` cũ (dùng `setTimeout` trong RAM, KHÔNG hoạt động đúng trên serverless vì mỗi request có thể chạy trên instance khác nhau): **Debounce** mỗi tín hiệu cập nhật `last_signal_at` (`CONTENT_SYNC_DEBOUNCE_MS`=60000, so khi tick); **Maximum Wait** buộc chạy trong tối đa `CONTENT_SYNC_MAX_WAIT_MS`=300000 kể từ `first_signal_at`; **Mutex** qua cờ `running` (claim atomic bằng 1 câu `UPDATE...WHERE running=false...RETURNING *`, Postgres tự serialize); tự phục hồi nếu 1 lần claim "stuck" (crash/timeout) quá `p_stuck_ms` (mặc định 9 phút). `pending`/`first_signal_at` được xoá NGAY LÚC CLAIM (không phải lúc chạy xong) — để tín hiệu đến giữa lúc đang chạy tự mở đúng 1 chu kỳ debounce mới, không bị "quên". Route tick RIÊNG cho content/zalo (`CRON_SECRET` riêng, khác secret webhook công khai) để 1 lần sync chậm không kéo timeout của queue khác.
-- **Cache:** sau sync thành công gọi `invalidateContentsCache()` (`src/app.ts`) → poll kế tiếp thấy dữ liệu mới.
-- **Migration:** `sql/007_sync_logs_source.sql` (ALTER `sync_logs` +source/rows_unchanged/rows_pruned/duration_ms — additive, chạy tay). Service tự fallback payload tối thiểu nếu chưa áp dụng. `sql/012_sync_debounce.sql` (bảng `sync_debounce` + 3 RPC) — **BẮT BUỘC chạy trước khi Auto-Sync hoạt động** trên code mới (thiếu bảng → webhook vẫn 202 nhưng Sync không bao giờ tự chạy).
-- **KHÔNG áp dụng cho Ads** (Ads Monitor/Sync/Scheduler/Lifecycle/Business Rule giữ nguyên).
+> **Quyết định nghiệp vụ:** dữ liệu chỉ cần cập nhật **1 lần/ngày vào khung giờ cố định**. Mọi cơ chế đồng bộ gần-thời-gian-thực đã bị **gỡ bỏ hoàn toàn** khỏi code.
 
-Lệnh: `npm run sync` · `npm run backfill`. Webhook: `POST /api/content-sync` (secret). Cron tick (nội bộ, KHÔNG phải webhook công khai): `POST /api/cron/tick/content` (secret `CRON_SECRET` riêng).
+```
+Vercel Cron native  ──GET + Authorization: Bearer <CRON_SECRET>──►  /api/cron/daily/content
+   (vercel.json, "0 3 * * *" UTC = 10:00 giờ VN)                    /api/cron/daily/zalo
+                                                                          │
+                                                    runContentSync() / runZaloSync()
+                                                    đọc Sheet → diff signature → upsert
+                                                                          ▼
+                                                                      Supabase
+```
+
+- **Route**: `GET|POST /api/cron/daily/content` và `/api/cron/daily/zalo` (`src/content-sync/dailyRoutes.ts`). Gọi thẳng service, **không qua hàng đợi/debounce**.
+- **Lịch**: khai báo ở `vercel.json → crons`, `0 3 * * *` UTC = **10:00 giờ Việt Nam**.
+- **⚠️ Độ chính xác**: gói Vercel **Hobby chỉ bảo đảm chạy TRONG KHOẢNG 1 GIỜ** quanh lịch. Đo thực tế 8 ngày liên tiếp (lịch cũ 10:30): luôn chạy trễ **~36 phút**. Vậy với lịch 10:00, dự kiến rơi vào khoảng **10:00–10:40**. Cần đúng phút thì phải dùng cron ngoài hoặc nâng gói Pro.
+- **Bảo mật**: `CRON_SECRET`, đọc qua header `Authorization: Bearer` (khớp cách Vercel Cron native gửi). Chấp nhận cả GET lẫn POST; method khác → 405. Chưa cấu hình → 503, sai → 401.
+- **`prune` LUÔN `false`** — hardcode tại route, không đọc env, không cho override. ⇒ **Content bị xoá khỏi Google Sheet sẽ KHÔNG bị xoá khỏi DB.** Muốn dọn "mồ côi" phải chạy tay `npm run sync` (CLI có prune + guard + nên backup trước).
+- Sau mỗi lần sync thành công: `invalidateContentsCache()` / `zaloApi.invalidate()`.
+- **Hệ quả trên giao diện**: Dashboard **không còn tự làm mới 30 giây**. Trang Tổng Quan hiển thị dòng "Dữ liệu cập nhật: …" lấy từ `sync_logs` (`/api/v3/sync-status`) để người xem biết độ tươi.
+
+#### Đã GỠ BỎ (2026-09-11) — không khôi phục nếu không có yêu cầu rõ ràng
+| Thành phần | Trạng thái |
+|---|---|
+| `POST /api/content-sync` + `GET /api/content-sync/status` (webhook Content) | ❌ xoá (`src/content-sync/routes.ts`) |
+| `POST /api/zalo-sync` (webhook Zalo) | ❌ xoá (`src/platform/zalo/syncRouter.ts`) |
+| `POST /api/cron/tick/content` · `/tick/zalo` | ❌ xoá (`src/content-sync/tickRoutes.ts`) |
+| `DbSyncQueue` (debounce + max-wait + mutex) | ❌ xoá (`src/content-sync/DbSyncQueue.ts`) |
+| `apps-script/ContentSync.gs` · `ContentSyncZalo.gs` | ❌ xoá cả thư mục |
+| Env `CONTENT_SYNC_SECRET`, `ZALO_SYNC_SECRET`, `*_DEBOUNCE_MS`, `*_MAX_WAIT_MS` | ❌ không còn được đọc ở đâu — nên xoá khỏi Vercel |
+| Bảng `sync_debounce` + 3 RPC (`sql/012`) | 🟡 **giữ nguyên trên Supabase** (không xoá dữ liệu), chỉ không còn được dùng. Migration `sql/012` giữ lại theo quy ước "không sửa/xoá migration đã áp dụng" |
+
+**Lý do gỡ:** cơ chế này đã **chết âm thầm từ 2026-08-18** — Apps Script bắn webhook vào domain Railway đã bị xoá (xác nhận: `Application not found`), còn route tick thì chưa từng có cron ngoài nào gọi (`claimed_at`/`last_run_at` = null vĩnh viễn). Giữ lại code chết chỉ gây hiểu nhầm là hệ thống đang chạy realtime.
+
+### 3.2 Chạy tay / theo lịch cục bộ
+
+| Lệnh | Việc |
+|---|---|
+| `npm run sync` | Sync Content từ CLI — **CÓ prune** (theo `SYNC_PRUNE_STALE`, mặc định `true`) + guard an toàn. Dùng khi cần dọn content đã xoá khỏi Sheet. |
+| `npm run zalo:sync` · `npm run zalo:verify` | Sync / đối soát Zalo (cần `ZALO_SHEET_ID`). |
+| `npm run ads:import` · `npm run ads:verify` | Import / đối soát Ads (xem §11). |
+| `npm run backfill` | Tính lại toàn bộ `*_real`. |
+| `npm run scheduler` | node-cron chạy sync Content trên máy luôn-bật (`SYNC_ENABLED`/`SYNC_CRON`). KHÔNG dùng trên Vercel. |
 
 ---
 
-## 4. Dashboard (SPA — `public/index.html`)
+## 4. Dashboard — App React (`web/`) ✅
+
+> ⚠️ Bản vanilla `public/index.html` là **LEGACY, KHÔNG còn được serve** (server serve `web/dist`) — đừng sửa. Toàn bộ mô tả dưới đây áp dụng cho app React trong `web/`; điều hướng thực tế xem §4.10.
 
 Filter toàn cục (sticky): **Thời gian** (9 preset + tùy chỉnh) · **Thị trường** · **Người nhận** · **Trạng thái** · nút Xóa lọc. Mọi KPI/biểu đồ/bảng đều theo filter. Realtime (anon key) + polling 30s. Drill-down đa tầng (set filter chồng nhau → Content Explorer). Loading skeleton + empty state.
 
@@ -163,6 +197,22 @@ Chỉ áp dụng cho **frontend React** (`web/`); bản vanilla `public/index.ht
 - **KPI "Tiến độ Test Content":** ngoài Tỷ lệ đã test · Tỷ lệ test thành công · Tuổi thọ content TB, hiển thị thêm số content **đang duy trì > 30 / > 60 / > 90 / > 180 ngày** (đếm theo `maintainDays`, cùng logic đã có ở Dashboard Thị Trường — không đổi công thức KPI).
 - **Filter dùng chung (`GlobalFilter`):** Tổng Quan · Tiến độ Test Content · Thị Trường · **Vòng đời Content** đều dùng cùng `GlobalFilter` (5 field: Thời gian · Địa lý · Nhân viên Ads · Biên tập · Trạng thái). Vòng đời Content trước đây dùng FilterBar riêng ("Tất cả TT"/"Người") nay đã thay bằng `GlobalFilter`. Lưu ý: endpoint `/api/v3/lifecycle` không nhận `editor`/`status` nên 2 field này hiển thị để đồng bộ giao diện nhưng KHÔNG ảnh hưởng dữ liệu Vòng đời (giữ nguyên query: `from/to/market/assignee`).
 
+
+### 4.10 Điều hướng thực tế (`web/main.tsx` — NAV theo Platform) ✅
+
+Sidebar gom theo **nền tảng**, mỗi nhóm expand/collapse và tự mở nhóm chứa trang đang xem:
+
+| Nhóm | Mục menu → route |
+|---|---|
+| 🏠 (đơn) | Dashboard → `#/overview` |
+| 📘 **Facebook** | 📋 Tổng quan `#/overview` · 📝 Weekly Report `#/weekly-report` · 🔎 Content Explorer `#/explorer` · ♻️ Vòng đời Content `#/lifecycle` · 📡 Ads Monitor `#/ads-monitor` · 💰 Phân bổ ngân sách `#/budget-allocation` · 📊 Phân tích Data Content `#/content-analytics` · 📈 Phân tích Hiệu quả Content `#/content-performance` |
+| 💬 **Zalo** | 📋 Tổng quan `#/zalo` · 📝 Weekly Report `#/zalo-weekly` |
+
+- **Route ẩn khỏi menu nhưng VẪN truy cập được qua URL:** `#/usage` ("Tiến độ Content" — ẩn theo yêu cầu, commit `058055c`), `#/assignees` ("Tiến độ Test Content"), `#/markets`, `#/analytics`.
+- **Route còn là Stub** (chưa dựng màn hình): `#/sync`, `#/users`, `#/settings` — khớp với §4.6/4.7/4.8.
+- Thêm nền tảng mới (TikTok…) chỉ cần thêm 1 object nhóm trong `NAV` — không phải sửa lại cấu trúc.
+- ⚠️ **Nợ kỹ thuật UI:** `NotificationArea` và `UserMenu` trong `main.tsx` đang là **dữ liệu giả hardcode** (3 thông báo mẫu; tên/email/vai trò cố định) — chưa nối với user thật đang đăng nhập qua `AuthGate`.
+
 ---
 
 ## 5. Authentication / Phân quyền ✅ Auth live · 🟡 Role chưa dùng để phân quyền
@@ -171,7 +221,7 @@ Chỉ áp dụng cho **frontend React** (`web/`); bản vanilla `public/index.ht
 
 - **Cơ chế ✅:** Supabase Auth (Google OAuth), chỉ chấp nhận email domain **`@seryn.vn`** (env `AUTH_ALLOWED_DOMAIN`). Sau đăng nhập, `requireAuth` (`src/auth/authMiddleware.ts`) xác thực JWT qua Supabase Admin → check domain → tra bảng `users` → 403 nếu `is_active=false` hoặc sai domain → **auto-provision** user mới (role mặc định `viewer`, `is_active=true`) nếu lần đầu đăng nhập.
 - **Bảng `users` ✅** (`sql/008_users.sql`): `email`, `role`, `is_active`. RLS bật, **không có policy** cho anon/authenticated → chỉ service_role (server) truy cập được.
-- **Route bảo vệ ✅:** `/api/v3/*`, `/ads-monitor`, `/api/zalo`. **Route public (không auth):** `/health`, `/api/config`, `/api/content-sync` (secret riêng), `/api/zalo-sync` (secret riêng), static SPA.
+- **Route bảo vệ ✅:** `/api/v3/*`, `/ads-monitor`, `/api/zalo`, `/api/content-analytics`, `/api/content-performance`. **Route public (không auth):** `/health`, `/api/config`, `/api/cron/daily/*` (secret `CRON_SECRET` riêng), `/api/test-sync/*` (secret riêng), static SPA (Vercel serve).
 - **Frontend ✅:** `web/main.tsx` bọc app trong `AuthGate` + `installAuthFetch()` (tự gắn header `Authorization: Bearer <JWT>`). Chưa đăng nhập → `LoginPage`; 403 → màn hình chặn truy cập.
 
 | Vai trò | Quyền hiện tại | Quyền dự kiến (🔲 chưa code) |
@@ -180,7 +230,7 @@ Chỉ áp dụng cho **frontend React** (`web/`); bản vanilla `public/index.ht
 | **Viewer** (mọi email `@seryn.vn` hợp lệ) | Xem đầy đủ mọi dashboard (Content/Ads/Zalo/Budget/Weekly Report) | Chỉ đọc; không sync/không cài đặt/không quản lý user |
 
 - **🔲 Còn thiếu:** cột `role` đã lưu nhưng **CHƯA** có logic nào đọc/chặn theo role — mọi user hợp lệ quyền ngang nhau. Muốn phân quyền thật cần thêm check `role` trong `authMiddleware` hoặc ở từng route nhạy cảm.
-- **⚠️ Vận hành cần đảm bảo trên Railway:** bật Google provider + OAuth Client ID/Secret (Supabase Dashboard + Google Cloud Console) + Redirect URL đúng domain production; set `SUPABASE_ANON_KEY`; đã chạy `sql/008_users.sql`; có ít nhất 1 user trong bảng `users` (auto-provision sẽ tự tạo khi đăng nhập lần đầu, nhưng cần domain/provider đã bật trước).
+- **⚠️ Vận hành cần đảm bảo trên Vercel:** bật Google provider + OAuth Client ID/Secret (Supabase Dashboard + Google Cloud Console) + Redirect URL trỏ đúng domain Vercel; set `SUPABASE_ANON_KEY`; đã chạy `sql/008_users.sql`; có ít nhất 1 user trong bảng `users` (auto-provision sẽ tự tạo khi đăng nhập lần đầu).
 
 ---
 
@@ -197,28 +247,42 @@ Supabase  contents / sync_logs / content_status_history
         ▼
 /api/v3/*  ── status_group / metrics / lifecycle (derived) ──►
         ▼
-SPA Dashboard  (realtime anon + polling 30s)
+Dashboard React (tải khi mở trang / đổi bộ lọc — KHÔNG còn polling 30s)
 ```
 
-Khi sheet đổi → chạy `npm run sync` → DB cập nhật → API cache hết hạn (≤10s) / realtime → UI refresh.
+Nhịp cập nhật: **1 lần/ngày lúc 10:00 giờ VN** (Vercel Cron → `/api/cron/daily/*` → Sync → Supabase). Người xem mở trang Tổng Quan sẽ thấy dòng "Dữ liệu cập nhật: …" lấy từ `sync_logs`. Cần dữ liệu mới ngay giữa ngày → chạy tay `npm run sync` (xem §3.2).
 
 ---
 
-## 7. API (Express — base `http://localhost:4000`)
+## 7. API (Express — base local `http://localhost:4000`)
 
-Query filter chung: `from,to` (YYYY-MM-DD) · `market` · `assignee` · `status` · `dateField` (`upload_date_real`\|`test_date_real`).
+> Toàn bộ route dựng trong `src/app.ts` (`createApp()`). Production chạy trên **Vercel** qua `api/index.ts`; `src/server.ts` chỉ dùng cho local dev (thêm static `web/dist` + SPA fallback + `.listen()`).
+> Query filter chung của Content FB: `from,to` (YYYY-MM-DD) · `market` · `assignee` · `status` · `dateField` (`upload_date_real`|`test_date_real`).
 
+### 7.1 Public — KHÔNG qua `requireAuth` (mỗi route có secret riêng)
 | Method · Path | Vai trò |
 |---|---|
-| `GET /api/config` | Trả `url` + `anonKey` cho realtime client ✅ |
-| `GET /api/v3/summary` | KPI, metrics nghiệp vụ, funnel, byAssignee, byMarket, byStatus, alerts, trend (`trend=day\|week\|month`) ✅ |
+| `GET /health` | Health check ✅ |
+| `GET /api/config` | Trả `url` + `anonKey` cho Supabase client (realtime + Auth) ✅ |
+| `GET|POST /api/cron/daily/content` · `/api/cron/daily/zalo` | **Đồng bộ hằng ngày 10:00 giờ VN** — CƠ CHẾ SYNC DUY NHẤT (Vercel Cron native, `Authorization: Bearer <CRON_SECRET>`), `prune` hardcode `false` — xem §3.1 ✅ |
+| `POST /api/test-sync/content` · `/api/test-sync/zalo` | **TEST ONLY** — chạy Sync thật để đo thời gian trên serverless; `prune:false` CỨNG; secret RIÊNG `VERCEL_TEST_SYNC_SECRET` (không fallback secret khác; chưa cấu hình → 503) ✅ |
+
+### 7.2 Bảo vệ bằng `requireAuth`
+| Method · Path | Vai trò |
+|---|---|
+| `GET /api/auth/me` | Kiểm tra JWT + domain + `is_active`, auto-provision user mới ✅ |
+| `GET /api/v3/summary` | KPI, metrics nghiệp vụ, `contentKpi`, funnel, byAssignee, byMarket, byStatus, alerts, trend (`trend=day\|week\|month`) ✅ |
 | `GET /api/v3/contents` | Danh sách + phân trang (`page,pageSize`) + `q` + drill (`alert,ageMin,ageMax,codes,endedExact,sort`) ✅ |
-| `GET /api/v3/sync-status` | Tổng quan độ phủ ngày + `sync_logs` gần nhất ✅ |
+| `GET /api/v3/sync-status` | Độ phủ ngày + `sync_logs` gần nhất ✅ |
 | `GET /api/v3/lifecycle` | KPI vòng đời, byEditorAvg/byAssigneeAvg/byMarketAvg, distribution, top20 (lọc kỳ theo `test_date_real`) ✅ |
 | `GET /api/v3/lifecycle-table` | Danh sách đã tính `ageDays`/`maintainDays` (client tự lọc/export) ✅ |
 | `GET /api/v3/content-detail` | Chi tiết 1 content + timeline (`code,market,assignee`) ✅ |
+| `GET /ads-monitor` | Ads Monitor server-side qua RPC `ads_monitor_query` — xem §11 ✅ |
+| `GET /api/zalo/{summary,contents,weekly,sync-status,settings}` · `PUT /api/zalo/settings` | Module Zalo — xem §13 ✅ |
+| `GET /api/content-analytics` | Phân tích Data Content Mới/Cũ — xem §15 ✅ |
+| `GET /api/content-performance` | Phân tích Hiệu quả Content (Cost/ROAS/CLĐT) — xem §16 ✅ |
 
-> Quy ước: tham số mới phải **tùy chọn** (không phá hành vi mặc định của module khác).
+> Quy ước: tham số mới phải **tùy chọn** (không phá hành vi mặc định của module khác). Lỗi trả `{ error }` + HTTP 500.
 
 ---
 
@@ -226,33 +290,45 @@ Query filter chung: `from,to` (YYYY-MM-DD) · `market` · `assignee` · `status`
 
 ```
 content-dashboard/
-├── PROJECT_SPEC.md          ← tài liệu gốc (file này)
-├── mapping-spec.md          ← đặc tả mapping Sheet→Supabase
-├── package.json             ← scripts: dashboard|dev|sync|backfill
-├── tsconfig.json            ← CommonJS, strict, types:[node]
-├── .env                     ← SUPABASE_*, GOOGLE_* (gitignored)
-├── credentials/
-│   ├── credentials.json     ← Service Account key (gitignored)
-│   └── README.md
-├── sql/
-│   ├── 001_fix_contents.sql
-│   ├── 002_unique_key.sql
-│   ├── 003_sync_logs.sql
-│   └── 004_date_real.sql
+├── PROJECT_SPEC.md          ← tài liệu gốc (file này) · CURRENT_STATE.md · PROJECT_HANDOFF.md
+├── PROJECT_BACKLOG.md · DESIGN_SYSTEM.md · WIREFRAMES.md · mapping-spec.md · ZALO_SETUP.md
+├── PHASE_12_AUTO_SYNC.md · PHASE_13_PLATFORM.md · reviews R2–R6
+├── package.json · tsconfig.json · vite.config.ts · tailwind.config.js
+├── vercel.json              ← buildCommand/outputDirectory/rewrites/maxDuration + crons native 10:30
+├── .env (gitignored) · .env.example (commit) · credentials/ (gitignored)
+├── api/
+│   └── index.ts             ← entry VERCEL (serverless): export createApp(), KHÔNG static/SPA/listen
 ├── src/
-│   ├── server.ts              ← Express API V3 + transform/aggregation
-│   ├── sync-all-content.ts    ← Sync Engine (upsert)
-│   ├── backfill-dates.ts      ← backfill *_real
-│   ├── date-util.ts           ← parseDdmmToReal()
-│   ├── sheets-reader.ts       ← đọc/đếm toàn bộ sheet (+ EXCLUDED_SHEETS)
-│   ├── transform-content.ts   ← export mẫu 20 record
-│   ├── import-sample.ts       ← import mẫu (POC)
-│   ├── analyze-headers.ts     ← phân tích header
-│   ├── check-duplicates.ts    ← phân tích trùng khóa
-│   └── test-google-connection.ts ← kiểm tra kết nối Sheets
-├── public/
-│   └── index.html           ← SPA 7 module
-├── output/                  ← JSON xuất (contents-report, sample-import)
+│   ├── app.ts               ← createApp(): TOÀN BỘ route API + transform/aggregation Content
+│   ├── server.ts            ← entry LOCAL/RAILWAY: createApp() + static web/dist + SPA fallback + listen()
+│   ├── auth/                ← authMiddleware.ts (requireAuth) · routes.ts (/api/auth/me)
+│   ├── content-sync/        ← ContentSyncService.ts (nguồn logic sync DUY NHẤT)
+│   │                           · dailyRoutes.ts (Vercel Cron 10:00 — route sync duy nhất)
+│   ├── test-sync/routes.ts  ← TEST ONLY, secret riêng VERCEL_TEST_SYNC_SECRET (§7.1)
+│   ├── ads-monitor/         ← types · calculateAdsStatus · AdsMonitorRepository/Service/routes
+│   │                           · GoogleSheetAdsSyncProvider · import.ts · verify.ts · ads-scheduler.ts · mock.ts
+│   ├── platform/            ← db.ts · types.ts · registry.ts · facebook/ · zalo/ (§13)
+│   ├── content-analytics/   ← §15 — Provider · Service · routes · types
+│   ├── content-performance/ ← §16 — PerformanceSheetProvider · QualitySheetProvider · Service · routes · types
+│   ├── shared/weeklyMetrics.ts ← KPI Weekly DÙNG CHUNG web + PDF (§12.2)
+│   ├── google-auth.ts       ← GoogleAuthFactory (createGoogleAuth/createSheetsClient)
+│   ├── sync-all-content.ts (CLI wrapper) · sync-scheduler.ts · backfill-dates.ts · date-util.ts
+│   ├── sheets-reader.ts · transform-content.ts · analyze-headers.ts · check-duplicates.ts
+│   ├── zalo-sync.ts · zalo-seed.ts · zalo-verify.ts · test-google-connection.ts
+│   └── components/ui/ · components/layout/   ← thư viện UI dùng chung (Sidebar, DataTable, KPICard…)
+├── web/                     ← APP REACT (Vite 8 + React 19 + Tailwind v4) — đây là frontend ĐANG CHẠY
+│   ├── main.tsx (NAV + router hash + AuthGate) · styles.css · GlobalFilter.tsx · editor-name.ts
+│   ├── OverviewPage · AssigneesPage · MarketsPage · ExplorerPage · LifecyclePage · UsagePage
+│   │   · AnalyticsPage · UsageCompare · AlertDrawer · Tabs
+│   ├── auth/ · ads-monitor/ · budget/ · zalo/ · reports/
+│   └── content-analytics/ · content-performance/
+├── reports/                 ← build_weekly_data.ts + weekly_report_pdf.py · build_zalo_weekly_data.ts
+│                               + zalo_report_pdf.py (reportlab.platypus) · report.json · report_zalo.json
+├── apps-script/             ← ContentSync.gs · ContentSyncZalo.gs (trigger webhook từ Google Sheet)
+├── sql/ 001..012_*.sql      ← migrations (chạy TAY trong Supabase SQL Editor)
+├── public/index.html        ← Dashboard VANILLA (LEGACY — KHÔNG còn được serve; ĐỪNG sửa)
+├── output/ · backup/        ← JSON/CSV/XLSX xuất ra (không phải nguồn dữ liệu)
+├── run-ads-import.bat + ads-import.log ← wrapper Windows Task Scheduler chạy ads:import 09:35
 └── .claude/launch.json      ← cấu hình preview (port 4000)
 ```
 
@@ -278,38 +354,41 @@ content-dashboard/
 ## 10. Checklist toàn bộ project
 
 ### Hạ tầng & dữ liệu
-- [x] Kết nối Google Sheets (Service Account)
+- [x] Kết nối Google Sheets (Service Account) — qua `GoogleAuthFactory` (`GOOGLE_CREDENTIALS_JSON` ưu tiên cho cloud)
 - [x] Supabase: `contents`, `sync_logs`, `content_status_history`
-- [x] Migrations 001–004 (unique key, `*_real`)
-- [x] Sync Engine (upsert idempotent + dedupe + `sync_logs`)
+- [x] Migrations 001–011 đã áp dụng
+- [x] Migration `sql/012` đã áp dụng (bảng `sync_debounce` tồn tại) — **nhưng không còn được dùng** sau khi gỡ debounce; giữ nguyên trên Supabase, không xoá
+- [x] Sync Engine (upsert idempotent + dedupe + diff signature + `sync_logs`)
 - [x] Backfill `*_real`
 - [x] Loại trừ `QT/NĐ Khiêm`
-- [ ] Auto-sync theo lịch (cron) 🔲
-- [ ] Đồng bộ xóa content stale (2 chiều) 🔲
-- [ ] Ghi `content_status_history` khi đổi `current_status` 🔲
+- [x] Auto-sync: **1 cơ chế DUY NHẤT** — Vercel Cron native gọi `/api/cron/daily/*` lúc 10:00 giờ VN (§3.1). Cơ chế webhook + debounce + tick đã gỡ bỏ ✅
+- [x] Đồng bộ xóa content stale (1 chiều Sheet → DB, có guard; `prune` TẮT ở mọi route cron/test)
+- [ ] Ghi `content_status_history` khi đổi `current_status` 🔲 (chặn Retention + làm "Duy trì tháng" chỉ là proxy)
 
 ### Dashboard
 - [x] Filter toàn cục + drill-down + realtime + skeleton/empty
-- [x] Tổng Quan (6 KPI + tooltip)
-- [x] Người Nhận
-- [x] Thị Trường
-- [x] Content Explorer (search/sort/phân trang/export CSV)
-- [x] Vòng đời Content (tính từ Set Ads)
-- [x] Quản lý Sync (xem log)
-- [ ] Trigger sync từ UI 🔲
-- [ ] Retention Curve (chờ history) 🟡
-- [ ] Quản lý User 🔲
-- [ ] Cài đặt 🔲
+- [x] Tổng Quan · Tiến độ Test Content · Thị Trường · Content Explorer · Vòng đời Content
+- [x] Ads Monitor · Weekly Report (FB) · Zalo + Weekly Zalo · Budget Allocation
+- [x] Content Analytics (§15) · Content Performance (§16)
+- [ ] Trigger sync từ UI 🔲 (route `#/sync` hiện là Stub)
+- [ ] Retention Curve (chờ `content_status_history`) 🟡
+- [ ] Quản lý User 🔲 · Cài đặt 🔲 (cả hai vẫn là Stub trong `web/main.tsx`)
+- [ ] Persist phần soạn tay II/III của Weekly Report 🔲 · Export DOCX 🔲
 
 ### Phân quyền & vận hành
-- [x] Supabase Auth (đăng nhập Google, domain @seryn.vn) ✅
-- [ ] Role Admin / Viewer — cột đã lưu, logic phân quyền CHƯA code 🟡
+- [x] Supabase Auth (đăng nhập Google, domain `@seryn.vn`) ✅
+- [ ] Role Admin / Viewer — cột đã lưu, **logic phân quyền CHƯA code** 🟡
 - [x] RLS bật trên bảng `users` (chỉ service_role) ✅
-- [x] Deploy Railway (production live) ✅
+- [x] Deploy **Vercel** (`content-dashboard-five-kappa.vercel.app`) — Railway đã ngưng hoàn toàn, domain cũ trả 404 ✅
+- [x] **Đã cutover sang Vercel** — kiểm chứng 2026-09-11: `sync_logs.source='daily-cron'` (Vercel Cron native) chạy đều hằng ngày ✅
+- [x] Đồng bộ tự động: **1 lần/ngày lúc 10:00 giờ VN** qua Vercel Cron native (§3.1) — cơ chế duy nhất ✅
+- [x] Import Ads hằng ngày 09:35 qua Windows Task Scheduler (máy cục bộ) — chưa chuyển lên hạ tầng luôn-bật 🟡
 
 ### Tài liệu
 - [x] `mapping-spec.md`
 - [x] `PROJECT_SPEC.md` (file này — tài liệu gốc)
+- [ ] `PROJECT_BACKLOG.md` **đã lỗi thời** — vẫn ghi Sprint 4 (Auth) "Cancelled / dùng Share Link" dù Auth đã live 🔲
+- [ ] `PROJECT_HANDOFF.md` mới cập nhật tới HEAD `7852d1a` (31/07/2026) — chưa có §15/§16 và các thay đổi tháng 8–9 🔲
 
 ---
 
@@ -364,18 +443,27 @@ content-dashboard/
 ### 12.1 Nguồn dữ liệu & luồng + Service riêng
 **BUSINESS RULE RIÊNG** (§5): KHÔNG dùng `calculateAdsStatus()`, Lifecycle (Ads), hay metrics()/status-set của Dashboard. `WeeklyReportService` (`services/WeeklyReportService.ts`) tự đọc **dữ liệu thô** qua `/api/v3/contents?from&to` (phân trang) rồi tự tính KPI: `calculateWeeklyKPIs()` + `calculateWeeklyEmployeeReport()`. "Đã cấp" theo Ngày Up Trello (dateField mặc định). Bộ lọc: **Khoảng thời gian TÙY CHỈNH** (Từ/Đến chọn theo ngày, mặc định tuần hiện tại). *(Đã BỎ bộ lọc Địa lý.)* Group theo `assignee_name` = **Nhân viên Ads** (KHÔNG dùng `editor_name`/Biên tập).
 
-### 12.2 Công thức KPI (RIÊNG — chỉnh ở `WeeklyReportService`)
-**PHASE 11 — 2 NHÓM KPI** (fetch TOÀN BỘ content, tính client-side; đọc trực tiếp, không suy luận):
-- **A. Phát sinh trong tháng** (cohort theo `upload_date_real` **trong kỳ** [from,to]):
-  - **Đã cấp** = content upload trong kỳ (KHÔNG cumulative).
-  - **Không test** = upload trong kỳ & trạng thái "Không test" (không cộng dồn tháng sau).
-  - **Content test win** = upload trong kỳ & đạt "Duy trì" (rule win KHÔNG đổi; KHÔNG dùng `ads_monitor_lifecycle`).
-- **B. Trạng thái hiện tại** (ALL — KHÔNG giới hạn tháng, backlog thực tế):
-  - **Chờ chạy (Tồn)** = trạng thái hiện tại "Chờ chạy".
-  - **Đang test** = trạng thái hiện tại "Đang test" (chỉ thống kê Dashboard/Weekly, KHÔNG liên quan Ads).
-- *(Đã bỏ Đã test/Tồn-cũ/Tỷ lệ test/Tỷ lệ win khỏi Weekly Report.)*
+### 12.2 Công thức KPI (RIÊNG — nguồn DUY NHẤT: `src/shared/weeklyMetrics.ts`)
 
-> ⚠️ **Mục §12.2 này đã lỗi thời so với code hiện tại** (`src/shared/weeklyMetrics.ts`, module DÙNG CHUNG Dashboard Weekly + PDF — nguồn đúng nhất). Công thức thật hiện tại: **Tồn = ĐÚNG trạng thái "Chờ chạy"**, **Chờ đăng bài = ĐÚNG trạng thái "Chờ đăng bài"** (mới thêm — content đã test/duyệt xong, chờ lên lịch đăng; nhóm RIÊNG, KHÔNG tính vào Tồn), cả hai đều tính theo **cohort upload trong kỳ** (không phải all-time). Cần một lượt rà soát riêng để viết lại §12.2 khớp 100% với `weeklyMetrics.ts`.
+> **Đã rà soát lại 2026-09-11 để khớp 100% với code.** `weeklyMetrics.ts` là module **PURE** (không I/O, không DOM) được import bởi CẢ `web/reports/services/WeeklyReportService.ts` (Dashboard) **và** `reports/build_weekly_data.ts` (PDF) ⇒ web và PDF **không thể lệch số**. Muốn đổi công thức: sửa DUY NHẤT file này.
+
+Ký hiệu: **cohort** = content có `upload_date_real` nằm trong kỳ `[from, to]`. `Duy trì*` = mọi trạng thái bắt đầu bằng "Duy trì".
+
+| KPI | Công thức thật (code) | Phạm vi |
+|---|---|---|
+| **Đã cấp** (`capped`) | đếm cohort | trong kỳ |
+| **Đã test** (`tested`) | cohort & `current_status ∈ {Đang test, Duy trì*, Đã test-ko chạy, Đã chạy-Tắt}` | trong kỳ |
+| **Tồn** (`ton`) | cohort & `current_status === 'Chờ chạy'` — **ĐÚNG trạng thái này, không gì khác** (kể cả trống/chưa phân loại) | trong kỳ |
+| **Chờ đăng bài** (`choDangBai`) | cohort & `current_status === 'Chờ đăng bài'` — nhóm **RIÊNG**, KHÔNG cộng vào Tồn | trong kỳ |
+| **Tỷ lệ test** (`rateTest`) | `Đã test / Đã cấp` | trong kỳ |
+| **Duy trì tháng** (`duyTriThang`) | cohort & đang `Duy trì*` | trong kỳ |
+| **Tỷ lệ Duy trì** (`rateDuyTri`) | `Duy trì tháng / Đã test` | trong kỳ |
+| **Đang duy trì** (`dangDuyTri`) | TOÀN BỘ content đang `Duy trì*` | **ALL-TIME**, không giới hạn kỳ |
+
+- ⚠️ **"Duy trì tháng" là PROXY**: hệ thống KHÔNG lưu ngày đổi trạng thái (`content_status_history` rỗng) nên chỉ đo được "hiện đang Duy trì" chứ không phải "đã chuyển sang Duy trì trong kỳ".
+- **Cấu trúc báo cáo** (`buildWeeklyReport`): 2 khối market **Nội địa / Quốc tế**; trong mỗi khối, nhân viên xếp theo `EMPLOYEE_ORDER = [Hiếu, KA, Liên, Ánh]` (người ngoài danh sách xếp sau, A→Z) và **ẩn nhân viên có `capped = 0` và `dangDuyTri = 0`** ở market đó. Group theo `assignee_name` = Nhân viên Ads (KHÔNG dùng `editor_name`).
+- **Ngưỡng Rule Engine** (cũng nằm trong `weeklyMetrics.ts`): `rateTest < 0.7` → cảnh báo chậm đưa vào Ads · `ton >= 3` → ưu tiên xử lý tồn · `choDangBai >= 3` → ưu tiên lên lịch đăng · `rateDuyTri >= 0.1` → ghi nhận tốt · `dangDuyTri >= 5` → quản lý ổn định.
+- KHÔNG dùng chung logic với Ads Monitor / Dashboard Content (Business Rule riêng — xem §9 `PROJECT_HANDOFF.md`).
 
 ### 12.3 Cấu trúc báo cáo (PHASE 9 — print-friendly, `ReportDocument`)
 Bố cục **văn bản** (KHÔNG KPICard/biểu đồ/bảng Excel), dùng CHUNG cho web + in.
@@ -410,24 +498,87 @@ Trạng thái: **Tồn** (chờ chạy) · **Đang test** · **Duy trì** · **K
 
 ### 13.4 API / Sync / PDF
 - API `/api/zalo/*` (requireAuth): `summary`·`contents`·`weekly`·`sync-status`·`settings`(GET/PUT). Mount ADDITIVE trong `server.ts`, KHÔNG đổi `/api/v3` của FB.
-- Sync: đọc Sheet RIÊNG theo **tên header** (env `ZALO_SHEET_ID`) → `platform_contents`. CLI `npm run zalo:sync`; webhook `/api/zalo-sync` (secret `ZALO_SYNC_SECRET`, `queue_key='zalo'` RIÊNG trong bảng `sync_debounce` — xem §3.1) + `apps-script/ContentSyncZalo.gs`. Sync thật chạy qua `POST /api/cron/tick/zalo` (cron ngoài), KHÔNG còn tự debounce trong RAM.
+- Sync: đọc Sheet RIÊNG theo **tên header** (env `ZALO_SHEET_ID`) → `platform_contents`. CLI `npm run zalo:sync`; tự động qua `POST /api/cron/daily/zalo` (Vercel Cron 10:00 giờ VN — xem §3.1). Webhook `/api/zalo-sync` + Apps Script ĐÃ GỠ BỎ 2026-09-11.
 - Weekly Zalo (menu Weekly Zalo) + PDF A4 dọc, KHÔNG QR: `reports/build_zalo_weekly_data.ts` → `reports/zalo_report_pdf.py`.
 
 ### 13.5 Thêm nền tảng mới (TikTok…)
 Tạo `src/platform/<nền-tảng>/` (StatusRule + module), đăng ký `registry.ts`, mount `/api/<nền-tảng>` trong `server.ts` (1 dòng) — dùng lại bảng `platform_*`, KHÔNG đổi schema/logic có sẵn.
 
 ### 13.6 ZALO-04 — nối Google Sheet thật (2 tab)
-Google Sheet Zalo có ĐÚNG 2 tab `Video`/`Banner`; `content_format` = **tên tab** (không có cột định dạng/thị trường/người phụ trách). Backend đọc đồng thời 2 tab → merge → sync (`ZaloContentSyncService` + `ZaloSyncProvider.transformTab`). Mapping: Tên Content→`title` (cột thêm ở `sql/011_zalo_title.sql`), Ngày Up Trello→"đã cấp", Ngày test, Trạng thái. **Khoá định danh ổn định**: Content ID → Trello card id → hash(format|title|ngày up) — KHÔNG dùng số dòng → chống trùng khi re-sync. Settings thêm `warning_threshold`; Leader chỉnh Target/ngưỡng ngay trong Dashboard (`ZaloSettingsPanel`). Data Quality: "thiếu dữ liệu bắt buộc" (thiếu tên) + "trùng" theo TÊN. Auto-sync webhook `/api/zalo-sync` debounce 60s + `apps-script/ContentSyncZalo.gs`.
+Google Sheet Zalo có ĐÚNG 2 tab `Video`/`Banner`; `content_format` = **tên tab** (không có cột định dạng/thị trường/người phụ trách). Backend đọc đồng thời 2 tab → merge → sync (`ZaloContentSyncService` + `ZaloSyncProvider.transformTab`). Mapping: Tên Content→`title` (cột thêm ở `sql/011_zalo_title.sql`), Ngày Up Trello→"đã cấp", Ngày test, Trạng thái. **Khoá định danh ổn định**: Content ID → Trello card id → hash(format|title|ngày up) — KHÔNG dùng số dòng → chống trùng khi re-sync. Settings thêm `warning_threshold`; Leader chỉnh Target/ngưỡng ngay trong Dashboard (`ZaloSettingsPanel`). Data Quality: "thiếu dữ liệu bắt buộc" (thiếu tên) + "trùng" theo TÊN. Đồng bộ tự động qua Vercel Cron 10:00 giờ VN (§3.1).
 
 ---
 
 ## 14. Budget Allocation Analytics (FB-ADS-02) — module độc lập, CHỈ ĐỌC
 
-> Menu **Budget Allocation** (`web/budget/BudgetAllocationPage.tsx`, `#/budget`). Module phân tích ngân sách + content theo nhân viên Ads, dành cho Facebook. **ĐỘC LẬP hoàn toàn**: không có bảng/API/sync riêng — **chỉ đọc dữ liệu qua `/ads-monitor`** (`web/budget/budgetApi.ts` gọi thẳng route Ads Monitor có sẵn). Không ghi dữ liệu, không đổi logic Ads Monitor.
+> Menu **💰 Phân bổ ngân sách** (`web/budget/`, route `#/budget-allocation`). Phân tích ngân sách + số content theo nhân viên Ads cho Facebook. **ĐỘC LẬP hoàn toàn**: không bảng/API/sync riêng — **chỉ đọc `/ads-monitor`** (`budgetApi.ts` gọi thẳng route Ads Monitor có sẵn). Không ghi dữ liệu, không đổi logic Ads Monitor.
 
-- **Nội dung:** biểu đồ cột nhóm (grouped bar) thể hiện ngân sách + số content theo từng nhân viên Ads, tách 2 tab **Nội Địa** / **Quốc Tế** (nhãn thuần Việt, giữ nguyên field `content` gốc). Nhân viên "Br" (Branding) bị loại khỏi tab Nội Địa (nhiễu dữ liệu, không phải nhân viên Ads thật — cùng vấn đề đã ghi ở §11.4).
-- **Lịch sử điều chỉnh UI (không đổi số liệu):** gộp ngân sách+content vào 1 biểu đồ cột nhân viên (bỏ toggle) → tăng bề rộng cột (34px) + cỡ chữ nhãn/tên NV → bỏ bảng chi tiết theo nhân viên (giữ lại biểu đồ cột nhóm) để tránh trùng lặp thông tin với biểu đồ.
-- **Ràng buộc:** KHÔNG thêm route backend riêng cho module này trừ khi thật sự cần tính toán phía server; nếu sửa `ads_monitor_query`/schema Ads Monitor, kiểm tra ảnh hưởng tới `budgetApi.ts`. Route được bảo vệ bởi `requireAuth` qua chính `/ads-monitor` (§5).
+- **Cấu trúc file:** `BudgetAllocationPage.tsx` (trang, memoize phân tích) · `MarketDashboard.tsx` (dashboard 1 thị trường) · `selectors.ts` (TOÀN BỘ phép tính, thuần, không I/O) · `config.ts` (ngưỡng — sửa DUY NHẤT tại đây) · `budgetApi.ts` · `BudgetDrawer.tsx` · `format.ts`.
+- **Business Rule RIÊNG (`selectors.ts`)** — KHÔNG dùng rule Ads Monitor:
+  - Chỉ lấy dòng **Amount Spent > 0** (mọi trạng thái: Đang test / Đang duy trì / Đã tắt / Mới chạy).
+  - **Ngày cấp** = 6 số đầu của `content` (`YYMMDD` → `YYYY-MM-DD`) — bản riêng của module.
+  - **Content Tươi** = ngày cấp thuộc THÁNG đang xem · **Content Cũ** = trước tháng đang xem.
+  - **Ngưỡng ngân sách** `BUDGET_THRESHOLD = 5.000.000` (`config.ts`): `< ngưỡng` → "dưới 5tr", `>= ngưỡng` → "trên 5tr" (đúng bằng ngưỡng tính là "trên").
+  - ⇒ **4 nhóm**: `old_lt` (Cũ <5tr) · `old_gte` (Cũ >5tr) · `fresh_lt` (Tươi <5tr) · `fresh_gte` (Tươi >5tr).
+- **Hiển thị:** 2 thị trường `TQ`→**Nội Địa**, `NN`→**Quốc Tế**; mỗi thị trường có KPI (tổng ngân sách · tổng content · TB/content · content Cũ/Tươi), column chart 4 nhóm (HTML/CSS thuần, **không thư viện ngoài**), bảng phân tích nhóm, bảng theo nhân viên, và bộ chỉ số (`freshBudgetRatio`, `oldBudgetRatio`, `avgBudget`, `distributionIndex`). Click cột/dòng → Drawer danh sách content.
+- **Loại trừ nhân viên:** `NOIDIA_EXCLUDE_OWNERS` (hiện là `Br`) trong `config.ts` — chỉ áp cho Nội Địa, do nhiễu dữ liệu `ads_owner` (cùng vấn đề §11.4). Sửa danh sách tại `config.ts`, KHÔNG hardcode trong `selectors.ts`.
+- **Ràng buộc:** KHÔNG thêm route backend riêng trừ khi thật sự cần tính phía server; nếu sửa `ads_monitor_query`/schema Ads Monitor phải kiểm tra ảnh hưởng `budgetApi.ts`. Bảo vệ bởi `requireAuth` qua chính `/ads-monitor` (§5).
+
+---
+
+## 15. Content Analytics (CONTENT-ANALYTICS-03) — Data từ Content Mới vs Cũ ✅
+
+> Menu **📊 Phân tích Data Content** (`web/content-analytics/`, route `#/content-analytics`). API `GET /api/content-analytics` (`requireAuth`).
+> **STATELESS**: đọc THẲNG Google Sheet `Raw_Data` (Ads) mỗi request — **KHÔNG cache, KHÔNG bảng Supabase mới**. Độc lập hoàn toàn với Ads Monitor (không import, không tái dùng logic gộp); chỉ dùng chung `createGoogleAuth()` + `requireAuth` (2 file đó KHÔNG bị sửa).
+
+### 15.1 Nguồn & env
+`ADS_SHEET_ID` + `ADS_SHEET_TAB` (**dùng lại cùng spreadsheet/tab của Ads Monitor**, chỉ đọc thêm cột). Cột bắt buộc trên `Raw_Data`: `date, ad_id, ad_name, account_id, account_name, campaign_id, adset_id, purchases` — thiếu bất kỳ cột nào → API trả 500 kèm thông báo rõ. Header dò theo TÊN cột (không theo vị trí); dòng thiếu `date`/`ad_id`/`ad_name` bị bỏ qua.
+
+### 15.2 Business Rule (`ContentAnalyticsService.ts` — pure function, dễ test)
+- **Content** = `ad_name` chuẩn hoá (trim + gộp khoảng trắng). **KHÔNG** dùng `ad_id` làm định danh Content.
+- **Dedup** CHỈ khi trùng **đủ 5 khoá** `(date, ad_id, account_id, campaign_id, adset_id)` → giữ dòng có `purchases` LỚN NHẤT (Raw_Data có mẫu export nhiều lần/ngày). Trùng `(date, ad_id)` nhưng khác account/campaign/adset → **giữ tất cả**.
+- **`first_seen(content)`** = `MIN(date)` trên **TOÀN BỘ lịch sử sau dedup** — KHÔNG tính lại sau khi lọc tháng.
+- **Mới / Cũ**: `first_seen` thuộc tháng đang xem → **Mới**; trước đó → **Cũ**.
+- **Data** = `SUM(purchases)`. 1 Content có thể thuộc nhiều nhân viên → **KHÔNG ép về 1 người**, giữ `employeeBreakdown` đầy đủ.
+- **Employee** = suy từ `account_name` qua `resolveEmployee()`: tách theo `-`, lấy token khớp **đúng 4 nhân viên thật KA · Hiếu · Ánh · Liên**; không khớp → **"Không xác định"** (KHÔNG tự gán bừa, KHÔNG hiển thị `account_name` nguyên văn ra UI). Khi `employee=ALL`, bảng nhân viên LUÔN đủ 4 dòng theo thứ tự cố định (0 nếu không có data), cộng dòng "Không xác định" nếu có data thật.
+- **Thứ tự pipeline (bắt buộc giữ):** đọc → dedup toàn lịch sử → `first_seen` toàn lịch sử → lọc tháng → lọc employee/search ở mức DÒNG → group theo Content → gán Mới/Cũ → lọc `type` → tính overview/byEmployee trên ĐÚNG tập đã lọc ⇒ overview · byContent · byEmployee luôn nhất quán với nhau.
+
+### 15.3 API
+`GET /api/content-analytics?month=YYYY-MM&employee=ALL|<tên>&type=all|new|old&search=<chuỗi>` (mặc định: tháng hiện tại · ALL · all · rỗng).
+Trả `{ month, overview{dataNew,dataOld,dataTotal,pctNew,pctOld}, byContent[], byEmployee[], meta }`. `meta` gồm `historyStartDate`, `rowsRead`, `rowsAfterDedup`, `duplicateGroups`, `contentsUnknownEmployee`, `warnings` — trong đó có **cảnh báo lịch sử chưa đủ sâu** (nếu `historyStartDate` ≥ tháng đang xem thì mọi Content có thể bị tính nhầm là "Mới").
+
+---
+
+## 16. Content Performance (CP-04) — Cost / ROAS / Chất lượng data ✅
+
+> Menu **📈 Phân tích Hiệu quả Content** (`web/content-performance/`, route `#/content-performance`). API `GET /api/content-performance` (`requireAuth`).
+> **STATELESS**: đọc THẲNG 2 Google Sheet (Performance/ROAS + Quality/CLĐT) mỗi request — KHÔNG cache, KHÔNG bảng mới. **V1 CHỈ kênh Facebook** (đã chốt); PR để dành V2 vì "Tên content" của PR là tên chiến dịch chữ, không join được với Content Sheet theo cùng cơ chế.
+
+### 16.1 Nguồn & env
+| Env | Sheet | Vai trò |
+|---|---|---|
+| `PERFORMANCE_SHEET_ID` · `PERFORMANCE_SHEET_TAB` | "Roas content" | Chi phí · SL data · Giá data · Roas trong tháng · Roas 3 tháng |
+| `QUALITY_SHEET_ID` · `QUALITY_SHEET_TAB` | "CLDT CONTENT" | Care giá · Tích cực · Tiêu cực · MQH chưa XĐ |
+
+Ngoài ra đọc bảng **`contents`** (chỉ `content_code` + `editor_name`) để gán **Biên tập** — KHÔNG dùng `account_name`/Employee của §15.
+
+### 16.2 Cấu trúc Sheet thật (đã audit CP-03A — KHÔNG suy đoán)
+- **Performance Sheet**: header 3 tầng — THÁNG (13 khối: Tổng năm + 12 tháng) × ĐỊA LÝ (TỔNG CỘNG / TRONG NƯỚC / NƯỚC NGOÀI) × 5 chỉ số. Cột 1/2/3 = Kênh / Phân loại / Tên content; cột "Tên CGSĐ" KHÔNG dùng (không phải Biên tập chính thức). Năm lấy từ dòng tiêu đề, **không hard-code**. 5 category Facebook thật: `Facebook CGSĐ · Facebook BS · Facebook mess Nữ MB · Facebook remar · Facebook hotline`.
+- **Quality Sheet**: nhiều **block tháng nối tiếp theo chiều dọc**; trong mỗi block, dòng tên kênh là dòng NHÓM, Content thật nằm ở các dòng SAU nó (thuộc nhóm theo **vị trí**, không có cột kênh riêng trên từng dòng). V1 dùng cột **"Grand Total"** (Trong nước + Nước ngoài). ROAS ở Sheet này KHÔNG dùng — tránh 2 nguồn ROAS xung đột.
+- **Lọc rác** (đã xác nhận trên dữ liệu thật): `Ko có tên content`, `#REF!`, `Thử nghiệm - ...`, URL Facebook, `test`, `Quảng cáo`, tên ≤ 2 ký tự.
+
+### 16.3 Business Rule
+- **ROAS tháng / ROAS 3 tháng ĐÃ TÍNH SẴN trong Sheet — KHÔNG tự dựng lại công thức rolling.**
+- **Tổng quan (KPI) ưu tiên đọc TRỰC TIẾP dòng subtotal có sẵn trong Sheet** ⇒ khớp 100% với Sheet. Chỉ dùng được khi bộ lọc khớp đúng 1 dòng subtotal (`channel=ALL` → "Tổng kênh Facebook", hoặc đúng 1 category) **và KHÔNG lọc Biên tập/Tìm kiếm**.
+- Khi KHÔNG có subtotal khớp (đang lọc Biên tập/Tìm kiếm): tự tính — Chi phí/SL Data **vẫn chính xác** (cộng được), Giá data = `cost / dataCount` (tính lại, KHÔNG lấy trung bình cộng), ROAS = **weighted theo cost** và chỉ là **ƯỚC LƯỢNG**. Cờ `meta.overviewFromSheetSubtotal = false` + `warnings` báo rõ cho người xem.
+- **Reconcile gap**: category có subtotal lớn hơn tổng các content liệt kê → phần chênh được giữ lại để Chi phí/SL Data không bị hụt so với Sheet.
+- **Biên tập** = map từ bảng `contents` theo `content_code`; không khớp → `(Không xác định)` (đếm ở `meta.contentsUnmatchedEditor`).
+- **Chất lượng (CLĐT)** ghép theo khoá `contentName||YYYY-MM`; không có dữ liệu → `quality = null` (KHÔNG bịa 0).
+- Bỏ content không hoạt động trong tháng/địa lý đang lọc (`cost <= 0 && dataCount <= 0`). Bảng sắp xếp giảm dần theo Chi phí.
+
+### 16.4 API
+`GET /api/content-performance?month=YYYY-MM&channel=ALL|<kênh>&editor=ALL|<biên tập>&geography=all|noi_dia|quoc_te&search=<chuỗi>`.
+Trả `{ month, overview{cost,dataCount,dataPrice,roasMonth,roas3Month}, table[], meta{channelsAvailable,editorsAvailable,monthsAvailable,contentsUnmatchedEditor,overviewFromSheetSubtotal,warnings} }`. `monthsAvailable` chỉ gồm tháng **thật sự có hoạt động** (cost hoặc data > 0) để tránh chọn tháng trống.
 
 ---
 

@@ -14,6 +14,14 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const pct = (x: number) => `${Math.round((x ?? 0) * 100)}%`;
 
+/** Giờ đồng bộ gần nhất, hiển thị theo giờ VN (sync_logs lưu UTC). */
+function fmtSyncTime(iso?: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso.endsWith("Z") || /[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + "Z");
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
 function presetRange(p: string): { from?: string; to?: string } {
   const now = new Date(); now.setHours(0, 0, 0, 0);
   const d = (x: number) => { const c = new Date(now); c.setDate(c.getDate() + x); return c; };
@@ -113,6 +121,17 @@ export function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drill, setDrill] = useState<AlertDef | null>(null); // card "Cần xử lý" đang mở Drawer
+  // Độ tươi dữ liệu: hệ thống đồng bộ 1 LẦN/NGÀY (Vercel Cron 10:00 giờ VN) — KHÔNG còn auto-refresh
+  // 30s như trước, nên phải cho người xem biết dữ liệu được cập nhật lúc nào. Đọc 1 lần khi mở trang.
+  const [lastSync, setLastSync] = useState<{ started_at?: string; finished_at?: string; status?: string } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/v3/sync-status')
+      .then((r) => r.json())
+      .then((d) => { if (alive && d && !d.error) setLastSync(d.lastSync ?? null); })
+      .catch(() => { /* không chặn trang nếu lỗi */ });
+    return () => { alive = false; };
+  }, []);
 
   const period = range.preset === 'custom' ? { from: range.from, to: range.to } : presetRange(range.preset);
 
@@ -137,8 +156,7 @@ export function OverviewPage() {
         .finally(() => alive && setLoading(false));
     };
     setLoading(true); load();
-    const t = setInterval(load, 30000);
-    return () => { alive = false; clearInterval(t); };
+    return () => { alive = false; };
   }, [query]);
 
   const clearAll = () => { setRange({ preset: 'thismonth' }); setMarket('ALL'); setAssignee('ALL'); setStatus('ALL'); setEditor('ALL'); };
@@ -160,8 +178,10 @@ export function OverviewPage() {
         onReset={clearAll}
         right={
           <span className="flex items-center gap-1.5 text-xs text-muted">
-            <span className="inline-block h-2 w-2 rounded-full bg-success" /> Auto 30s
-            {data && <span>· {new Date(data.generatedAt).toLocaleTimeString('vi-VN')}</span>}
+            <span className={`inline-block h-2 w-2 rounded-full ${lastSync?.status === 'success' ? 'bg-success' : 'bg-muted'}`} />
+            {lastSync
+              ? <span>Dữ liệu cập nhật: <b className="text-fg">{fmtSyncTime(lastSync.finished_at ?? lastSync.started_at)}</b></span>
+              : <span>Dữ liệu cập nhật: —</span>}
           </span>
         }
       />

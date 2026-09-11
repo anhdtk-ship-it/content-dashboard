@@ -3,13 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import adsMonitorRouter from './ads-monitor/routes';
-import { createContentSyncRouter } from './content-sync/routes';
-import { createCronTickRouter } from './content-sync/tickRoutes';
 import { createDailySyncRouter } from './content-sync/dailyRoutes';
 import { requireAuth } from './auth/authMiddleware';
 import authRouter from './auth/routes';
 import { createZaloRouter } from './platform/zalo/api';
-import { createZaloSyncRouter } from './platform/zalo/syncRouter';
 import { createTestSyncRouter } from './test-sync/routes';
 import { createContentAnalyticsRouter } from './content-analytics/routes';
 import { createContentPerformanceRouter } from './content-performance/routes';
@@ -355,7 +352,7 @@ export function createApp(): express.Application {
   app.get('/api/config', (_req, res) => res.json({ url, anonKey: anonKey ?? null }));
 
   // AUTH (chỉ BỔ SUNG) — /api/auth/me + bảo vệ các API dữ liệu Dashboard/Ads.
-  // Public: /health, /api/config (client cần anon key để đăng nhập), /api/content-sync (secret riêng),
+  // Public: /health, /api/config (client cần anon key để đăng nhập),
   // /api/cron/* (secret riêng CRON_SECRET), static SPA (Vercel serve riêng, không qua app này).
   // Bảo vệ: /api/v3/* và /ads-monitor (đăng ký requireAuth TRƯỚC handler bên dưới).
   app.use('/api/auth', authRouter);
@@ -668,9 +665,6 @@ export function createApp(): express.Application {
     }
   });
 
-  // Content auto-sync webhook (PHASE 12) — CHỈ Dashboard Content. Đăng ký TRƯỚC SPA fallback.
-  app.use('/api/content-sync', createContentSyncRouter());
-
   // Ads Monitor — API nội bộ độc lập (PHASE 3, mock). Đăng ký TRƯỚC SPA fallback.
   app.use('/ads-monitor', requireAuth);   // AUTH: bảo vệ (chỉ thêm middleware, KHÔNG đổi router Ads)
   app.use('/ads-monitor', adsMonitorRouter);
@@ -680,23 +674,14 @@ export function createApp(): express.Application {
    * KHÔNG sửa route/logic Facebook. Đăng ký TRƯỚC SPA fallback.
    * ========================================================== */
   const zaloApi = createZaloRouter();
-  // Webhook auto-sync Zalo (secret riêng ZALO_SYNC_SECRET) — public như /api/content-sync, KHÔNG qua requireAuth.
-  app.use('/api/zalo-sync', createZaloSyncRouter());
   // API dữ liệu Zalo — bảo vệ bằng requireAuth (giống /api/v3, /ads-monitor).
   app.use('/api/zalo', requireAuth);
   app.use('/api/zalo', zaloApi.router);
 
   /* ============================================================
-   * CRON TICK (VERCEL MIGRATION) — gọi bởi cron ngoài (~1 phút/lần), thực sự chạy Sync
-   * khi debounce (bảng sync_debounce) đã đủ điều kiện. Secret riêng CRON_SECRET, KHÔNG
-   * qua requireAuth (không phải người dùng đăng nhập). Đăng ký TRƯỚC SPA fallback.
-   * ========================================================== */
-  app.use('/api/cron', createCronTickRouter({ onContentSynced: invalidateContentsCache, onZaloSynced: zaloApi.invalidate }));
-
-  /* ============================================================
    * DAILY FULL-SYNC (PHASE VERCEL-06) — /api/cron/daily/{content,zalo}, gọi bởi Vercel Cron
-   * native (03:30 UTC = 10:30 Asia/Ho_Chi_Minh, xem vercel.json). ĐỘC LẬP với tick ở trên
-   * (không qua queue/debounce) — full sync trực tiếp, prune LUÔN false. Đăng ký TRƯỚC SPA fallback.
+   * native (0 3 * * * UTC = 10:00 Asia/Ho_Chi_Minh, xem vercel.json) — ĐÂY LÀ CƠ CHẾ SYNC DUY NHẤT.
+   * Full sync trực tiếp từ Google Sheet, prune LUÔN false. Đăng ký TRƯỚC SPA fallback.
    * ========================================================== */
   app.use('/api/cron', createDailySyncRouter({ onContentSynced: invalidateContentsCache, onZaloSynced: zaloApi.invalidate }));
 

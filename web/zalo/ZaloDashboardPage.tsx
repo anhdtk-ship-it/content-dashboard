@@ -131,8 +131,7 @@ export function ZaloDashboardPage() {
         .finally(() => alive && setLoading(false));
     };
     setLoading(true); load();
-    const t = setInterval(load, 30000);
-    return () => { alive = false; clearInterval(t); };
+    return () => { alive = false; };
   }, [month, reload]);
 
   const cmpCols: Column<FormatKpi>[] = useMemo(() => [
@@ -156,7 +155,7 @@ export function ZaloDashboardPage() {
         </label>
         <div className="ml-auto flex items-center gap-3">
           <span className="flex items-center gap-1.5 text-xs text-muted">
-            <span className="inline-block h-2 w-2 rounded-full bg-success" /> Auto 30s
+            <span className="inline-block h-2 w-2 rounded-full bg-success" /> Đồng bộ 1 lần/ngày (10:00)
             {data && <span>· {new Date(data.generatedAt).toLocaleTimeString('vi-VN')}</span>}
           </span>
           <ActionButton onClick={() => setSettingsOpen(true)} icon={<span>⚙️</span>}>Cấu hình</ActionButton>

@@ -10,16 +10,15 @@ Mở **Supabase → SQL Editor**, dán & chạy lần lượt:
 
 (KHÔNG đụng bảng Facebook `contents`. KHÔNG chạy `sql/009_*` — đã thay thế.)
 
-## 2) Biến môi trường (Railway + `.env` local)
+## 2) Biến môi trường (Vercel + `.env` local)
 | Biến | Bắt buộc | Ý nghĩa |
 |---|---|---|
 | `ZALO_SHEET_ID` | ✅ | ID Google Sheet **riêng** của Zalo |
 | `ZALO_SHEET_TABS` | — | Danh sách tab, phân tách dấu phẩy. Bỏ trống = đọc mọi tab |
-| `ZALO_SYNC_SECRET` | ✅ (webhook) | Secret webhook `/api/zalo-sync` (đặt trùng bên Apps Script) |
-| `ZALO_SYNC_DEBOUNCE_MS` / `ZALO_SYNC_MAX_WAIT_MS` | — | Mặc định 60s / 5 phút |
+| `CRON_SECRET` | ✅ | Secret cho Vercel Cron gọi `/api/cron/daily/zalo` (dùng chung với Content) |
 | `ZALO_HEADER_CODE/ASSIGNEE/FORMAT/STATUS/UPLOAD/TEST` | — | Thêm tên cột tuỳ biến nếu Sheet đặt header khác mặc định |
 
-Google credentials dùng chung cơ chế sẵn có: `GOOGLE_CREDENTIALS_JSON` (Railway) hoặc `GOOGLE_CREDENTIALS_PATH` (local).
+Google credentials dùng chung cơ chế sẵn có: `GOOGLE_CREDENTIALS_JSON` (Vercel) hoặc `GOOGLE_CREDENTIALS_PATH` (local).
 Nhớ **share Sheet Zalo** cho email service account (quyền Viewer).
 
 ## 3) Cấu trúc Google Sheet Zalo (ZALO-04)
@@ -60,9 +59,8 @@ Content DEMO có tiền tố `ZL-DEMO-` để dễ nhận biết. Khi có dữ l
 
 ## 5) Đồng bộ dữ liệu (khi dùng Google Sheet — không bắt buộc ở ZALO-02)
 - Thủ công: `npm run zalo:sync`
-- Tự động (real-time): dán [`apps-script/ContentSyncZalo.gs`](apps-script/ContentSyncZalo.gs) vào project Apps Script **gắn với Sheet Zalo**,
-  đặt Script properties `WEBHOOK_URL=https://<domain>/api/zalo-sync` + `SYNC_SECRET=<ZALO_SYNC_SECRET>`,
-  chạy `createOnChangeTrigger` 1 lần (và `testContentSyncWebhook` để kiểm tra — kỳ vọng code 202).
+- Tự động: **Vercel Cron native** gọi `POST /api/cron/daily/zalo` mỗi ngày lúc **10:00 giờ VN** (khai báo trong `vercel.json`, secret `CRON_SECRET`). Không cần Apps Script, không cần webhook.
+  *(Cơ chế webhook `/api/zalo-sync` + `apps-script/ContentSyncZalo.gs` đã được GỠ BỎ ngày 2026-09-11 — xem `PROJECT_SPEC.md §3.1`.)*
 
 ## 6) Xem Dashboard
 Menu **💬 Zalo → Tổng Quan Zalo** và **Weekly Zalo**. Tất cả API dưới `/api/zalo/*` (yêu cầu đăng nhập như Facebook).
@@ -88,7 +86,7 @@ src/platform/
     ZaloSyncService.ts   → platform_contents (platform='zalo')
     repository.ts · settings.ts
     api.ts (/api/zalo/*) · syncRouter.ts (/api/zalo-sync)
-sql/010_zalo.sql   web/zalo/*   reports/*zalo*   apps-script/ContentSyncZalo.gs
+sql/010_zalo.sql   web/zalo/*   reports/*zalo*
 ```
 **Thêm nền tảng mới (TikTok…):** tạo `src/platform/tiktok/` (StatusRule + module), đăng ký vào `registry.ts`,
 mount `/api/tiktok` trong `server.ts` (1 dòng) — dùng lại toàn bộ bảng `platform_*`, KHÔNG đổi schema/logic có sẵn.

@@ -1,3 +1,12 @@
+> # ⛔ TÀI LIỆU ĐÃ NGỪNG HIỆU LỰC (2026-09-11)
+>
+> Toàn bộ cơ chế mô tả trong file này — webhook `/api/content-sync`, hàng đợi debounce, `/api/cron/tick/*`, Google Apps Script — **đã bị GỠ BỎ khỏi code**.
+> Hệ thống nay đồng bộ **1 lần/ngày lúc 10:00 giờ VN** qua Vercel Cron native gọi `/api/cron/daily/*`. Xem `PROJECT_SPEC.md §3.1`.
+>
+> Giữ file này chỉ để tra cứu lịch sử. **KHÔNG làm theo hướng dẫn bên dưới.**
+
+---
+
 # PHASE 12 — Auto-Sync Dashboard Content (Webhook + Debounce)
 
 > Ngày: 2026-07-01 · Phạm vi: **CHỈ Dashboard Content + Weekly Report**. KHÔNG đụng Ads.
