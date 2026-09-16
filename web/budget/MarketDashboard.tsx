@@ -21,7 +21,7 @@ function GroupChart({ groups, onPick }: { groups: GroupStat[]; onPick: (g: Group
           <span className="text-[11px] font-semibold tabular-nums text-fg">{fmtVNDShort(g.budget)}</span>
           <div className="w-full max-w-[64px] rounded-t-md transition group-hover:brightness-110"
             style={{ height: `${(g.budget / max) * 100}%`, minHeight: 4, background: g.color }} />
-          <span className="text-[11px] text-muted">{g.short}</span>
+          <span className="text-[11px] text-muted">{g.label}</span>
           <span className="text-[10px] tabular-nums text-muted">{fmtNum(g.content)} ct · {pct(g.pctBudget)}</span>
         </button>
       ))}

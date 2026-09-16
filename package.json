@@ -9,6 +9,7 @@
     "start": "ts-node src/server.ts",
     "lint": "tsc --noEmit -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:web": "tsc --noEmit -p web/tsconfig.json",
     "dev:server": "nodemon --watch src --ext ts --exec \"ts-node src/server.ts\"",
     "dashboard": "ts-node src/server.ts",
     "sync": "ts-node src/sync-all-content.ts",

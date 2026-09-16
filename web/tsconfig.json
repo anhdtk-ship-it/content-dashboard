@@ -1,0 +1,17 @@
+{
+  "//": "Typecheck cho app React (web/). CHỈ dùng khi chạy `npm run typecheck:web` — không sinh file, không đổi cách Vite build. Giữ compilerOptions khớp với src/components/ui/tsconfig.json để hai nơi không lệch chuẩn.",
+  "compilerOptions": {
+    "target": "ES2020",
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["react", "react-dom", "vite/client"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "../src/components/**/*.ts", "../src/components/**/*.tsx"],
+  "exclude": ["dist"]
+}

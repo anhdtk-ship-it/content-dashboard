@@ -2,7 +2,7 @@
 
 > **Tài liệu gốc (single source of truth).** Mọi thay đổi về kiến trúc, schema, sync, dashboard, API, phân quyền… **bắt buộc cập nhật vào file này**.
 >
-> Cập nhật lần cuối: 2026-09-16 — **§16.5: sắp xếp bảng Chi tiết theo Content (6 cột, bấm tiêu đề ▼▲)**. Trước đó 2026-09-11: gỡ auto-sync tức thời + Railway, chốt đồng bộ 1 lần/ngày 10:00 giờ VN trên Vercel (§3.1).
+> Cập nhật lần cuối: 2026-09-16 — **§16.5 sắp xếp bảng Chi tiết theo Content (6 cột ▼▲)** · **`typecheck:web` cho app React** · **fix nhãn biểu đồ Budget (§14)**. Trước đó 2026-09-11: gỡ auto-sync tức thời + Railway, chốt đồng bộ 1 lần/ngày 10:00 giờ VN trên Vercel (§3.1).
 > Ký hiệu: ✅ đã triển khai · 🟡 một phần · 🔲 kế hoạch (chưa code)
 
 ---
@@ -523,6 +523,7 @@ Google Sheet Zalo có ĐÚNG 2 tab `Video`/`Banner`; `content_format` = **tên t
 - **Hiển thị:** 2 thị trường `TQ`→**Nội Địa**, `NN`→**Quốc Tế**; mỗi thị trường có KPI (tổng ngân sách · tổng content · TB/content · content Cũ/Tươi), column chart 4 nhóm (HTML/CSS thuần, **không thư viện ngoài**), bảng phân tích nhóm, bảng theo nhân viên, và bộ chỉ số (`freshBudgetRatio`, `oldBudgetRatio`, `avgBudget`, `distributionIndex`). Click cột/dòng → Drawer danh sách content.
 - **Loại trừ nhân viên:** `NOIDIA_EXCLUDE_OWNERS` (hiện là `Br`) trong `config.ts` — chỉ áp cho Nội Địa, do nhiễu dữ liệu `ads_owner` (cùng vấn đề §11.4). Sửa danh sách tại `config.ts`, KHÔNG hardcode trong `selectors.ts`.
 - **Ràng buộc:** KHÔNG thêm route backend riêng trừ khi thật sự cần tính phía server; nếu sửa `ads_monitor_query`/schema Ads Monitor phải kiểm tra ảnh hưởng `budgetApi.ts`. Bảo vệ bởi `requireAuth` qua chính `/ads-monitor` (§5).
+- **Sửa lỗi 2026-09-16:** nhãn dưới mỗi cột biểu đồ (`MarketDashboard.tsx`) đọc `g.short` trên `GroupStat` — trường KHÔNG tồn tại (`selectors.ts` dựng object với `label: g.short`), nên nhãn **render rỗng** từ khi module ra đời. Đã đổi thành `g.label` ⇒ hiện đúng `Cũ <5tr` / `Cũ >5tr` / `Tươi <5tr` / `Tươi >5tr`, khớp với chú thích màu. Lỗi này do `npm run typecheck:web` (mới thêm) phát hiện — KHÔNG đổi số liệu.
 
 ---
 
@@ -595,7 +596,7 @@ Trả `{ month, overview{cost,dataCount,dataPrice,roasMonth,roas3Month}, table[]
 - **File:** logic thuần ở `web/content-performance/sortRows.ts` (`SORTERS`, `sortRows()`, `nextSort()`, `isSortable()` — không I/O, không JSX, test được độc lập như `src/shared/weeklyMetrics.ts`); `ContentTable.tsx` chỉ giữ state + nối vào `DataTable`. **Không sửa file nào ngoài `web/content-performance/`.**
 - **Kiểm chứng:** 19/19 test pass trên chính module `sortRows.ts` (thứ tự mặc định · 6 cột · dòng "—" nằm cuối · tie-break · không đụng mảng gốc · hành vi bấm header).
 
-> ⚠️ **Ghi chú nợ kỹ thuật (phát hiện khi làm CP-05):** `npm run typecheck` **KHÔNG kiểm tra thư mục `web/`** — `tsconfig.json` chỉ `include: ["src/**/*.ts", "api/**/*.ts"]`, và không có `web/tsconfig.json`. Toàn bộ app React hiện chỉ được Vite transpile, **không hề typecheck**. Nên thêm `web/tsconfig.json` + script `typecheck:web`.
+> ✅ **Nợ kỹ thuật phát hiện khi làm CP-05 — ĐÃ XỬ LÝ cùng ngày:** `npm run typecheck` chỉ `include: ["src/**/*.ts", "api/**/*.ts"]` nên **toàn bộ app React `web/` chưa bao giờ được typecheck** (Vite chỉ transpile). Đã thêm `web/tsconfig.json` + script **`npm run typecheck:web`**. Kiểm chứng: thêm tsconfig KHÔNG làm đổi bản build — build lại cho ra file **giống hệt từng byte** (cùng md5 JS + CSS, cùng hash tên file). Không có CI/git hook nào tự chạy, Vercel deploy bằng `npm run build` nên không ảnh hưởng triển khai. Lần chạy đầu bắt được đúng 1 lỗi thật (nhãn biểu đồ Budget, xem §14); hiện **0 lỗi**.
 
 ---
 
