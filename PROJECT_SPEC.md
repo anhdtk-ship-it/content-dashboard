@@ -2,7 +2,7 @@
 
 > **Tài liệu gốc (single source of truth).** Mọi thay đổi về kiến trúc, schema, sync, dashboard, API, phân quyền… **bắt buộc cập nhật vào file này**.
 >
-> Cập nhật lần cuối: 2026-09-11 — **gỡ bỏ toàn bộ cơ chế auto-sync tức thời (webhook + debounce + tick + Apps Script) và mọi dấu vết Railway; chốt đồng bộ 1 lần/ngày lúc 10:00 giờ VN trên Vercel** (§3.1). Trước đó cùng ngày: bổ sung §4.10, §7, §8, §10, §12.2, §14, §15, §16 cho khớp code tại HEAD `0d2cb06`.
+> Cập nhật lần cuối: 2026-09-16 — **§16.5: sắp xếp bảng Chi tiết theo Content (6 cột, bấm tiêu đề ▼▲)**. Trước đó 2026-09-11: gỡ auto-sync tức thời + Railway, chốt đồng bộ 1 lần/ngày 10:00 giờ VN trên Vercel (§3.1).
 > Ký hiệu: ✅ đã triển khai · 🟡 một phần · 🔲 kế hoạch (chưa code)
 
 ---
@@ -579,6 +579,23 @@ Ngoài ra đọc bảng **`contents`** (chỉ `content_code` + `editor_name`) đ
 ### 16.4 API
 `GET /api/content-performance?month=YYYY-MM&channel=ALL|<kênh>&editor=ALL|<biên tập>&geography=all|noi_dia|quoc_te&search=<chuỗi>`.
 Trả `{ month, overview{cost,dataCount,dataPrice,roasMonth,roas3Month}, table[], meta{channelsAvailable,editorsAvailable,monthsAvailable,contentsUnmatchedEditor,overviewFromSheetSubtotal,warnings} }`. `monthsAvailable` chỉ gồm tháng **thật sự có hoạt động** (cost hoặc data > 0) để tránh chọn tháng trống.
+
+### 16.5 Sắp xếp bảng "Chi tiết theo Content" (CP-05, 2026-09-16) ✅
+
+> Thuần giao diện — **KHÔNG đổi API, KHÔNG đổi công thức, KHÔNG đụng backend**. Thẻ Tổng quan (§16.3) giữ nguyên số liệu bất kể sắp xếp thế nào.
+
+- **6 cột bấm được** (chốt với chủ dự án): `Chi phí` · `SL Data` · `ROAS tháng` · `ROAS 3 tháng` · `Tích cực` · `Tiêu cực`. **`Giá Data`, `Content`, `Biên tập`, `Kênh` KHÔNG sắp xếp** — thêm sau chỉ cần 1 dòng trong `SORTERS`.
+- **Thao tác:** bấm tiêu đề lần 1 → **cao → thấp**; bấm lại → **thấp → cao**; mũi tên ▼▲ do `DataTable` hiển thị sẵn. Tooltip "Bấm để sắp xếp" trên 6 tiêu đề đó.
+- **Sắp xếp CHỈ ở client** trên mảng `table` API đã trả (không phân trang, vài trăm dòng) ⇒ tức thì, **không gọi lại backend**. Đây là điểm bắt buộc: mỗi request backend phải đọc lại 2 Google Sheet (mất vài giây + tốn quota), nên **KHÔNG được** chuyển sang sort server-side.
+- **Quy tắc đã chốt:**
+  1. Chưa bấm cột nào → giữ **nguyên thứ tự server** (Chi phí giảm dần, `ContentPerformanceService`).
+  2. Dòng thiếu dữ liệu CLĐT (`quality = null`, hiển thị "—") **LUÔN nằm cuối**, bất kể tăng hay giảm dần. Lý do: coi "—" là 0 thì khi sắp tăng dần chúng đội lên đầu bảng, đọc nhầm thành "content có 0% tiêu cực".
+  3. Hai dòng bằng nhau → chốt theo **Chi phí giảm dần** để thứ tự ổn định giữa các lần render.
+  4. **Giữ nguyên lựa chọn sắp xếp khi đổi tháng/bộ lọc** (đang xem ROAS thấp nhất tháng 8, sang tháng 9 vẫn thấy ROAS thấp nhất).
+- **File:** logic thuần ở `web/content-performance/sortRows.ts` (`SORTERS`, `sortRows()`, `nextSort()`, `isSortable()` — không I/O, không JSX, test được độc lập như `src/shared/weeklyMetrics.ts`); `ContentTable.tsx` chỉ giữ state + nối vào `DataTable`. **Không sửa file nào ngoài `web/content-performance/`.**
+- **Kiểm chứng:** 19/19 test pass trên chính module `sortRows.ts` (thứ tự mặc định · 6 cột · dòng "—" nằm cuối · tie-break · không đụng mảng gốc · hành vi bấm header).
+
+> ⚠️ **Ghi chú nợ kỹ thuật (phát hiện khi làm CP-05):** `npm run typecheck` **KHÔNG kiểm tra thư mục `web/`** — `tsconfig.json` chỉ `include: ["src/**/*.ts", "api/**/*.ts"]`, và không có `web/tsconfig.json`. Toàn bộ app React hiện chỉ được Vite transpile, **không hề typecheck**. Nên thêm `web/tsconfig.json` + script `typecheck:web`.
 
 ---
 
