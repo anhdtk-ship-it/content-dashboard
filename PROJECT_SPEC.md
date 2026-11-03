@@ -152,6 +152,26 @@ Vercel Cron native  ──GET + Authorization: Bearer <CRON_SECRET>──►  /a
 | `npm run backfill` | Tính lại toàn bộ `*_real`. |
 | `npm run scheduler` | node-cron chạy sync Content trên máy luôn-bật (`SYNC_ENABLED`/`SYNC_CRON`). KHÔNG dùng trên Vercel. |
 
+### 3.3 Chống "1 ô Sheet làm chết cả lô" — sự cố 24/10 → 03/11/2026 ⚠️ BÀI HỌC
+
+**Hiện tượng:** suốt 10 ngày, dashboard đứng ở dữ liệu ngày 23/10 mà **không ai biết** — trang vẫn hiện số, chỉ là số cũ. Phát hiện nhờ người dùng hỏi "tháng 11 sao không có dữ liệu của Kim Anh".
+
+**Nguyên nhân:** ô `NĐ Liên`!C177 (cột "ID content 1") bị dán một **link reel Facebook dài 280 ký tự**. Cột `contents.content_code` là `varchar(100)` → Postgres trả `value too long for type character varying(100)`. Vì tập ghi (414–415 bản ghi) nhỏ hơn `ATOMIC_UPSERT_MAX` nên sync ghi trong **ĐÚNG 1 lệnh upsert** → một dòng bẩn làm **cả lô bị từ chối**, không dòng nào vào DB. `sync_logs` id 781→791 đều `status: failed`, lần success cuối là id 780 (23/10).
+
+**Thiệt hại khi đối soát (03/11):** 110 content có trên Sheet mà thiếu trong dashboard · 615 ô lệch giá trị (240 `test_date_real`, 126 `current_status`…).
+
+**Đã sửa (`src/content-sync/ContentSyncService.ts`):**
+
+| Lớp bảo vệ | Hành vi |
+|---|---|
+| `MAX_LEN` | Khai báo giới hạn độ dài **đúng theo schema Postgres thật** (đã đọc từ bảng, không đoán): `content_code` 100 · `market` 10 · `assignee_name` 100 · `cgsd` 100 · `editor_name` 100 · `current_status` 50. `trello_link`/`upload_date`/`test_date` là `text` — không giới hạn. |
+| `validateRecord()` + `KEY_LIMITED` | Cột **khoá** quá dài → **loại đúng bản ghi đó**, kèm lý do nêu rõ ô nào trên Sheet cần sửa. |
+| `clampSoftFields()` + `SOFT_LIMITED` | Cột **mềm** quá dài → **cắt bớt**, vẫn giữ content. Thà mất phần đuôi ghi chú hơn mất cả content. |
+| `upsertResilient()` | Thất bại thì **chia đôi và thử lại**, đệ quy tới từng bản ghi ⇒ một dòng bẩn chỉ làm mất chính nó. Đường happy-path vẫn **đúng 1 lệnh** (`atomic = true`) nên không chậm thêm. |
+| `status` | `invalid > 0` **không được** báo `success` → trả `partial`. `error_message` của `sync_logs` ghi kèm `N invalid: [...]` và `N clamped: [...]` để lần sau nhìn log là biết sửa ô nào. |
+
+**Quy tắc rút ra:** mọi sync Sheet → DB phải (1) biết giới hạn cột của DB, (2) không để một dòng dữ liệu bẩn chặn các dòng còn lại, (3) **không bao giờ báo `success` khi có dòng bị loại**.
+
 ---
 
 ## 4. Dashboard — App React (`web/`) ✅

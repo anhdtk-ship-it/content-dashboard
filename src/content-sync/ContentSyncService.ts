@@ -37,6 +37,31 @@ const SIG_FIELDS = [
   'current_status', 'test_date', 'test_date_real',
 ] as const;
 
+/* ============================================================
+ * GIỚI HẠN ĐỘ DÀI CỘT (khớp schema Postgres thật, đã đọc từ bảng — KHÔNG đoán)
+ * ------------------------------------------------------------
+ * Postgres từ chối giá trị dài hơn varchar(n) bằng lỗi
+ *   "value too long for type character varying(n)"
+ * và lỗi đó làm CHẾT CẢ LỆNH upsert, không chỉ dòng sai.
+ *
+ * SỰ CỐ THẬT (24/10 → 03/11/2026): ô "ID content 1" tại `NĐ Liên`!C177 bị dán một
+ * link reel Facebook dài 280 ký tự. content_code là varchar(100)
+ * nên mỗi đêm cả lô 415 bản ghi bị từ chối → dashboard đứng ở ngày 23/10 suốt 10 ngày
+ * mà không ai biết, vì trang vẫn hiện số (số cũ).
+ *
+ * Từ nay: cột KHOÁ quá dài → LOẠI đúng bản ghi đó + ghi rõ lý do vào sync_logs.
+ *         cột MỀM quá dài → CẮT bớt, vẫn giữ content (thà mất phần đuôi ghi chú
+ *         hơn là mất cả content).
+ * ========================================================== */
+const MAX_LEN: Record<string, number> = {
+  content_code: 100, market: 10, assignee_name: 100,
+  cgsd: 100, editor_name: 100, current_status: 50,
+};
+/** Cột khoá/nhận dạng — quá dài thì KHÔNG lưu được, phải loại bản ghi. */
+const KEY_LIMITED = ['content_code', 'market', 'assignee_name'] as const;
+/** Cột mềm — quá dài thì cắt, KHÔNG loại bản ghi. */
+const SOFT_LIMITED = ['cgsd', 'editor_name', 'current_status'] as const;
+
 export interface ContentRecord {
   content_code: string;
   market: string;
@@ -57,6 +82,10 @@ export interface SyncResult {
   rowsRead: number;      // số dòng đọc được từ Sheet (có content_code)
   deduped: number;       // sau khử trùng khóa
   invalid: number;       // bản ghi bị loại do validate
+  /** Lý do loại từng bản ghi (ô nào trên Sheet cần sửa) — để báo ra log/sync_logs. */
+  invalidDetails: string[];
+  /** Mô tả các ô cột mềm bị cắt vì quá dài. */
+  clampedDetails: string[];
   inserted: number;
   updated: number;
   unchanged: number;     // bản ghi giống hệt → KHÔNG ghi
@@ -175,11 +204,66 @@ export async function readContentSheet(): Promise<ContentRecord[]> {
 }
 
 /** B2. Validate 1 bản ghi. Trả lỗi (string) nếu không hợp lệ, hoặc null nếu OK. */
-function validateRecord(r: ContentRecord): string | null {
+export function validateRecord(r: ContentRecord): string | null {
   if (!r.content_code) return 'thiếu content_code';
   if (r.market !== 'noi_dia' && r.market !== 'quoc_te') return `market không hợp lệ: "${r.market}"`;
   if (!r.assignee_name) return 'thiếu assignee_name';
+  // Quá dài ở cột khoá → Postgres từ chối CẢ LỆNH upsert, nên phải loại tại đây.
+  for (const f of KEY_LIMITED) {
+    const v = String((r as any)[f] ?? '');
+    if (v.length > MAX_LEN[f]) {
+      return `${f} dài ${v.length} ký tự, vượt giới hạn ${MAX_LEN[f]} — sửa ô này trên Sheet: "${v.slice(0, 60)}…"`;
+    }
+  }
   return null;
+}
+
+/**
+ * Cắt các cột MỀM quá dài. Trả mô tả nếu có cắt, null nếu không.
+ * Cắt chứ không loại: mất phần đuôi của một ghi chú vẫn tốt hơn mất cả content.
+ */
+export function clampSoftFields(r: ContentRecord): string | null {
+  const cut: string[] = [];
+  for (const f of SOFT_LIMITED) {
+    const v = String((r as any)[f] ?? '');
+    if (v.length > MAX_LEN[f]) {
+      (r as any)[f] = v.slice(0, MAX_LEN[f]);
+      cut.push(`${f} ${v.length}→${MAX_LEN[f]}`);
+    }
+  }
+  return cut.length ? `${r.assignee_name}/${r.market} "${r.content_code.slice(0, 40)}": ${cut.join(', ')}` : null;
+}
+
+/**
+ * Upsert chịu lỗi: thử ghi cả mảng trong 1 lệnh; nếu Postgres từ chối thì CHIA ĐÔI
+ * và thử lại, đệ quy tới từng bản ghi. Nhờ vậy một dòng bẩn chỉ làm mất chính nó,
+ * không kéo cả lô xuống như sự cố 24/10/2026.
+ * Trả về: số bản ghi ghi được + danh sách bản ghi lỗi kèm thông báo của Postgres.
+ */
+export async function upsertResilient(
+  db: SupabaseClient,
+  rows: ContentRecord[],
+  logger: Logger,
+): Promise<{ written: number; failed: { rec: ContentRecord; message: string }[]; calls: number }> {
+  let calls = 0;
+  const failed: { rec: ContentRecord; message: string }[] = [];
+
+  const run = async (batch: ContentRecord[]): Promise<number> => {
+    if (!batch.length) return 0;
+    calls++;
+    const { error } = await db.from('contents').upsert(batch, { onConflict: CONFLICT_KEY, ignoreDuplicates: false });
+    if (!error) return batch.length;
+    if (batch.length === 1) {
+      failed.push({ rec: batch[0], message: error.message });
+      logger(`  ✗ Bỏ qua 1 bản ghi lỗi: ${batch[0].assignee_name}/${batch[0].market} "${batch[0].content_code.slice(0, 50)}" → ${error.message}`);
+      return 0;
+    }
+    const mid = Math.floor(batch.length / 2);
+    return (await run(batch.slice(0, mid))) + (await run(batch.slice(mid)));
+  };
+
+  const written = await run(rows);
+  return { written, failed, calls };
 }
 
 function supa(): SupabaseClient {
@@ -238,15 +322,32 @@ export async function runContentSync(opts: RunOpts = {}): Promise<SyncResult> {
 
   // ---- B2) Validate + dedupe (last-wins) ----
   let invalid = 0;
+  const invalidDetails: string[] = [];
+  const clampedDetails: string[] = [];
   const dedup = new Map<string, ContentRecord>();
   for (const rec of raw) {
     const err = validateRecord(rec);
-    if (err) { invalid++; continue; }
+    if (err) {
+      invalid++;
+      // Giữ tối đa 20 lý do — đủ để biết sửa ô nào, không làm phình sync_logs.
+      if (invalidDetails.length < 20) invalidDetails.push(`${rec.assignee_name || '?'}/${rec.market || '?'}: ${err}`);
+      continue;
+    }
+    const cut = clampSoftFields(rec);
+    if (cut && clampedDetails.length < 20) clampedDetails.push(cut);
     dedup.set(keyOf(rec), rec);
   }
   const records = [...dedup.values()];
   const validKeys = new Set(dedup.keys());
   logger(`Đọc Sheet: ${rowsRead} dòng · hợp lệ+dedupe: ${records.length} · loại: ${invalid}`);
+  if (invalidDetails.length) {
+    logger(`⚠️  ${invalid} dòng bị loại — cần sửa trên Sheet:`);
+    invalidDetails.forEach((d) => logger(`     • ${d}`));
+  }
+  if (clampedDetails.length) {
+    logger(`⚠️  ${clampedDetails.length} ô cột mềm bị cắt vì quá dài:`);
+    clampedDetails.forEach((d) => logger(`     • ${d}`));
+  }
 
   // ---- B3) Nạp bản ghi hiện có (id + khóa + cột mềm) để so sánh ----
   const existing = new Map<string, { id: number; sig: string }>();
@@ -273,21 +374,27 @@ export async function runContentSync(opts: RunOpts = {}): Promise<SyncResult> {
   }
   logger(`So sánh: mới ${inserted} · đổi ${updatedCount} · giữ nguyên ${unchanged} → ghi ${toWrite.length} bản ghi.`);
 
-  // ---- B5) Upsert (atomic 1 lần khi tập nhỏ; lô hoá khi bulk lớn) ----
+  // ---- B5) Upsert chịu lỗi: 1 lệnh khi tập nhỏ, chia đôi khi bị từ chối ----
+  // Trước đây tập ≤ ATOMIC_UPSERT_MAX ghi trong ĐÚNG 1 lệnh, nên 1 dòng bẩn = mất cả lô
+  // (sự cố 24/10/2026). Nay vẫn 1 lệnh ở đường happy-path, chỉ chia đôi khi có lỗi.
   let errors = 0;
   let atomic = false;
   if (toWrite.length > 0) {
-    if (toWrite.length <= ATOMIC_UPSERT_MAX) {
-      atomic = true;
-      const { error } = await db.from('contents').upsert(toWrite, { onConflict: CONFLICT_KEY, ignoreDuplicates: false });
-      if (error) { errors = toWrite.length; errorDetails.push({ stage: 'upsert', message: error.message }); logger(`  ✗ Upsert atomic lỗi: ${error.message}`); }
-    } else {
-      for (let i = 0; i < toWrite.length; i += BATCH_SIZE) {
-        const batch = toWrite.slice(i, i + BATCH_SIZE);
-        const { error } = await db.from('contents').upsert(batch, { onConflict: CONFLICT_KEY, ignoreDuplicates: false });
-        if (error) { errors += batch.length; errorDetails.push({ stage: `upsert:${i / BATCH_SIZE}`, message: error.message }); logger(`  ✗ Lô ${i / BATCH_SIZE}: ${error.message}`); }
-      }
+    const batches = toWrite.length <= ATOMIC_UPSERT_MAX
+      ? [toWrite]
+      : Array.from({ length: Math.ceil(toWrite.length / BATCH_SIZE) }, (_, i) => toWrite.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE));
+    let calls = 0;
+    for (const b of batches) {
+      const r = await upsertResilient(db, b, logger);
+      calls += r.calls;
+      errors += r.failed.length;
+      r.failed.slice(0, 20).forEach((f) => errorDetails.push({
+        stage: 'upsert',
+        message: `${f.rec.assignee_name}/${f.rec.market} "${f.rec.content_code.slice(0, 50)}": ${f.message}`,
+      }));
     }
+    // atomic = ghi trọn tập trong đúng 1 lệnh (không phải chia đôi lần nào).
+    atomic = batches.length === 1 && calls === 1;
   }
 
   // ---- B6) Khử trùng (prune) — GIỮ NGUYÊN guard an toàn của bản cũ ----
@@ -330,10 +437,18 @@ export async function runContentSync(opts: RunOpts = {}): Promise<SyncResult> {
 
   const finishedAt = new Date();
   const durationMs = Date.now() - t0;
-  const status: SyncResult['status'] = errors === 0 ? 'success' : (errors < toWrite.length ? 'partial' : 'failed');
+  // invalid > 0 nghĩa là Sheet có ô cần sửa → KHÔNG báo 'success' để không ai bỏ lọt.
+  const status: SyncResult['status'] =
+    errors >= toWrite.length && toWrite.length > 0 ? 'failed'
+      : (errors > 0 || invalid > 0) ? 'partial'
+        : 'success';
 
   // ---- B7) Ghi log ----
-  const errMsg = errorDetails.length ? `${errors} errors: ${JSON.stringify(errorDetails)}` : null;
+  const parts: string[] = [];
+  if (errorDetails.length) parts.push(`${errors} errors: ${JSON.stringify(errorDetails)}`);
+  if (invalidDetails.length) parts.push(`${invalid} invalid: ${JSON.stringify(invalidDetails)}`);
+  if (clampedDetails.length) parts.push(`${clampedDetails.length} clamped: ${JSON.stringify(clampedDetails)}`);
+  const errMsg = parts.length ? parts.join(' | ').slice(0, 4000) : null;
   const minimal = {
     started_at: startedAt.toISOString(),
     finished_at: finishedAt.toISOString(),
@@ -347,7 +462,7 @@ export async function runContentSync(opts: RunOpts = {}): Promise<SyncResult> {
   const logId = await writeLog(db, full, minimal, logger);
 
   return {
-    source, status, rowsRead, deduped: records.length, invalid,
+    source, status, rowsRead, deduped: records.length, invalid, invalidDetails, clampedDetails,
     inserted, updated: updatedCount, unchanged, pruned, errors,
     durationMs, startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(),
     errorDetails, logId, atomic,
