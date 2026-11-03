@@ -21,6 +21,7 @@ import { ZaloWeeklyPage } from './zalo/ZaloWeeklyPage';
 import { BudgetAllocationPage } from './budget/BudgetAllocationPage';
 import { ContentAnalyticsPage } from './content-analytics/ContentAnalyticsPage';
 import { ContentPerformancePage } from './content-performance/ContentPerformancePage';
+import { AdsReportPage } from './ads-report/AdsReportPage';
 import { AuthGate } from './auth/AuthGate';
 import { installAuthFetch } from './auth/authFetch';
 
@@ -48,6 +49,7 @@ const NAV: NavGroupDef[] = [
     { icon: '💰', label: 'Phân bổ ngân sách', href: '#/budget-allocation', key: 'budget-allocation' },
     { icon: '📊', label: 'Phân tích Data Content', href: '#/content-analytics', key: 'content-analytics' },
     { icon: '📈', label: 'Phân tích Hiệu quả Content', href: '#/content-performance', key: 'content-performance' },
+    { icon: '🧾', label: 'Báo cáo Ads tháng', href: '#/ads-report', key: 'ads-report' },
   ] },
 
   // 💬 Zalo — nhóm platform (chỉ hiện trang đã dựng: Tổng quan + Weekly Report).
@@ -87,6 +89,8 @@ const PAGES: Record<string, { title: string; el: ReactNode }> = {
   'content-analytics': { title: 'Phân tích Data Content', el: <ContentAnalyticsPage /> },
   // Module mới (CP-04) — đọc trực tiếp Performance/ROAS + Quality/CLĐT Sheet, stateless, V1 chỉ kênh Facebook.
   'content-performance': { title: 'Phân tích Hiệu quả Content', el: <ContentPerformancePage /> },
+  // Module mới (AR-01) — báo cáo Ads theo tháng đơn lẻ, xuất Excel/PDF. Raw_Data + tab nhân viên file ROAS.
+  'ads-report': { title: 'Báo cáo Ads tháng', el: <AdsReportPage /> },
 };
 
 const routeKey = (h: string) => (h || '').replace(/^#\//, '').split('?')[0] || 'overview';

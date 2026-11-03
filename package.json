@@ -23,7 +23,9 @@
     "backfill": "ts-node src/backfill-dates.ts",
     "typecheck:ui": "tsc -p src/components/ui/tsconfig.json",
     "typecheck:layout": "tsc -p src/components/layout/tsconfig.json",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "report:ads": "ts-node src/ads-report/cli.ts",
+    "report:ads:audit": "ts-node src/ads-report/audit.ts"
   },
   "keywords": [],
   "author": "",
@@ -34,6 +36,7 @@
     "axios": "^1.18.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "googleapis": "^173.0.0",
     "node-cron": "^4.5.0",

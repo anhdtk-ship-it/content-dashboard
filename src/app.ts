@@ -10,6 +10,7 @@ import { createZaloRouter } from './platform/zalo/api';
 import { createTestSyncRouter } from './test-sync/routes';
 import { createContentAnalyticsRouter } from './content-analytics/routes';
 import { createContentPerformanceRouter } from './content-performance/routes';
+import { createAdsReportRouter } from './ads-report/routes';
 
 /* ============================================================
  * createApp() — dựng toàn bộ Express app (API + business logic), KHÔNG serve static,
@@ -707,6 +708,16 @@ export function createApp(): express.Application {
    * ========================================================== */
   app.use('/api/content-performance', requireAuth);
   app.use('/api/content-performance', createContentPerformanceRouter());
+
+  /* ============================================================
+   * ADS REPORT (AR-01) — MODULE MỚI, ĐỘC LẬP. Báo cáo Ads theo THÁNG ĐƠN LẺ:
+   * khối "Top chi tiêu" đọc Raw_Data (Ads), khối "Content ra ROAS" đọc 4 TAB NHÂN VIÊN
+   * của file ROAS (KHÔNG dùng tab tổng — tab tổng xếp chồng 3 cách gộp nên cộng cả tab
+   * sẽ đếm trùng tiền 3 lần). Stateless, KHÔNG bảng Supabase mới. Có route /excel xuất
+   * file từ CÙNG service nên số liệu không lệch với màn hình. Đăng ký TRƯỚC SPA fallback.
+   * ========================================================== */
+  app.use('/api/ads-report', requireAuth);
+  app.use('/api/ads-report', createAdsReportRouter());
 
   return app;
 }

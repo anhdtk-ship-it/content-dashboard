@@ -2,7 +2,7 @@
 
 > **Tài liệu gốc (single source of truth).** Mọi thay đổi về kiến trúc, schema, sync, dashboard, API, phân quyền… **bắt buộc cập nhật vào file này**.
 >
-> Cập nhật lần cuối: 2026-09-16 — **§16.5 sắp xếp bảng Chi tiết theo Content (6 cột ▼▲)** · **`typecheck:web` cho app React** · **fix nhãn biểu đồ Budget (§14)**. Trước đó 2026-09-11: gỡ auto-sync tức thời + Railway, chốt đồng bộ 1 lần/ngày 10:00 giờ VN trên Vercel (§3.1).
+> Cập nhật lần cuối: 2026-11-03 — **§17 module MỚI Ads Report (AR-01)**: trang `#/ads-report` báo cáo Ads theo tháng đơn lẻ (chi tiêu & ROAS theo nhân viên + top content tiêu nhiều tiền + content phát sinh ROAS), xuất **Excel** và **PDF**. **Nguyên tắc số liệu: ĐỌC NGUYÊN giá trị ô file ROAS, KHÔNG tự tính** (§17.1) — đã gỡ hẳn `RawDataProvider`, nhờ đó hết mâu thuẫn 12% giữa 2 mục và nhanh hơn 2,8 lần. Đối soát **469/469 phép kiểm khớp, dung sai 0** (§17.9). Trước đó 2026-09-16: §16.5 sắp xếp bảng Chi tiết theo Content (6 cột ▼▲) · `typecheck:web` cho app React · fix nhãn biểu đồ Budget (§14). Trước đó 2026-09-11: gỡ auto-sync tức thời + Railway, chốt đồng bộ 1 lần/ngày 10:00 giờ VN trên Vercel (§3.1).
 > Ký hiệu: ✅ đã triển khai · 🟡 một phần · 🔲 kế hoạch (chưa code)
 
 ---
@@ -205,7 +205,7 @@ Sidebar gom theo **nền tảng**, mỗi nhóm expand/collapse và tự mở nh�
 | Nhóm | Mục menu → route |
 |---|---|
 | 🏠 (đơn) | Dashboard → `#/overview` |
-| 📘 **Facebook** | 📋 Tổng quan `#/overview` · 📝 Weekly Report `#/weekly-report` · 🔎 Content Explorer `#/explorer` · ♻️ Vòng đời Content `#/lifecycle` · 📡 Ads Monitor `#/ads-monitor` · 💰 Phân bổ ngân sách `#/budget-allocation` · 📊 Phân tích Data Content `#/content-analytics` · 📈 Phân tích Hiệu quả Content `#/content-performance` |
+| 📘 **Facebook** | 📋 Tổng quan `#/overview` · 📝 Weekly Report `#/weekly-report` · 🔎 Content Explorer `#/explorer` · ♻️ Vòng đời Content `#/lifecycle` · 📡 Ads Monitor `#/ads-monitor` · 💰 Phân bổ ngân sách `#/budget-allocation` · 📊 Phân tích Data Content `#/content-analytics` · 📈 Phân tích Hiệu quả Content `#/content-performance` · 🧾 Báo cáo Ads tháng `#/ads-report` |
 | 💬 **Zalo** | 📋 Tổng quan `#/zalo` · 📝 Weekly Report `#/zalo-weekly` |
 
 - **Route ẩn khỏi menu nhưng VẪN truy cập được qua URL:** `#/usage` ("Tiến độ Content" — ẩn theo yêu cầu, commit `058055c`), `#/assignees` ("Tiến độ Test Content"), `#/markets`, `#/analytics`.
@@ -281,6 +281,7 @@ Nhịp cập nhật: **1 lần/ngày lúc 10:00 giờ VN** (Vercel Cron → `/ap
 | `GET /api/zalo/{summary,contents,weekly,sync-status,settings}` · `PUT /api/zalo/settings` | Module Zalo — xem §13 ✅ |
 | `GET /api/content-analytics` | Phân tích Data Content Mới/Cũ — xem §15 ✅ |
 | `GET /api/content-performance` | Phân tích Hiệu quả Content (Cost/ROAS/CLĐT) — xem §16 ✅ |
+| `GET /api/ads-report` · `/excel` · `/nhan-vien` | Báo cáo Ads tháng (chi tiêu + content ra ROAS), `/excel` tải `.xlsx` — xem §17 ✅ |
 
 > Quy ước: tham số mới phải **tùy chọn** (không phá hành vi mặc định của module khác). Lỗi trả `{ error }` + HTTP 500.
 
@@ -310,6 +311,8 @@ content-dashboard/
 │   ├── platform/            ← db.ts · types.ts · registry.ts · facebook/ · zalo/ (§13)
 │   ├── content-analytics/   ← §15 — Provider · Service · routes · types
 │   ├── content-performance/ ← §16 — PerformanceSheetProvider · QualitySheetProvider · Service · routes · types
+│   ├── ads-report/          ← §17 — config (quy tắc team/ánh xạ tên) · RawDataProvider · RoasTabsProvider
+│   │                           · AdsReportService · ExcelBuilder · routes · types
 │   ├── shared/weeklyMetrics.ts ← KPI Weekly DÙNG CHUNG web + PDF (§12.2)
 │   ├── google-auth.ts       ← GoogleAuthFactory (createGoogleAuth/createSheetsClient)
 │   ├── sync-all-content.ts (CLI wrapper) · sync-scheduler.ts · backfill-dates.ts · date-util.ts
@@ -321,7 +324,7 @@ content-dashboard/
 │   ├── OverviewPage · AssigneesPage · MarketsPage · ExplorerPage · LifecyclePage · UsagePage
 │   │   · AnalyticsPage · UsageCompare · AlertDrawer · Tabs
 │   ├── auth/ · ads-monitor/ · budget/ · zalo/ · reports/
-│   └── content-analytics/ · content-performance/
+│   └── content-analytics/ · content-performance/ · ads-report/
 ├── reports/                 ← build_weekly_data.ts + weekly_report_pdf.py · build_zalo_weekly_data.ts
 │                               + zalo_report_pdf.py (reportlab.platypus) · report.json · report_zalo.json
 ├── apps-script/             ← ContentSync.gs · ContentSyncZalo.gs (trigger webhook từ Google Sheet)
@@ -369,7 +372,7 @@ content-dashboard/
 - [x] Filter toàn cục + drill-down + realtime + skeleton/empty
 - [x] Tổng Quan · Tiến độ Test Content · Thị Trường · Content Explorer · Vòng đời Content
 - [x] Ads Monitor · Weekly Report (FB) · Zalo + Weekly Zalo · Budget Allocation
-- [x] Content Analytics (§15) · Content Performance (§16)
+- [x] Content Analytics (§15) · Content Performance (§16) · Ads Report (§17 — xuất Excel/PDF)
 - [ ] Trigger sync từ UI 🔲 (route `#/sync` hiện là Stub)
 - [ ] Retention Curve (chờ `content_status_history`) 🟡
 - [ ] Quản lý User 🔲 · Cài đặt 🔲 (cả hai vẫn là Stub trong `web/main.tsx`)
@@ -599,5 +602,177 @@ Trả `{ month, overview{cost,dataCount,dataPrice,roasMonth,roas3Month}, table[]
 > ✅ **Nợ kỹ thuật phát hiện khi làm CP-05 — ĐÃ XỬ LÝ cùng ngày:** `npm run typecheck` chỉ `include: ["src/**/*.ts", "api/**/*.ts"]` nên **toàn bộ app React `web/` chưa bao giờ được typecheck** (Vite chỉ transpile). Đã thêm `web/tsconfig.json` + script **`npm run typecheck:web`**. Kiểm chứng: thêm tsconfig KHÔNG làm đổi bản build — build lại cho ra file **giống hệt từng byte** (cùng md5 JS + CSS, cùng hash tên file). Không có CI/git hook nào tự chạy, Vercel deploy bằng `npm run build` nên không ảnh hưởng triển khai. Lần chạy đầu bắt được đúng 1 lỗi thật (nhãn biểu đồ Budget, xem §14); hiện **0 lỗi**.
 
 ---
+
+---
+
+## 17. Ads Report (AR-01) — Báo cáo Ads theo tháng, xuất Excel/PDF ✅
+
+> **Module ĐỘC LẬP.** Không import code của Ads Monitor / Content Analytics / Content Performance / Budget / Zalo; chỉ dùng chung `createGoogleAuth()` và thư viện UI. Route `#/ads-report`, API `/api/ads-report` (`requireAuth`).
+> Mục tiêu: theo dõi **theo tháng đơn lẻ** trên dashboard và **tự xuất file** — không cần ai chạy script hộ.
+
+### 17.1 ⚠️ NGUYÊN TẮC SỐ LIỆU — LẤY SỐ THỰC TẾ CỦA SHEET, KHÔNG TỰ TÍNH
+
+Chủ dự án chốt (2026-11-03): **"dữ liệu không được tính, mà lấy con số thực tế trên file Google Sheet."**
+File ROAS đã tính sẵn Chi phí · SL data · Giá data · Roas trong tháng · Roas 3 tháng ở đúng những cấp độ báo cáo cần → **đọc nguyên giá trị ô**, không suy diễn.
+
+| Mục | Nguồn | Thao tác duy nhất được phép |
+|---|---|---|
+| **A.** Chi tiêu & ROAS theo nhân viên | tab `Roas tổng` | tra dòng, đọc ô |
+| **B.** Content tiêu nhiều tiền nhất | 4 tab nhân viên | sắp xếp + cắt Top N |
+| **C.** Content phát sinh ROAS | 4 tab nhân viên | lọc theo luật ROAS + sắp xếp |
+
+**Phiên bản đầu (đã bỏ) sai ở đâu** — ghi lại để không lặp lại:
+1. Mục A/B đọc **Raw_Data (Ads)** rồi tự khử trùng + cộng → cùng một content hiện **2 chi phí khác nhau** ở 2 mục (lệch ~12%).
+2. Bảng tóm tắt tự tính **ROAS bình quân trọng số** trên riêng nhóm content ra ROAS → lệch hẳn Sheet vì **mẫu số khác nhau**:
+
+| | Tự tính (sai) | Sheet ghi (đúng) |
+|---|---|---|
+| Vũ Minh Hiếu — Nội Địa | 740,97% *(chỉ trên 59,7 tr content ra ROAS)* | **141,44%** *(trên toàn bộ 313,0 tr)* |
+| Đặng Thị Kim Anh — Tổng | 64,80% | **64,38%** |
+
+3. Bản trước đó nữa còn hiển thị **"ROAS cao nhất"** → ra `24.422%` (content chỉ tiêu vài trăm nghìn), vô nghĩa để so sánh.
+
+Nhờ dùng một nguồn duy nhất: **hết mâu thuẫn 12%**, và thời gian dựng báo cáo **8,1 s → 2,9 s**.
+
+> **Chỗ DUY NHẤT còn phải cộng** là dòng *CẢ TEAM* — xem §17.4. Hai dòng *"CỘNG n CONTENT ĐANG LIỆT KÊ"* ở mục B/C là phép cộng của đúng các dòng đang hiển thị, **ghi rõ chữ "đang liệt kê"** để không ai nhầm với tổng kỳ (tổng kỳ nằm ở mục A).
+> Ô nào Sheet không có thì in **"—"**, tuyệt đối không suy ra.
+
+### 17.2 Quy tắc nghiệp vụ (chốt với chủ dự án 2026-11-03)
+
+| # | Quy tắc | Khai báo tại |
+|---|---|---|
+| 1 | **ROAS KHÔNG có bản "cả team" theo content** — mục C tách riêng từng người, lấy từ tab của chính họ | `AdsReportService` |
+| 2 | **"Cả team" = đúng 4 nhân viên ads**: Vũ Minh Hiếu · Đặng Thị Kim Anh · Nguyễn Tiến Ánh · Nguyễn Thị Liên | `config.ts` `NHAN_VIEN_ADS` |
+| 3 | **Quản Cao Khiêm loại bỏ hoàn toàn** khỏi mọi báo cáo | `config.ts` — xem §17.4 |
+| 4 | Báo cáo theo **tháng đơn lẻ** | `routes.ts` |
+| 5 | **"Phát sinh ROAS" = `Roas trong tháng > 0` HOẶC `Roas 3 tháng > 0`** — content ROAS tháng = 0 nhưng ROAS 3 tháng = 32% **vẫn tính** | `AdsReportService.coRoas()` |
+
+`NHAN_VIEN_ADS` là **DANH SÁCH TRẮNG**: ai không có tên trong đó thì không xuất hiện ở bất kỳ con số nào. Nhờ vậy `Br`/`Nhóm` (token `adset_name` của Raw_Data cũ) và `Facebook hotline`/`PR hotline` tự động bị loại, không cần danh sách đen.
+
+**Tên nhân viên ghi khác nhau ở hai chỗ trong CÙNG file ROAS** nên phải khai báo cả hai, không suy ra được:
+
+| `tenRoasTong` (cột "Tên nhân sự" tab `Roas tổng`) | `roasTab` (tab chi tiết) |
+|---|---|
+| Vũ Minh Hiếu | `Roas content.Hiếu` |
+| Đặng Thị Kim Anh | `Roas content.Kim Anh` |
+| Nguyễn Tiến Ánh | `Roas content.Ánh` |
+| Nguyễn Thị Liên | `Roas content.Liên` |
+
+### 17.3 Bố cục file ROAS (env `PERFORMANCE_SHEET_ID`)
+
+**Tab `Roas tổng`** — "BÁO CÁO ROAS THEO TÊN NHÂN SỰ", dạng DÒNG, dữ liệu từ dòng 5:
+`cột 1` Tháng báo cáo (`Tổng năm 2026` | `2026_T01`..`2026_T12`) · `7` Kênh · `8` Phân loại · `9` Tên nhân sự
+`10–14` TỔNG CỘNG · `15–19` TRONG NƯỚC · `20–24` NƯỚC NGOÀI — mỗi nhóm: Chi phí · SL data · Giá data · Roas trong tháng · Roas 3 tháng.
+Phân loại dùng cho báo cáo: **`Tổng kênh_Facbeook`** *(chính tả sai là của Sheet, giữ nguyên)*.
+
+**Tab nhân viên** — dạng CỘT, dữ liệu từ dòng 6 (phía trên là subtotal, nhận biết bằng "Tên content" rỗng):
+`cột 1/2/3` Kênh / Phân loại / Tên content · khối TỔNG NĂM ở cột 4 · **khối THÁNG n ở cột `19 + (n−1)×15`**
+trong mỗi khối tháng: offset `0` TỔNG CỘNG · `+5` TRONG NƯỚC · `+10` NƯỚC NGOÀI, mỗi nhóm 5 chỉ số như trên.
+File ROAS **không có** nhóm "chưa xác định địa lý" — `TỔNG CỘNG = TRONG NƯỚC + NƯỚC NGOÀI`.
+
+> ⚠️ **Bẫy: KHÔNG dùng tab tổng `Roas content`.** Tab đó xếp chồng 4 khối chia lại CÙNG một số tiền — A "Roas theo CGSĐ" (r19–29) · B "Roas theo tên thương hiệu" (r31–33) · C "Roas theo Mã số mẫu" (r35–156) · D "Chi tiết danh sách content" (r158+). Quét cả tab rồi cộng sẽ **đếm tiền 3 lần** (T10/2026: 2,8 tỷ thành 8,4 tỷ); khối A/B để trống cột "Kênh" nên dễ bị xếp nhầm vào nhóm "(trống)". Tab nhân viên chỉ có khối chi tiết nên không dính bẫy này.
+
+### 17.4 Dòng CẢ TEAM — chỗ duy nhất phải cộng, và vì sao
+
+Quy tắc 3 loại Quản Cao Khiêm, nhưng dòng `Tổng cộng` của Sheet **đã gồm anh ấy**. Khiêm chỉ phát sinh **T01–T03/2026** (1.582.337.546 đ cả năm), từ T04 trở đi = 0:
+
+| Trường hợp | Xử lý | `tuSheet` | `thieuChiSoGop` |
+|---|---|---|---|
+| Khiêm = 0 (T04/2026 trở đi) → `Tổng cộng` **chính là** 4 người | **đọc nguyên dòng `Tổng cộng`** của Sheet | `true` | `false` |
+| Khiêm ≠ 0 (T01–T03/2026) | cộng Chi phí + SL data của 4 dòng; **Giá data và ROAS để "—"** | `false` | `true` |
+
+Nhận biết tự động bằng cách so `Tổng cộng` với tổng 4 dòng (sai số ≤ 2 đ do làm tròn của Sheet).
+**Không bịa Giá data/ROAS cho trường hợp 2**: ROAS cần doanh thu mà Sheet không công khai, nên thà để trống còn hơn đưa ra con số sai. UI hiện "—" kèm nhãn *(cộng 4 dòng trên)* và một cảnh báo.
+
+### 17.5 Dòng không phải content trong tab nhân viên — bỏ qua nhưng PHẢI báo
+
+Tab nhân viên có các dòng `Ko có tên content`, `#REF!`, link reel/landing… — **chi phí 0 đ nhưng VẪN MANG DATA**. Mục B/C không liệt kê được theo content nên bỏ qua:
+
+| Tháng | Số dòng | Data bỏ qua | Chi phí bỏ qua |
+|---|---:|---:|---:|
+| T10/2026 | 12 | 103 | **0 đ** |
+| T9/2026 | 6 | 83 | **0 đ** |
+
+`RoasTabsProvider` trả kèm `boQua { soDong, dataNoiDia, dataQuocTe }`, service đẩy vào `meta.canhBao` để con số này **không biến mất im lặng**. **Mục A không bị ảnh hưởng** vì đọc từ `Roas tổng` (đã gồm đủ).
+Bất biến phải giữ: `Σ content trong tab + phần bỏ qua = dòng nhân viên ở "Roas tổng"` (KIỂM 4 §17.9).
+
+### 17.6 API
+
+| Method · Path | Vai trò |
+|---|---|
+| `GET /api/ads-report` | JSON cho dashboard. Query: `thang` (`YYYY-MM`, mặc định tháng hiện tại) · `thiTruong` (`all`\|`noi_dia`\|`quoc_te`) · `nhanVien` (`ALL` hoặc `key`) ✅ |
+| `GET /api/ads-report/excel` | Tải `.xlsx` — **cùng query, CÙNG service** nên số trong file luôn khớp màn hình ✅ |
+| `GET /api/ads-report/nhan-vien` | Danh sách nhân viên cho dropdown (không đọc Sheet) ✅ |
+
+Stateless: đọc thẳng Sheet mỗi request, **KHÔNG cache, KHÔNG bảng Supabase mới** — giống §15/§16. Hai tab đọc **song song** (`Promise.all`), 4 tab nhân viên gộp **1 lần `batchGet`**. Thực đo **~2,9 giây/request**; `vercel.json` đặt `maxDuration: 60`.
+`meta.nguon` liệt kê đúng tên file/tab đã đọc và in cả trong PDF, để người xem truy ngược được từng con số.
+> Mỗi lần đổi bộ lọc phải đọc lại Sheet nên trang **KHÔNG tự gọi lại định kỳ**. Đổi "Hiện Top" chỉ cắt danh sách ở client.
+
+### 17.7 Màn hình `#/ads-report`
+
+Bộ lọc: **Tháng** · **Thị trường** · **Nhân viên Ads** (Cả team / từng người) · **Hiện Top** (10/20/30/50/100). Hai nút: **Xuất Excel** · **Xuất PDF**.
+
+**Ngoài `#report-doc`** (chỉ màn hình, `no-print`): dải **5 thẻ KPI** (tổng chi tiêu · Nội Địa · Quốc Tế · **ROAS cả team** · số content ra ROAS) + **thanh nhảy mục** A/B/C và tới từng nhân viên. Bản in không cần thẻ KPI vì mục A đầy đủ hơn.
+
+Thân báo cáo (`#report-doc`):
+- **A.** header 2 tầng NỘI ĐỊA / QUỐC TẾ / TỔNG CỘNG, mỗi nhóm 5 chỉ số **đọc nguyên từ Sheet**, thêm cột `% chi tiêu`, dòng CẢ TEAM.
+- **B.** 2 khối Nội Địa · Quốc Tế. Top 1–3 tô màu nhấn, cột `% khối`, **thanh nền tỷ trọng** sau ô Ngân sách, có luôn ROAS từng content.
+- **C.** **bảng TÓM TẮT 4 nhân viên trước**, rồi chi tiết từng người. Tóm tắt **CỐ Ý không có cột ROAS** — ROAS thật của từng người đã ở mục A; tự tính ROAS trên riêng nhóm content ra ROAS sẽ cho số khác hẳn và gây hiểu nhầm (xem §17.1).
+- **Nguồn số liệu + Ghi chú** cuối báo cáo — nằm TRONG `#report-doc` để bản PDF cũng mang theo.
+
+**Quy ước đọc lướt:** sọc ngựa vằn · header dính trong bảng dài · tên content cắt bằng `truncate` kèm tooltip đầy đủ · ROAS tô màu **≥100% xanh · >0% cam · =0% xám** · thẻ KPI dùng số rút gọn ("2,77 tỷ") còn bảng luôn số đầy đủ, RIÊNG *giá data* luôn đầy đủ vì rút gọn che mất chênh lệch hàng chục nghìn đồng.
+
+**Xuất PDF** = `window.print()` in chính `#report-doc`, **tái dùng nguyên vẹn** block `@media print` của Weekly Report trong `web/styles.css` — **không sửa CSS**. Điều kiện in đúng: mọi điều khiển mang `no-print`, mọi bảng dùng `.emp-table` + có `<thead>` (header lặp mỗi trang), mỗi khối bọc `.emp-block`. Thanh nền tỷ trọng tự mất khi in do `#report-doc * { background: transparent !important }` — chủ ý, số liệu còn nguyên.
+> ⚠️ `.print-only` khai báo ở `web/styles.css:44` nhưng **không bao giờ được bật lại** trong `@media print` → class này **vô tác dụng**. AR-01 **không dùng** nó.
+
+**Xuất Excel** phải fetch kèm `Authorization: Bearer` rồi tạo blob — KHÔNG mở thẳng URL bằng thẻ `<a>` vì route có `requireAuth`, trình duyệt sẽ nhận 401. Sổ 10 sheet: `Tổng quan` · `Top chi tiêu - Cả team` · `Top - <4 NV>` · `ROAS - <4 NV>`. ROAS lưu dạng **thập phân** + `numFmt '0.00%'`; ô "—" ghi chuỗi nên numFmt tự bỏ qua.
+
+### 17.8 File
+
+```
+src/ads-report/
+├── config.ts             ← NHAN_VIEN_ADS (DANH SÁCH TRẮNG) · ánh xạ tên 2 chỗ trong file ROAS
+│                            — nơi DUY NHẤT sửa quy tắc 1–3
+├── types.ts              ← ChiSoKy (bộ 5 chỉ số Sheet) · kiểu riêng của module
+├── RoasTongProvider.ts   ← tab "Roas tổng" → mục A
+├── RoasTabsProvider.ts   ← batchGet 4 tab nhân viên → mục B & C, kèm thống kê `boQua`
+├── AdsReportService.ts   ← nghiệp vụ, dùng CHUNG cho JSON và Excel
+├── ExcelBuilder.ts       ← dựng .xlsx TỪ KẾT QUẢ service (không đọc Sheet, không tính lại)
+├── routes.ts             ← 3 route §17.6
+├── audit.ts              ← `npm run report:ads:audit` — tự đọc Sheet THÔ bằng googleapis rồi
+│                            so với kết quả module, dung sai 0 (§17.9). Chạy lại mỗi khi
+│                            file ROAS đổi bố cục.
+└── cli.ts                ← `npm run report:ads -- 10 2026` — dùng CHÍNH service + ExcelBuilder
+                             của route /excel nên file CLI và file tải từ dashboard giống hệt nhau
+
+web/ads-report/
+├── adsReportApi.ts · format.ts · Filters.tsx
+├── SummaryCards.tsx      ← 5 thẻ KPI (ngoài #report-doc, không in)
+├── ReportDocument.tsx    ← 3 mục A/B/C + tóm tắt ROAS + nguồn & ghi chú (in được)
+└── AdsReportPage.tsx
+```
+
+> **Đã gỡ:** `RawDataProvider.ts` (đọc Raw_Data + khử trùng 5 khoá + tách token TQ/NN). Module không còn chạm tới Raw_Data hay `ads_monitor`.
+
+### 17.9 Kiểm chứng (2026-11-03) — **469/469 phép kiểm khớp, dung sai 0**
+
+Script: `src/ads-report/audit.ts` — chạy bằng **`npm run report:ads:audit`**. Script TỰ đọc Sheet thô bằng `googleapis` (không qua provider của module) để làm "sự thật", rồi so với kết quả `buildAdsReport()`; **mọi so sánh dùng dung sai = 0** vì module phải trả đúng giá trị ô. Chạy lại mỗi khi file ROAS đổi bố cục (thêm/bớt cột, đổi tên tab, đổi tên nhân sự).
+
+| # | Nội dung | Kết quả |
+|---|---|---|
+| 1 | Mục A: 4 NV × 4 tháng (T7–T10) × 3 nhóm địa lý × 5 chỉ số, so **từng ô** | **240/240 ô** |
+| 2 | Dòng CẢ TEAM: T10 phải lấy nguyên dòng `Tổng cộng`; T03 phải chuyển sang cộng 4 dòng + báo thiếu chỉ số. Kiểm chéo: `Tổng cộng T03 − Khiêm = team` → 3.642.506.668 − 497.180.687 = 3.145.325.981 | khớp |
+| 3 | Mục B/C: giá trị từng content so **ô Sheet** (chi phí · SL data · giá data · 2 ROAS) | **180/180 ô** |
+| 4 | Bất biến `Σ content + phần bỏ qua = dòng "Roas tổng"` | khớp |
+| 5 | Luật "phát sinh ROAS" đếm đúng, không lọt dòng sai | khớp |
+
+Số liệu T10/2026 (đều là số Sheet): CẢ TEAM `2.770.070.745 đ` · `2.474` data · giá data `1.119.673 đ` · **Roas tháng `149,39%`** · Roas 3 tháng `242,48%`. Content ra ROAS: Hiếu 4 NĐ/9 QT · Kim Anh 6/5 · Ánh 8/10 · Liên 10/7 (**59**).
+
+- `npm run typecheck` + `npm run typecheck:web`: **0 lỗi**. `npm run build`: OK.
+- Giao diện kiểm bằng trang xem thử tạm với **dữ liệu thật** (đã xoá sau khi kiểm), đối chiếu text đã render với ô Sheet: **12/12** bảng có `<thead>`, **5/5** phần tử `no-print` ẩn khi áp rule in, `#report-doc` chuyển đen-trắng, thanh tỷ trọng tự mất.
+  > ⚠️ Khung xem thử phải **mô phỏng đúng độ sâu DOM của `AppShell`** (`#root > div > div > main > trang`). Khung nông hơn khiến rule `#root > div > div { display:block !important }` trong `@media print` **đè nhầm** lên `.no-print` (selector ID thắng class) → báo nhầm là thanh tiêu đề không ẩn khi in.
+
+> **Lưu ý khi so với Ads Monitor:** chi tiêu của module này giờ theo **file ROAS**, cao hơn `ads_monitor` khoảng 12% (T10: 2.770.070.745 vs 2.466.193.719). Đã loại trừ thiếu ngày (`ads_monitor` đủ 31/31) và VAT (tỷ lệ lệch khác nhau từng người: 11,5%–13,2%). **Nguyên nhân gốc chưa truy ra** — là chênh lệch thật giữa 2 hệ thống, không phải lỗi gộp số.
+
 
 > **Quy tắc vàng:** PR/commit nào đổi schema, API, sync, dashboard, phân quyền → **cập nhật PROJECT_SPEC.md trong cùng thay đổi đó**.
