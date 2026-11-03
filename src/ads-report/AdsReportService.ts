@@ -125,23 +125,53 @@ export async function buildAdsReport(q: AdsReportQuery): Promise<AdsReportResult
     }
   }
 
-  /* ---------- Mục B: mọi content, đọc nguyên chỉ số ô ---------- */
-  const rows: DongChiTieu[] = [];
+  /* ---------- Mục B: GỘP theo content của CẢ TEAM ----------
+   * Một content có thể do nhiều nhân viên cùng chạy (T10/2026: Nội Địa 64/144 content).
+   * Báo cáo phải cộng lại thành MỘT dòng, nếu không thứ hạng "tiêu nhiều tiền nhất" sai —
+   * vd "261005-SC CGSĐ Hiếu Có biến hình 58t" do Hiếu + Kim Anh + Ánh cùng chạy, gộp lại
+   * 117.556.414 đ đứng đầu, còn để rời thì không lọt nổi Top 5.
+   * Khoá gộp = TÊN CONTENT CHÍNH XÁC + thị trường, trùng cách tab tổng `Roas content` gộp. */
+  const gop = new Map<string, DongChiTieu>();
   for (const nv of dsNV) {
     const kq = tabs[nv.roasTab];
     if (!kq) continue;
     for (const x of kq.rows) {
       for (const g of nhom) {
-        if (x[g].chiPhi <= 0) continue;
-        rows.push({
-          content: x.content, phanLoai: x.phanLoai,
-          nhanVienKey: nv.key, nhanVien: nv.nhan,
-          diaLy: g, chiSo: x[g],
+        const c = x[g];
+        if (c.chiPhi <= 0) continue;
+        const khoa = `${g}||${x.content}`;
+        let d = gop.get(khoa);
+        if (!d) {
+          d = {
+            content: x.content, diaLy: g, chiPhi: 0, slData: 0, giaData: 0,
+            roasThang: null, roas3Thang: null, nhanVien: [], phanLoai: [], nguon: [],
+          };
+          gop.set(khoa, d);
+        }
+        d.chiPhi += c.chiPhi;
+        d.slData += c.slData;
+        if (!d.nhanVien.includes(nv.nhan)) d.nhanVien.push(nv.nhan);
+        if (x.phanLoai && !d.phanLoai.includes(x.phanLoai)) d.phanLoai.push(x.phanLoai);
+        d.nguon.push({
+          nhanVienKey: nv.key, nhanVien: nv.nhan, phanLoai: x.phanLoai,
+          chiPhi: c.chiPhi, slData: c.slData, roasThang: c.roasThang, roas3Thang: c.roas3Thang,
         });
       }
     }
   }
-  rows.sort((a, b) => b.chiSo.chiPhi - a.chiSo.chiPhi);
+  const rows = [...gop.values()].map((d) => ({
+    ...d,
+    // Giá data = Chi phí ÷ SL data — đã kiểm đúng cách Sheet tính (554/554 ô).
+    giaData: d.slData > 0 ? Math.round(d.chiPhi / d.slData) : 0,
+    // Chỉ 1 nguồn → giữ NGUYÊN ROAS của Sheet. Nhiều nguồn → null, vì ROAS không cộng được.
+    roasThang: d.nguon.length === 1 ? d.nguon[0].roasThang : null,
+    roas3Thang: d.nguon.length === 1 ? d.nguon[0].roas3Thang : null,
+  })).sort((a, b) => b.chiPhi - a.chiPhi);
+
+  const soGop = rows.filter((d) => d.nguon.length > 1).length;
+  if (soGop > 0) {
+    canhBao.push(`Mục B đã GỘP ${soGop} content do nhiều nhân viên (hoặc nhiều phân loại) cùng chạy — chi phí và SL data được cộng lại. Các dòng gộp để trống ROAS vì ROAS không cộng được; xem ROAS từng nhân viên ở mục A, hoặc rê chuột vào ô "—" để xem chi tiết từng nguồn.`);
+  }
 
   /* ---------- Mục C: content phát sinh ROAS (KHÔNG có bản "cả team") ---------- */
   let boQuaDong = 0, boQuaData = 0;

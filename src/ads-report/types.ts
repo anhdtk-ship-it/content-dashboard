@@ -22,15 +22,46 @@ export type LocThiTruong = 'all' | 'noi_dia' | 'quoc_te';
 /** Nhóm địa lý trong file ROAS. File ROAS KHÔNG có nhóm "chưa xác định". */
 export type NhomDiaLy = 'noiDia' | 'quocTe';
 
-/** 1 dòng trong khối "Top chi tiêu" — đọc từ tab nhân viên, mỗi dòng là 1 content. */
-export interface DongChiTieu {
-  content: string;
-  phanLoai: string;
+/** 1 dòng nguồn góp vào một content đã gộp — giữ lại để tra ngược ai chạy, ROAS bao nhiêu. */
+export interface NguonDong {
   nhanVienKey: string;
   nhanVien: string;
+  phanLoai: string;
+  chiPhi: number;
+  slData: number;
+  roasThang: number;
+  roas3Thang: number;
+}
+
+/**
+ * 1 dòng trong khối "Top chi tiêu" — MỘT CONTENT trong MỘT thị trường, đã GỘP mọi nhân
+ * viên cùng chạy (chốt với chủ dự án 2026-11-03: báo cáo là của CẢ TEAM, không phải của
+ * từng người). Gộp theo TÊN CONTENT CHÍNH XÁC — trùng cách tab tổng `Roas content` gộp;
+ * đuôi `tvc v1` / `tvc v2` là hai content khác nhau nên KHÔNG gộp chung.
+ *
+ * T10/2026: Nội Địa 64/144 content do nhiều nhân viên cùng chạy, Quốc Tế 30/71.
+ */
+export interface DongChiTieu {
+  content: string;
   diaLy: NhomDiaLy;
-  /** Nguyên giá trị ô Sheet — kể cả Giá data (KHÔNG tự chia lại). */
-  chiSo: ChiSoKy;
+  /** Σ của các dòng nguồn — phép cộng thuần. */
+  chiPhi: number;
+  slData: number;
+  /** Σ chi phí ÷ Σ SL data. Đã kiểm: đúng cách Sheet tính Giá data (554/554 ô). */
+  giaData: number;
+  /**
+   * `null` khi gộp từ >1 dòng nguồn: ROAS **KHÔNG cộng được**. Đã thử công thức trọng số
+   * Σ(roas×chiPhi)/Σchiphí và đối chiếu cấp nhân viên — lệch tới 257 điểm %, vì có content
+   * tháng này chi phí 0 nhưng vẫn phát sinh doanh thu (công thức bỏ qua, Sheet thì không).
+   * Dòng gộp hiển thị "—"; ROAS từng nguồn vẫn tra được qua `nguon`.
+   */
+  roasThang: number | null;
+  roas3Thang: number | null;
+  /** Tên ngắn các nhân viên cùng chạy content này. */
+  nhanVien: string[];
+  /** Các "Phân loại" xuất hiện (1 content có thể nằm ở nhiều phân loại). */
+  phanLoai: string[];
+  nguon: NguonDong[];
 }
 
 /** Tổng của 1 nhân viên (hoặc dòng cả team) — nguồn tab "Roas tổng". */

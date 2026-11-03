@@ -2,7 +2,7 @@
 
 > **Tài liệu gốc (single source of truth).** Mọi thay đổi về kiến trúc, schema, sync, dashboard, API, phân quyền… **bắt buộc cập nhật vào file này**.
 >
-> Cập nhật lần cuối: 2026-11-03 — **§17 module MỚI Ads Report (AR-01)**: trang `#/ads-report` báo cáo Ads theo tháng đơn lẻ (chi tiêu & ROAS theo nhân viên + top content tiêu nhiều tiền + content phát sinh ROAS), xuất **Excel** và **PDF**. **Nguyên tắc số liệu: ĐỌC NGUYÊN giá trị ô file ROAS, KHÔNG tự tính** (§17.1) — đã gỡ hẳn `RawDataProvider`, nhờ đó hết mâu thuẫn 12% giữa 2 mục và nhanh hơn 2,8 lần. Đối soát **469/469 phép kiểm khớp, dung sai 0** (§17.9). Trước đó 2026-09-16: §16.5 sắp xếp bảng Chi tiết theo Content (6 cột ▼▲) · `typecheck:web` cho app React · fix nhãn biểu đồ Budget (§14). Trước đó 2026-09-11: gỡ auto-sync tức thời + Railway, chốt đồng bộ 1 lần/ngày 10:00 giờ VN trên Vercel (§3.1).
+> Cập nhật lần cuối: 2026-11-03 — **§17 module MỚI Ads Report (AR-01)**: trang `#/ads-report` báo cáo Ads theo tháng đơn lẻ (chi tiêu & ROAS theo nhân viên + top content tiêu nhiều tiền + content phát sinh ROAS), xuất **Excel** và **PDF**. **Nguyên tắc số liệu: ĐỌC NGUYÊN giá trị ô file ROAS, KHÔNG tự tính** (§17.1) — đã gỡ hẳn `RawDataProvider`, nhờ đó hết mâu thuẫn 12% giữa 2 mục và nhanh hơn 2,8 lần. Mục B **gộp content theo cả team** (§17.6). Đối soát **1.369/1.369 phép kiểm khớp, dung sai 0** (§17.10). Trước đó 2026-09-16: §16.5 sắp xếp bảng Chi tiết theo Content (6 cột ▼▲) · `typecheck:web` cho app React · fix nhãn biểu đồ Budget (§14). Trước đó 2026-09-11: gỡ auto-sync tức thời + Railway, chốt đồng bộ 1 lần/ngày 10:00 giờ VN trên Vercel (§3.1).
 > Ký hiệu: ✅ đã triển khai · 🟡 một phần · 🔲 kế hoạch (chưa code)
 
 ---
@@ -618,7 +618,7 @@ File ROAS đã tính sẵn Chi phí · SL data · Giá data · Roas trong tháng
 | Mục | Nguồn | Thao tác duy nhất được phép |
 |---|---|---|
 | **A.** Chi tiêu & ROAS theo nhân viên | tab `Roas tổng` | tra dòng, đọc ô |
-| **B.** Content tiêu nhiều tiền nhất | 4 tab nhân viên | sắp xếp + cắt Top N |
+| **B.** Content tiêu nhiều tiền nhất | 4 tab nhân viên | **gộp theo content** + sắp xếp + cắt Top N — xem §17.6 |
 | **C.** Content phát sinh ROAS | 4 tab nhân viên | lọc theo luật ROAS + sắp xếp |
 
 **Phiên bản đầu (đã bỏ) sai ở đâu** — ghi lại để không lặp lại:
@@ -696,7 +696,47 @@ Tab nhân viên có các dòng `Ko có tên content`, `#REF!`, link reel/landing
 `RoasTabsProvider` trả kèm `boQua { soDong, dataNoiDia, dataQuocTe }`, service đẩy vào `meta.canhBao` để con số này **không biến mất im lặng**. **Mục A không bị ảnh hưởng** vì đọc từ `Roas tổng` (đã gồm đủ).
 Bất biến phải giữ: `Σ content trong tab + phần bỏ qua = dòng nhân viên ở "Roas tổng"` (KIỂM 4 §17.9).
 
-### 17.6 API
+### 17.6 Mục B — GỘP theo content của CẢ TEAM
+
+Chủ dự án chốt (2026-11-03): *"báo cáo là content tiêu nhiều tiền nhất của **cả team** chứ không phải của từng nhân viên — content nào có nhiều nhân viên chạy thì phải cộng lại."*
+
+**Khoá gộp = TÊN CONTENT CHÍNH XÁC + thị trường.** Trùng đúng cách tab tổng `Roas content` gộp. Đuôi phiên bản là một phần của tên nên **`tvc v1` và `tvc v2` là HAI content khác nhau, không gộp chung**:
+
+| Tab | Tên đầy đủ | Chi phí NĐ T10 |
+|---|---|---:|
+| `Roas content.Liên` | `…4258t tvc **v1**` | 1.239.667 |
+| `Roas content.Kim Anh` | `…4258t tvc **v2**` | 70.587.477 |
+| `Roas content.Liên` | `…4258t tvc **v2**` | 28.483.409 |
+| → gộp `v2` | | **99.070.887** |
+
+Khớp đúng dòng `r603` của tab tổng (`99.070.887`), và `v1` vẫn đứng riêng ở `r602` — tức module gộp **giống hệt** cách Sheet gộp.
+
+**Mức độ ảnh hưởng (T10/2026):** Nội Địa **64/144** content do nhiều nhân viên cùng chạy, Quốc Tế **30/71**. Tổng 322 dòng → **215 content**, 94 cái được gộp. Thứ hạng đổi hẳn: quán quân Nội Địa thành `261005-SC CGSĐ Hiếu Có biến hình 58t` (**117.556.414 đ**, do Hiếu + Kim Anh + Ánh cùng chạy) — để rời thì content này **không lọt nổi Top 5**.
+
+**Trường nào cộng được, trường nào không:**
+
+| Trường | Cách xử lý | Vì sao |
+|---|---|---|
+| Chi phí · SL data | **Σ** các dòng nguồn | phép cộng thuần |
+| Giá data | **Σ chi phí ÷ Σ SL data** | đã kiểm đúng cách Sheet tính — **554/554 ô** khớp (sai số ≤1 đ do làm tròn) |
+| Roas tháng · Roas 3 tháng | **1 nguồn → giữ nguyên ô Sheet · nhiều nguồn → `null`, hiển thị "—"** | xem dưới |
+
+> ⚠️ **ROAS KHÔNG cộng được — đã thử và chứng minh là sai.** Công thức trọng số `Σ(roas×chiPhi) ÷ Σchiphí` nhìn thì đúng về toán, nhưng đối chiếu ở **cấp nhân viên** (nơi Sheet đã có đáp án sẵn) thì lệch tới **257 điểm %**:
+>
+> | | Công thức | Sheet |
+> |---|---|---|
+> | Ánh — QT Roas 3 tháng T10 | 191,89% | **448,92%** |
+> | Kim Anh — NĐ Roas tháng T10 | 34,68% | **62,56%** |
+>
+> Nguyên nhân: có content **tháng này chi phí 0 nhưng vẫn phát sinh doanh thu** (doanh thu về từ chi tiêu tháng trước). Công thức bỏ qua các dòng đó vì mẫu số bằng 0, Sheet thì vẫn tính doanh thu của chúng. Không tái dựng được từ các cột đang có → **không bịa số**.
+>
+> Dòng gộp để "—" nhưng **không mất thông tin**: `DongChiTieu.nguon[]` giữ nguyên ROAS + chi phí của từng nhân viên, UI cho rê chuột vào ô "—" để xem (`Hiếu: 0,00% (9.757.681đ) · Kim Anh: 0,00% (58.926.495đ) · Ánh: 24,55% (48.872.239đ)`). ROAS thật của từng người xem mục A.
+
+**Cột "Nhân viên chạy"** liệt kê những ai cùng chạy, kèm huy hiệu `×n` khi gộp từ n dòng Sheet. Cột "Phân loại" nối bằng ` + ` khi content nằm ở nhiều phân loại.
+
+**Sheet Excel `Top - <nhân viên>`** tách phần đóng góp của RIÊNG người đó từ `nguon[]` (hàm `rowsCuaNhanVien`), nên **không lẫn** chi phí của người khác vào bảng cá nhân.
+
+### 17.7 API
 
 | Method · Path | Vai trò |
 |---|---|
@@ -708,7 +748,7 @@ Stateless: đọc thẳng Sheet mỗi request, **KHÔNG cache, KHÔNG bảng Sup
 `meta.nguon` liệt kê đúng tên file/tab đã đọc và in cả trong PDF, để người xem truy ngược được từng con số.
 > Mỗi lần đổi bộ lọc phải đọc lại Sheet nên trang **KHÔNG tự gọi lại định kỳ**. Đổi "Hiện Top" chỉ cắt danh sách ở client.
 
-### 17.7 Màn hình `#/ads-report`
+### 17.8 Màn hình `#/ads-report`
 
 Bộ lọc: **Tháng** · **Thị trường** · **Nhân viên Ads** (Cả team / từng người) · **Hiện Top** (10/20/30/50/100). Hai nút: **Xuất Excel** · **Xuất PDF**.
 
@@ -716,7 +756,7 @@ Bộ lọc: **Tháng** · **Thị trường** · **Nhân viên Ads** (Cả team 
 
 Thân báo cáo (`#report-doc`):
 - **A.** header 2 tầng NỘI ĐỊA / QUỐC TẾ / TỔNG CỘNG, mỗi nhóm 5 chỉ số **đọc nguyên từ Sheet**, thêm cột `% chi tiêu`, dòng CẢ TEAM.
-- **B.** 2 khối Nội Địa · Quốc Tế. Top 1–3 tô màu nhấn, cột `% khối`, **thanh nền tỷ trọng** sau ô Ngân sách, có luôn ROAS từng content.
+- **B.** 2 khối Nội Địa · Quốc Tế, **mỗi dòng là MỘT content của cả team** (§17.6). Top 1–3 tô màu nhấn, cột `% khối`, **thanh nền tỷ trọng** sau ô Ngân sách, cột "Nhân viên chạy" kèm huy hiệu `×n`, ô ROAS gộp hiện "—" nhưng rê chuột xem được từng nguồn.
 - **C.** **bảng TÓM TẮT 4 nhân viên trước**, rồi chi tiết từng người. Tóm tắt **CỐ Ý không có cột ROAS** — ROAS thật của từng người đã ở mục A; tự tính ROAS trên riêng nhóm content ra ROAS sẽ cho số khác hẳn và gây hiểu nhầm (xem §17.1).
 - **Nguồn số liệu + Ghi chú** cuối báo cáo — nằm TRONG `#report-doc` để bản PDF cũng mang theo.
 
@@ -727,7 +767,7 @@ Thân báo cáo (`#report-doc`):
 
 **Xuất Excel** phải fetch kèm `Authorization: Bearer` rồi tạo blob — KHÔNG mở thẳng URL bằng thẻ `<a>` vì route có `requireAuth`, trình duyệt sẽ nhận 401. Sổ 10 sheet: `Tổng quan` · `Top chi tiêu - Cả team` · `Top - <4 NV>` · `ROAS - <4 NV>`. ROAS lưu dạng **thập phân** + `numFmt '0.00%'`; ô "—" ghi chuỗi nên numFmt tự bỏ qua.
 
-### 17.8 File
+### 17.9 File
 
 ```
 src/ads-report/
@@ -736,7 +776,7 @@ src/ads-report/
 ├── types.ts              ← ChiSoKy (bộ 5 chỉ số Sheet) · kiểu riêng của module
 ├── RoasTongProvider.ts   ← tab "Roas tổng" → mục A
 ├── RoasTabsProvider.ts   ← batchGet 4 tab nhân viên → mục B & C, kèm thống kê `boQua`
-├── AdsReportService.ts   ← nghiệp vụ, dùng CHUNG cho JSON và Excel
+├── AdsReportService.ts   ← nghiệp vụ + GỘP content cả team (§17.6), dùng CHUNG cho JSON và Excel
 ├── ExcelBuilder.ts       ← dựng .xlsx TỪ KẾT QUẢ service (không đọc Sheet, không tính lại)
 ├── routes.ts             ← 3 route §17.6
 ├── audit.ts              ← `npm run report:ads:audit` — tự đọc Sheet THÔ bằng googleapis rồi
@@ -754,7 +794,7 @@ web/ads-report/
 
 > **Đã gỡ:** `RawDataProvider.ts` (đọc Raw_Data + khử trùng 5 khoá + tách token TQ/NN). Module không còn chạm tới Raw_Data hay `ads_monitor`.
 
-### 17.9 Kiểm chứng (2026-11-03) — **469/469 phép kiểm khớp, dung sai 0**
+### 17.10 Kiểm chứng (2026-11-03) — **1.369/1.369 phép kiểm khớp, dung sai 0**
 
 Script: `src/ads-report/audit.ts` — chạy bằng **`npm run report:ads:audit`**. Script TỰ đọc Sheet thô bằng `googleapis` (không qua provider của module) để làm "sự thật", rồi so với kết quả `buildAdsReport()`; **mọi so sánh dùng dung sai = 0** vì module phải trả đúng giá trị ô. Chạy lại mỗi khi file ROAS đổi bố cục (thêm/bớt cột, đổi tên tab, đổi tên nhân sự).
 
@@ -762,7 +802,7 @@ Script: `src/ads-report/audit.ts` — chạy bằng **`npm run report:ads:audit`
 |---|---|---|
 | 1 | Mục A: 4 NV × 4 tháng (T7–T10) × 3 nhóm địa lý × 5 chỉ số, so **từng ô** | **240/240 ô** |
 | 2 | Dòng CẢ TEAM: T10 phải lấy nguyên dòng `Tổng cộng`; T03 phải chuyển sang cộng 4 dòng + báo thiếu chỉ số. Kiểm chéo: `Tổng cộng T03 − Khiêm = team` → 3.642.506.668 − 497.180.687 = 3.145.325.981 | khớp |
-| 3 | Mục B/C: giá trị từng content so **ô Sheet** (chi phí · SL data · giá data · 2 ROAS) | **180/180 ô** |
+| 3 | **Mục B — gộp content**: dựng lại bảng gộp trực tiếp từ ô Sheet thô rồi so từng content (chi phí · SL data · số nguồn · giá data · ROAS phải null khi gộp); Σ sau gộp = Σ ô Sheet (không mất, không nhân đôi); kiểm riêng content ví dụ của chủ dự án | khớp |
 | 4 | Bất biến `Σ content + phần bỏ qua = dòng "Roas tổng"` | khớp |
 | 5 | Luật "phát sinh ROAS" đếm đúng, không lọt dòng sai | khớp |
 

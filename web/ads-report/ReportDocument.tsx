@@ -117,23 +117,33 @@ function BangChiTieu({ theoNhanVien, team }: { theoNhanVien: TongChiTieu[]; team
   );
 }
 
-/* ---------- B. Top content tiêu nhiều tiền nhất ---------- */
-function BangTopChiTieu({ rows, topN, hienCotNV }: {
-  rows: DongChiTieu[]; topN: number; hienCotNV: boolean;
+/* ---------- B. Top content tiêu nhiều tiền nhất (CẢ TEAM) ----------
+ * Mỗi dòng là MỘT content: content do nhiều nhân viên cùng chạy đã được cộng lại.
+ * Ô ROAS của dòng gộp hiển thị "—" (ROAS không cộng được) nhưng rê chuột vẫn xem được
+ * ROAS của từng nhân viên — số nguyên gốc của Sheet. */
+function ORoasGop({ gt, nguon, truong }: {
+  gt: number | null; nguon: DongChiTieu['nguon']; truong: 'roasThang' | 'roas3Thang';
 }) {
+  if (gt !== null) return <span className={mauRoas(gt)}>{fmtRoas(gt)}</span>;
+  const chiTiet = nguon.map((n) => `${n.nhanVien}: ${fmtRoas(n[truong])} (${fmtVND(n.chiPhi)})`).join('\n');
+  return <span className="cursor-help text-muted underline decoration-dotted" title={chiTiet}>{TRONG}</span>;
+}
+
+function BangTopChiTieu({ rows, topN }: { rows: DongChiTieu[]; topN: number }) {
   return (
     <>
       {DIA_LY.map((g) => {
         const all = rows.filter((d) => d.diaLy === g);
         if (!all.length) return null;
         const list = all.slice(0, topN);
-        const chiPhi = list.reduce((s, d) => s + d.chiSo.chiPhi, 0);
-        const slData = list.reduce((s, d) => s + d.chiSo.slData, 0);
-        const tongKhoi = all.reduce((s, d) => s + d.chiSo.chiPhi, 0);
-        const max = list[0]?.chiSo.chiPhi || 1;
+        const chiPhi = list.reduce((s, d) => s + d.chiPhi, 0);
+        const slData = list.reduce((s, d) => s + d.slData, 0);
+        const tongKhoi = all.reduce((s, d) => s + d.chiPhi, 0);
+        const max = list[0]?.chiPhi || 1;
+        const soGop = all.filter((d) => d.nguon.length > 1).length;
         return (
           <div key={g} className="emp-block mb-4">
-            <TieuDeKhoi dem={`${list.length}/${all.length} content · toàn khối ${fmtVND(tongKhoi)}`}>
+            <TieuDeKhoi dem={`${list.length}/${all.length} content · toàn khối ${fmtVND(tongKhoi)}${soGop ? ` · ${soGop} content gộp nhiều nguồn` : ''}`}>
               {NHAN_DIA_LY[g]}
             </TieuDeKhoi>
             <div className="max-h-[520px] overflow-auto rounded-card border border-line">
@@ -143,7 +153,7 @@ function BangTopChiTieu({ rows, topN, hienCotNV }: {
                     <th className={thSticky + ' w-9'}>#</th>
                     <th className={thSticky + ' text-left'}>Tên content</th>
                     <th className={thSticky}>Phân loại</th>
-                    {hienCotNV && <th className={thSticky}>Nhân viên</th>}
+                    <th className={thSticky}>Nhân viên chạy</th>
                     <th className={thSticky}>Giá data</th>
                     <th className={thSticky}>Ngân sách</th>
                     <th className={thSticky}>SL data</th>
@@ -154,25 +164,31 @@ function BangTopChiTieu({ rows, topN, hienCotNV }: {
                 </thead>
                 <tbody>
                   {list.map((d, i) => (
-                    <tr key={`${d.content}__${d.phanLoai}__${d.nhanVienKey}__${i}`} className={zebra(i)}>
+                    <tr key={`${g}__${d.content}`} className={zebra(i)}>
                       <td className={num + (i < 3 ? ' font-bold text-accent' : ' text-muted')}>{i + 1}</td>
                       <td className={td}><TenContent ten={d.content} /></td>
-                      <td className={td + ' whitespace-nowrap text-muted'}>{d.phanLoai}</td>
-                      {hienCotNV && <td className={td + ' whitespace-nowrap'}>{d.nhanVien}</td>}
-                      <td className={num}>{fmtVND(d.chiSo.giaData)}</td>
-                      <td className={num}><ONganSach tien={d.chiSo.chiPhi} tyLe={d.chiSo.chiPhi / max} /></td>
-                      <td className={num}>{fmtNum(d.chiSo.slData)}</td>
-                      <td className={num + ' ' + mauRoas(d.chiSo.roasThang)}>{fmtRoas(d.chiSo.roasThang)}</td>
-                      <td className={num + ' ' + mauRoas(d.chiSo.roas3Thang)}>{fmtRoas(d.chiSo.roas3Thang)}</td>
-                      <td className={num + ' text-muted'}>{tongKhoi > 0 ? fmtTyTrong(d.chiSo.chiPhi / tongKhoi) : TRONG}</td>
+                      <td className={td + ' whitespace-nowrap text-muted'}>{d.phanLoai.join(' + ')}</td>
+                      <td className={td + ' whitespace-nowrap'}>
+                        {d.nhanVien.join(', ')}
+                        {d.nguon.length > 1 && (
+                          <span className="ml-1 rounded-pill bg-surface2 px-1.5 text-[10px] text-muted"
+                            title={`Gộp từ ${d.nguon.length} dòng của Sheet`}>×{d.nguon.length}</span>
+                        )}
+                      </td>
+                      <td className={num}>{fmtVND(d.giaData)}</td>
+                      <td className={num}><ONganSach tien={d.chiPhi} tyLe={d.chiPhi / max} /></td>
+                      <td className={num}>{fmtNum(d.slData)}</td>
+                      <td className={num}><ORoasGop gt={d.roasThang} nguon={d.nguon} truong="roasThang" /></td>
+                      <td className={num}><ORoasGop gt={d.roas3Thang} nguon={d.nguon} truong="roas3Thang" /></td>
+                      <td className={num + ' text-muted'}>{tongKhoi > 0 ? fmtTyTrong(d.chiPhi / tongKhoi) : TRONG}</td>
                     </tr>
                   ))}
                   <tr className="total-row font-bold">
                     <td className={td} />
                     <td className={td}>CỘNG {list.length} CONTENT ĐANG LIỆT KÊ{all.length > list.length ? ` (trên tổng ${all.length})` : ''}</td>
                     <td className={td} />
-                    {hienCotNV && <td className={td} />}
-                    <td className={num + ' text-muted'}>{TRONG}</td>
+                    <td className={td} />
+                    <td className={num}>{fmtVND(slData > 0 ? Math.round(chiPhi / slData) : 0)}</td>
                     <td className={num}>{fmtVND(chiPhi)}</td>
                     <td className={num}>{fmtNum(slData)}</td>
                     <td className={num + ' text-muted'}>{TRONG}</td>
@@ -346,9 +362,9 @@ export function ReportDocument({ data, topN }: { data: AdsReportResult; topN: nu
         <div className="report-section">
           <TieuDeMuc id="muc-b">
             B. Content tiêu nhiều tiền nhất{' '}
-            <span className="text-[12px] font-normal text-muted">— Top {topN} mỗi thị trường</span>
+            <span className="text-[12px] font-normal text-muted">— Top {topN} mỗi thị trường · mỗi dòng là MỘT content của cả team, nhiều nhân viên cùng chạy đã cộng lại</span>
           </TieuDeMuc>
-          <BangTopChiTieu rows={data.chiTieu.rows} topN={topN} hienCotNV={nhieuNV} />
+          <BangTopChiTieu rows={data.chiTieu.rows} topN={topN} />
         </div>
 
         <div className="report-section">

@@ -19,13 +19,33 @@ export interface ChiSoKy {
   roas3Thang: number;
 }
 
-export interface DongChiTieu {
-  content: string;
-  phanLoai: string;
+/** 1 dòng nguồn góp vào một content đã gộp. */
+export interface NguonDong {
   nhanVienKey: string;
   nhanVien: string;
+  phanLoai: string;
+  chiPhi: number;
+  slData: number;
+  roasThang: number;
+  roas3Thang: number;
+}
+
+/**
+ * MỘT CONTENT trong MỘT thị trường, đã GỘP mọi nhân viên cùng chạy — báo cáo là của
+ * CẢ TEAM. Gộp theo tên content chính xác (đuôi `tvc v1`/`tvc v2` là 2 content khác nhau).
+ */
+export interface DongChiTieu {
+  content: string;
   diaLy: NhomDiaLy;
-  chiSo: ChiSoKy;
+  chiPhi: number;
+  slData: number;
+  giaData: number;
+  /** `null` khi gộp từ >1 nguồn — ROAS không cộng được, xem `nguon` để biết từng người. */
+  roasThang: number | null;
+  roas3Thang: number | null;
+  nhanVien: string[];
+  phanLoai: string[];
+  nguon: NguonDong[];
 }
 
 export interface TongChiTieu {

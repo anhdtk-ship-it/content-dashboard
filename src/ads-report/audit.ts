@@ -121,41 +121,88 @@ const THANG_CO_KHIEM = '2026-03';
   }
 
   /* ── KIỂM 3 ── */
-  console.log('═══ KIỂM 3 — Mục B/C: giá trị từng content so ô Sheet\n');
+  console.log('═══ KIỂM 3 — Mục B: gộp content của cả team có đúng không\n');
   {
     const truoc = loi;
     const thangSach = THANG[THANG.length - 1];
     const soThang = parseInt(thangSach.slice(5, 7), 10);
-    const cotND = 19 + (soThang - 1) * 15 + 5;
-    const cotQT = cotND + 5;
     const rep = reps[thangSach];
-    let soO = 0;
-    for (const nv of NHAN_VIEN_ADS) {
-      const raw = rawTab[nv.key];
-      let dem = 0;
-      for (let r = 6; r < raw.length && dem < 8; r++) {
-        const ten = (raw[r]?.[3] ?? '').toString().trim();
-        const pl = (raw[r]?.[2] ?? '').toString().trim();
-        if (!ten || ten.length <= 2 || ten === 'Ko có tên content' || ten === '#REF!') continue;
-        if (num(raw[r][cotND]) <= 0) continue;
-        const m = rep.chiTieu.rows.find((d) => d.nhanVienKey === nv.key && d.content === ten
-          && d.phanLoai === pl && d.diaLy === 'noiDia' && d.chiSo.chiPhi === num(raw[r][cotND]));
-        if (!m) { console.log(`  ✗ ${nv.nhan}: không thấy ở mục B — "${ten.slice(0, 40)}"`); loi++; dem++; continue; }
-        eqChiSo(`${nv.nhan} r${r} NĐ`, m.chiSo, raw[r], cotND);
-        soO += 5; dem++;
+    const COT: Record<'noiDia' | 'quocTe', number> = {
+      noiDia: 19 + (soThang - 1) * 15 + 5,
+      quocTe: 19 + (soThang - 1) * 15 + 10,
+    };
+
+    // 3a. Dựng lại bảng gộp TRỰC TIẾP từ ô Sheet thô rồi so với module, từng content một.
+    for (const g of ['noiDia', 'quocTe'] as const) {
+      const base = COT[g];
+      const mong = new Map<string, { chiPhi: number; slData: number; nguon: number }>();
+      for (const nv of NHAN_VIEN_ADS) {
+        const raw = rawTab[nv.key];
+        for (let r = 6; r < raw.length; r++) {
+          const ten = (raw[r]?.[3] ?? '').toString().trim();
+          if (!ten || ten.length <= 2 || ten === 'Ko có tên content' || ten === '#REF!'
+            || ten === 'Quảng cáo' || /^https?:\/\//i.test(ten) || /^th[ửư]\s*nghi[eệ]m\s*-/i.test(ten)
+            || ten.toLowerCase() === 'test') continue;
+          const c = num(raw[r][base]);
+          if (c <= 0) continue;
+          const o = mong.get(ten) ?? { chiPhi: 0, slData: 0, nguon: 0 };
+          o.chiPhi += c; o.slData += num(raw[r][base + 1]); o.nguon++;
+          mong.set(ten, o);
+        }
       }
-      for (let r = 6; r < raw.length; r++) {
-        const ten = (raw[r]?.[3] ?? '').toString().trim();
-        if (!ten || ten.length <= 2 || ten === 'Ko có tên content') continue;
-        if (num(raw[r][cotQT]) <= 0) continue;
-        const m = rep.chiTieu.rows.find((d) => d.nhanVienKey === nv.key && d.content === ten
-          && d.diaLy === 'quocTe' && d.chiSo.chiPhi === num(raw[r][cotQT]));
-        if (m) { eqChiSo(`${nv.nhan} r${r} QT`, m.chiSo, raw[r], cotQT); soO += 5; }
-        break;
+      const thuc = rep.chiTieu.rows.filter((d) => d.diaLy === g);
+      eq(`${g} — số content sau gộp`, thuc.length, mong.size);
+      for (const [ten, o] of mong) {
+        const d = thuc.find((x) => x.content === ten);
+        if (!d) { console.log(`  ✗ ${g}: thiếu content "${ten.slice(0, 44)}"`); loi++; continue; }
+        eq(`${g} chi phí · ${ten.slice(0, 34)}`, Math.round(d.chiPhi), Math.round(o.chiPhi));
+        eq(`${g} SL data · ${ten.slice(0, 34)}`, d.slData, o.slData);
+        eq(`${g} số nguồn · ${ten.slice(0, 34)}`, d.nguon.length, o.nguon);
+        // Dòng gộp từ >1 nguồn PHẢI bỏ trống ROAS; 1 nguồn phải giữ nguyên ô Sheet.
+        eq(`${g} ROAS null khi gộp · ${ten.slice(0, 28)}`,
+          d.roasThang === null ? 1 : 0, o.nguon > 1 ? 1 : 0);
+        // Giá data = Chi phí ÷ SL data (đã kiểm là đúng cách Sheet tính).
+        eq(`${g} giá data · ${ten.slice(0, 34)}`, d.giaData, o.slData > 0 ? Math.round(o.chiPhi / o.slData) : 0);
       }
     }
-    console.log(`  → so ${soO} ô · ${loi === truoc ? 'TẤT CẢ KHỚP' : (loi - truoc) + ' lệch'}\n`);
+
+    // 3b. Gộp KHÔNG được làm mất hay nhân đôi tiền: Σ mục B = Σ chi phí content của 4 tab.
+    for (const g of ['noiDia', 'quocTe'] as const) {
+      const base = COT[g];
+      let sheet = 0;
+      for (const nv of NHAN_VIEN_ADS) {
+        const raw = rawTab[nv.key];
+        for (let r = 6; r < raw.length; r++) {
+          const ten = (raw[r]?.[3] ?? '').toString().trim();
+          if (!ten || ten.length <= 2 || ten === 'Ko có tên content' || ten === '#REF!'
+            || ten === 'Quảng cáo' || /^https?:\/\//i.test(ten) || /^th[ửư]\s*nghi[eệ]m\s*-/i.test(ten)
+            || ten.toLowerCase() === 'test') continue;
+          sheet += num(raw[r][base]);
+        }
+      }
+      const mod = rep.chiTieu.rows.filter((d) => d.diaLy === g).reduce((s, d) => s + d.chiPhi, 0);
+      eq(`${g} — tổng chi phí sau gộp = tổng ô Sheet`, Math.round(mod), Math.round(sheet));
+    }
+
+    // 3c. Ví dụ chủ dự án nêu: content do Kim Anh + Liên cùng chạy.
+    const VD = '260515-SC CGSĐ Hiếu nửa mặt U60 260410 260225 260324 4258t tvc v2';
+    const d = rep.chiTieu.rows.find((x) => x.content === VD && x.diaLy === 'noiDia');
+    if (!d) { console.log(`  ✗ không tìm thấy content ví dụ`); loi++; }
+    else {
+      let congTay = 0;
+      for (const nv of NHAN_VIEN_ADS) {
+        const raw = rawTab[nv.key];
+        for (let r = 6; r < raw.length; r++) {
+          if ((raw[r]?.[3] ?? '').toString().trim() !== VD) continue;
+          congTay += num(raw[r][COT.noiDia]);
+        }
+      }
+      eq(`ví dụ "nửa mặt U60 … tvc v2" — chi phí gộp`, Math.round(d.chiPhi), Math.round(congTay));
+      console.log(`     ví dụ: [${d.nhanVien.join(' + ')}] = ${vnd(d.chiPhi)} đ · ROAS ${d.roasThang === null ? '"—" (đúng, vì gộp)' : 'CÓ GIÁ TRỊ (SAI)'}`);
+    }
+    console.log(`  → ${loi === truoc ? 'TẤT CẢ KHỚP' : (loi - truoc) + ' lệch'}\n`);
   }
+
 
   /* ── KIỂM 4 ── */
   console.log('═══ KIỂM 4 — Bất biến: Σ content trong tab + phần bỏ qua = dòng "Roas tổng"\n');

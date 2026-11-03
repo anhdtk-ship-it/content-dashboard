@@ -79,39 +79,64 @@ function sheetChiTieu(
   thang: string, ghiChu: string, hienCotNV: boolean,
 ): void {
   const ws = wb.addWorksheet(tenSheet(ten));
-  ws.columns = hienCotNV
-    ? [{ width: 6 }, { width: 56 }, { width: 20 }, { width: 15 }, { width: 13 }, { width: 15 }, { width: 10 }, { width: 13 }, { width: 13 }]
-    : [{ width: 6 }, { width: 56 }, { width: 20 }, { width: 13 }, { width: 15 }, { width: 10 }, { width: 13 }, { width: 13 }];
-  const c0 = hienCotNV ? 1 : 0;   // dịch cột khi có thêm cột "Nhân viên"
-  const FMT: Record<number, string> = {
-    [3 + c0]: VND, [4 + c0]: VND, [5 + c0]: VND, [6 + c0]: PCT, [7 + c0]: PCT,
-  };
+  ws.columns = [{ width: 6 }, { width: 54 }, { width: 19 }, { width: 22 },
+    { width: 13 }, { width: 15 }, { width: 10 }, { width: 14 }, { width: 14 }];
+  const FMT: Record<number, string> = { 5: VND, 6: VND, 7: VND, 8: PCT, 9: PCT };
 
-  dongTieuDe(ws, `TOP CONTENT TIÊU NHIỀU TIỀN NHẤT — ${thangNhan(thang)}`, hienCotNV ? 9 : 8);
-  dongGhiChu(ws, ghiChu, hienCotNV ? 9 : 8);
+  dongTieuDe(ws, `TOP CONTENT TIÊU NHIỀU TIỀN NHẤT — ${thangNhan(thang)}`, 9);
+  dongGhiChu(ws, ghiChu, 9);
+  if (hienCotNV) {
+    dongGhiChu(ws, 'Mỗi dòng là MỘT content của cả team: content do nhiều nhân viên cùng chạy đã được CỘNG chi phí và SL data. Dòng gộp để trống ROAS vì ROAS không cộng được.', 9);
+  }
 
   for (const g of ['noiDia', 'quocTe'] as NhomDiaLy[]) {
     const all = rows.filter((d) => d.diaLy === g);
     if (!all.length) continue;
     ws.addRow([]);
-    dongTieuDe(ws, NHAN_DIA_LY[g], hienCotNV ? 9 : 8, MAU.khoi);
-    dongHeader(ws, ['#', 'Tên content', 'Phân loại', ...(hienCotNV ? ['Nhân viên'] : []),
+    dongTieuDe(ws, NHAN_DIA_LY[g], 9, MAU.khoi);
+    dongHeader(ws, ['#', 'Tên content', 'Phân loại', 'Nhân viên chạy',
       'Giá data', 'Ngân sách', 'SL data', 'Roas trong tháng', 'Roas 3 tháng']);
 
     const list = all.slice(0, topN);
     const tu = ws.rowCount + 1;
     list.forEach((d, i) => ws.addRow([
-      i + 1, d.content, d.phanLoai, ...(hienCotNV ? [d.nhanVien] : []),
-      d.chiSo.giaData, d.chiSo.chiPhi, d.chiSo.slData, d.chiSo.roasThang, d.chiSo.roas3Thang,
+      i + 1, d.content, d.phanLoai.join(' + '), d.nhanVien.join(', '),
+      d.giaData, d.chiPhi, d.slData,
+      d.roasThang ?? TRONG, d.roas3Thang ?? TRONG,
     ]));
     keDuLieu(ws, tu, ws.rowCount, FMT);
 
     // Dòng TỔNG là phép CỘNG của đúng các dòng đang liệt kê — ghi rõ, không phải số của Sheet.
-    const chiPhi = list.reduce((s, d) => s + d.chiSo.chiPhi, 0);
-    const slData = list.reduce((s, d) => s + d.chiSo.slData, 0);
+    const chiPhi = list.reduce((s, d) => s + d.chiPhi, 0);
+    const slData = list.reduce((s, d) => s + d.slData, 0);
     dongTong(ws, ['', `CỘNG ${list.length} CONTENT ĐANG LIỆT KÊ${all.length > list.length ? ` (trên tổng ${all.length})` : ''}`,
-      '', ...(hienCotNV ? [''] : []), null, chiPhi, slData, null, null], FMT);
+      '', '', slData > 0 ? Math.round(chiPhi / slData) : 0, chiPhi, slData, TRONG, TRONG], FMT);
   }
+}
+
+/**
+ * Tách phần đóng góp CỦA RIÊNG một nhân viên ra khỏi các dòng đã gộp — dùng cho sheet
+ * "Top - <nhân viên>". Giá trị lấy từ `nguon` (nguyên ô Sheet), chỉ cộng trong phạm vi
+ * một người nên không lẫn chi phí của người khác.
+ */
+function rowsCuaNhanVien(rows: DongChiTieu[], key: string): DongChiTieu[] {
+  const out: DongChiTieu[] = [];
+  for (const d of rows) {
+    const ng = d.nguon.filter((n) => n.nhanVienKey === key);
+    if (!ng.length) continue;
+    const chiPhi = ng.reduce((s, n) => s + n.chiPhi, 0);
+    const slData = ng.reduce((s, n) => s + n.slData, 0);
+    out.push({
+      ...d, chiPhi, slData,
+      giaData: slData > 0 ? Math.round(chiPhi / slData) : 0,
+      roasThang: ng.length === 1 ? ng[0].roasThang : null,
+      roas3Thang: ng.length === 1 ? ng[0].roas3Thang : null,
+      nhanVien: [ng[0].nhanVien],
+      phanLoai: [...new Set(ng.map((n) => n.phanLoai))].filter(Boolean),
+      nguon: ng,
+    });
+  }
+  return out.sort((a, b) => b.chiPhi - a.chiPhi);
 }
 
 /* ---------- Sheet: ROAS theo nhân viên ---------- */
@@ -207,8 +232,8 @@ export async function buildExcel(data: AdsReportResult, topTeam = 30, topNV = 20
     data.chiTieu.rows, nhieuNV ? topTeam : topNV, thang, data.chiTieu.team.full, nhieuNV);
   if (nhieuNV) {
     for (const t of data.chiTieu.theoNhanVien) {
-      sheetChiTieu(wb, `Top - ${t.nhan}`, data.chiTieu.rows.filter((d) => d.nhanVienKey === t.nhanVienKey),
-        topNV, thang, t.full, false);
+      sheetChiTieu(wb, `Top - ${t.nhan}`, rowsCuaNhanVien(data.chiTieu.rows, t.nhanVienKey),
+        topNV, thang, `${t.full} — chỉ phần chi tiêu của riêng người này`, false);
     }
   }
   /* --- ROAS từng người --- */
