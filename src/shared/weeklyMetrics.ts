@@ -11,8 +11,12 @@
  * ĐỊNH NGHĨA KPI (chốt với chủ dự án):
  *   Đã cấp        = content UPLOAD trong kỳ (theo upload_date_real).
  *   Đã test       = trong "Đã cấp" & trạng thái ∈ {Đang test, Duy trì*, Đã test-ko chạy, Đã chạy-Tắt}.
- *   Tồn           = ĐÚNG trạng thái "Chờ chạy" (current_status === 'Chờ chạy'), KHÔNG tính
- *                   bất kỳ trạng thái nào khác (kể cả trống/chưa phân loại).
+ *   Tồn           = TOÀN BỘ content đang ở trạng thái "Chờ chạy" trên Sheet —
+ *                   KHÔNG giới hạn kỳ upload (chốt với chủ dự án 2026-11-06:
+ *                   "cứ Chờ chạy = Tồn, không tính khoảng thời gian").
+ *                   Vẫn là ĐÚNG trạng thái 'Chờ chạy', không tính trạng thái nào khác
+ *                   (kể cả trống/chưa phân loại). Cùng cách tính với thẻ
+ *                   "Chờ chạy (Tồn)" của trang Tổng Quan (app.ts dùng `base`).
  *   Chờ đăng bài  = ĐÚNG trạng thái "Chờ đăng bài" (đã test/duyệt xong, chờ lên lịch đăng) —
  *                   nhóm RIÊNG, KHÔNG tính vào Tồn.
  *   Tỷ lệ test    = Đã test / Đã cấp.
@@ -46,7 +50,7 @@ export interface RawContent {
 export interface WeeklyKpi {
   capped: number;       // Đã cấp
   tested: number;       // Đã test
-  ton: number;          // Tồn = đúng trạng thái "Chờ chạy"
+  ton: number;          // Tồn = đúng trạng thái "Chờ chạy", ALL-TIME (không giới hạn kỳ)
   choDangBai: number;   // Chờ đăng bài = đúng trạng thái "Chờ đăng bài" (RIÊNG, không tính vào Tồn)
   rateTest: number;     // Đã test / Đã cấp
   duyTriThang: number;  // Duy trì tháng
@@ -88,13 +92,16 @@ const rate = (a: number, b: number) => (b > 0 ? a / b : 0);
 export const fmtNum = (n: number) => (n ?? 0).toLocaleString('vi-VN');
 export const fmtPct = (x: number) => `${Math.round((x ?? 0) * 1000) / 10}%`;
 
-/** KPI cho 1 tập content (đã lọc sẵn market/nhân viên). `all` = tập KHÔNG lọc kỳ (cho Đang duy trì). */
+/** KPI cho 1 tập content (đã lọc sẵn market/nhân viên). `all` = tập KHÔNG lọc kỳ — dùng cho Tồn và Đang duy trì. */
 export function calcKpi(all: RawContent[], range: DateRange): WeeklyKpi {
   const coh = all.filter((r) => inPeriod(r, range.from, range.to));
   const capped = coh.length;
   const tested = coh.filter((r) => isTested(st(r))).length;
-  // Tồn = ĐÚNG trạng thái "Chờ chạy", không tính trạng thái nào khác.
-  const ton = coh.filter((r) => st(r) === 'Chờ chạy').length;
+  // Tồn = ĐÚNG trạng thái "Chờ chạy" trên TOÀN BỘ tập (`all`), KHÔNG lọc kỳ upload.
+  // Tồn là TỒN KHO hiện tại chứ không phải việc phát sinh trong tuần: một content cấp
+  // tháng trước mà vẫn "Chờ chạy" thì tuần này vẫn đang tồn. Lọc theo kỳ như trước làm
+  // số tồn nhỏ hơn thực tế (06/11/2026: hiện 13 trong khi Sheet có 39).
+  const ton = all.filter((r) => st(r) === 'Chờ chạy').length;
   // Chờ đăng bài = ĐÚNG trạng thái "Chờ đăng bài" — nhóm riêng, KHÔNG gộp vào Tồn.
   const choDangBai = coh.filter((r) => st(r) === 'Chờ đăng bài').length;
   const duyTriThang = coh.filter((r) => isDuyTri(st(r))).length;
@@ -124,8 +131,10 @@ export function buildWeeklyReport(rows: RawContent[], range: DateRange, generate
     const names = sortEmployees([...new Set(mrows.map((r) => (r.assignee_name || '(trống)')))]);
     const employees: EmployeeKpi[] = names
       .map((name) => ({ name, kpi: calcKpi(mrows.filter((r) => (r.assignee_name || '(trống)') === name), range) }))
-      // bỏ nhân viên không có gì để hiển thị ở market này
-      .filter((e) => e.kpi.capped > 0 || e.kpi.dangDuyTri > 0);
+      // bỏ nhân viên không có gì để hiển thị ở market này.
+      // Tồn nay là all-time nên người chỉ còn tồn (không cấp gì trong kỳ) vẫn phải hiện,
+      // nếu không thì tổng của team không bằng tổng các dòng nhân viên.
+      .filter((e) => e.kpi.capped > 0 || e.kpi.dangDuyTri > 0 || e.kpi.ton > 0);
     return { market: key, label, team: calcKpi(mrows, range), employees };
   });
   return { range, markets, generatedAt };

@@ -476,7 +476,7 @@ Ký hiệu: **cohort** = content có `upload_date_real` nằm trong kỳ `[from,
 |---|---|---|
 | **Đã cấp** (`capped`) | đếm cohort | trong kỳ |
 | **Đã test** (`tested`) | cohort & `current_status ∈ {Đang test, Duy trì*, Đã test-ko chạy, Đã chạy-Tắt}` | trong kỳ |
-| **Tồn** (`ton`) | cohort & `current_status === 'Chờ chạy'` — **ĐÚNG trạng thái này, không gì khác** (kể cả trống/chưa phân loại) | trong kỳ |
+| **Tồn** (`ton`) | TOÀN BỘ content & `current_status === 'Chờ chạy'` — **ĐÚNG trạng thái này, không gì khác** (kể cả trống/chưa phân loại) | **ALL-TIME**, không giới hạn kỳ |
 | **Chờ đăng bài** (`choDangBai`) | cohort & `current_status === 'Chờ đăng bài'` — nhóm **RIÊNG**, KHÔNG cộng vào Tồn | trong kỳ |
 | **Tỷ lệ test** (`rateTest`) | `Đã test / Đã cấp` | trong kỳ |
 | **Duy trì tháng** (`duyTriThang`) | cohort & đang `Duy trì*` | trong kỳ |
@@ -484,7 +484,21 @@ Ký hiệu: **cohort** = content có `upload_date_real` nằm trong kỳ `[from,
 | **Đang duy trì** (`dangDuyTri`) | TOÀN BỘ content đang `Duy trì*` | **ALL-TIME**, không giới hạn kỳ |
 
 - ⚠️ **"Duy trì tháng" là PROXY**: hệ thống KHÔNG lưu ngày đổi trạng thái (`content_status_history` rỗng) nên chỉ đo được "hiện đang Duy trì" chứ không phải "đã chuyển sang Duy trì trong kỳ".
-- **Cấu trúc báo cáo** (`buildWeeklyReport`): 2 khối market **Nội địa / Quốc tế**; trong mỗi khối, nhân viên xếp theo `EMPLOYEE_ORDER = [Hiếu, KA, Liên, Ánh]` (người ngoài danh sách xếp sau, A→Z) và **ẩn nhân viên có `capped = 0` và `dangDuyTri = 0`** ở market đó. Group theo `assignee_name` = Nhân viên Ads (KHÔNG dùng `editor_name`).
+- **Cấu trúc báo cáo** (`buildWeeklyReport`): 2 khối market **Nội địa / Quốc tế**; trong mỗi khối, nhân viên xếp theo `EMPLOYEE_ORDER = [Hiếu, KA, Liên, Ánh]` (người ngoài danh sách xếp sau, A→Z) và **ẩn nhân viên có `capped = 0` và `dangDuyTri = 0` và `ton = 0`** ở market đó (phải xét cả `ton` vì Tồn là all-time — nếu không, người chỉ còn tồn sẽ bị ẩn và tổng team không bằng tổng các dòng nhân viên). Group theo `assignee_name` = Nhân viên Ads (KHÔNG dùng `editor_name`).
+
+#### 12.2.1 Tồn = ALL-TIME (chốt 2026-11-06) ✅
+
+> Chủ dự án: *"Tồn = tất cả content ở trạng thái Chờ chạy trong Google Sheet, **không tính khoảng thời gian** — cứ Chờ chạy = Tồn."*
+
+Trước đây `ton` lọc theo cohort (chỉ đếm content **upload trong kỳ** mà còn "Chờ chạy"), nên báo cáo tuần hiện số **thấp hơn thực tế**: đo ngày 06/11/2026 — hiện **13** trong khi Sheet có **39** content "Chờ chạy".
+
+Lý do công thức cũ sai về nghiệp vụ: **Tồn là TỒN KHO hiện tại, không phải việc phát sinh trong tuần.** Một content cấp tháng trước mà vẫn chưa chạy thì tuần này **vẫn đang tồn** — đó mới là việc cần xử lý. Lọc theo kỳ làm tồn cũ "biến mất" khỏi báo cáo đúng lúc nó tồn lâu nhất.
+
+Nay `ton = all.filter(current_status === 'Chờ chạy')`, **cùng cách tính với thẻ "Chờ chạy (Tồn)" của trang Tổng Quan** (`app.ts` đếm trên `base`, không giới hạn ngày) ⇒ hai trang không còn lệch nhau.
+
+Đối soát sau khi sửa: Tồn = **39** (Nội địa 6 + Quốc tế 33) ở **cả 3 kỳ thử** (tuần này · tuần trước · cả năm 2026) — khớp đúng số "Chờ chạy" trên Sheet, và tổng các dòng nhân viên = dòng team ở mọi khối.
+
+`choDangBai` **giữ nguyên cohort** (chưa có yêu cầu đổi). Hiện Sheet **không có dòng nào** mang trạng thái "Chờ đăng bài" nên cột này bằng 0 ở mọi kỳ.
 - **Ngưỡng Rule Engine** (cũng nằm trong `weeklyMetrics.ts`): `rateTest < 0.7` → cảnh báo chậm đưa vào Ads · `ton >= 3` → ưu tiên xử lý tồn · `choDangBai >= 3` → ưu tiên lên lịch đăng · `rateDuyTri >= 0.1` → ghi nhận tốt · `dangDuyTri >= 5` → quản lý ổn định.
 - KHÔNG dùng chung logic với Ads Monitor / Dashboard Content (Business Rule riêng — xem §9 `PROJECT_HANDOFF.md`).
 
